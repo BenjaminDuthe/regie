@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [step-01-init, step-02-discovery, step-02b-vision, step-02c-executive-summary, step-03-success, step-04-journeys, step-05-domain, step-06-innovation, step-07-project-type, step-08-scoping]
+stepsCompleted: [step-01-init, step-02-discovery, step-02b-vision, step-02c-executive-summary, step-03-success, step-04-journeys, step-05-domain, step-06-innovation, step-07-project-type, step-08-scoping, step-09-functional]
 inputDocuments:
   - ../../MANDAT.md
   - saas-souverain:marketing/video/README.md
@@ -486,3 +486,79 @@ Livrable de fin de V1 : la cadence de trois vidéos par semaine sur Instagram, F
 | Le temps manque avant la fin de V1 | **TikTok glisse en V1.1** en premier (décidé) ; la V1 reste Meta seule, Instagram + Facebook Page ; la programmation et l'éditeur ne glissent pas |
 | La recette abîme le compte de la marque | Compte de test dédié pour toute la recette ; Établia ne reçoit que la première vraie vidéo, relue |
 | Le fondateur est le goulot (clés, OAuth, dossiers) | Tâches fondateur hors code, listées et planifiées avant chaque connecteur |
+
+## Exigences fonctionnelles
+
+Cette liste est le **contrat de capacités** de la V1 : la conception d'interface, l'architecture et les epics ne construisent que ce qui figure ici ; une capacité absente n'existera pas dans le produit tant qu'elle n'y est pas ajoutée explicitement. Une exigence sans mention de phase appartient au MVP (Instagram seul) ; « fin de V1 » renvoie à la phase 2 du cadrage. Décisions du fondateur prises à cette étape (2026-09-06) : un seul compte connecté par réseau, remplaçable dans Paramètres ; légende et hashtags portés par chaque publication, pré-remplis depuis la vidéo ; une vidéo jamais publiée se supprime, toute autre s'archive ; une publication programmée s'annule ou se déplace tant qu'elle n'est pas partie ; l'interface s'ouvre avec un mot de passe défini à la première mise en route, sans second facteur en V1.
+
+### Scénarios et capture
+
+- FR1 : Le fondateur ou Claude peut créer un scénario à partir d'une liste ordonnée d'adresses de pages de l'application, chaque page recevant un texte par défaut.
+- FR2 : Le fondateur ou Claude peut lister, lire et modifier un scénario existant : ajouter, retirer ou réordonner des pages, changer les textes par défaut.
+- FR3 : Le fondateur peut déclarer la liste des hôtes autorisés à la capture ; regie refuse, avec la raison, toute adresse de scénario hors de cette liste, à la création comme à la modification, par l'interface comme par MCP.
+- FR4 : Le fondateur peut enregistrer les identifiants du seul compte de démo de l'application à capturer ; regie s'en sert pour ouvrir automatiquement une session à chaque capture.
+- FR5 : Le fondateur peut tester la connexion enregistrée et obtenir soit la page d'accueil capturée, soit l'étape fautive.
+- FR6 : Le fondateur peut fournir un média de substitution pour une page qu'il est impossible de capturer.
+
+### Génération et éditeur
+
+- FR7 : Le fondateur ou Claude peut lancer une génération depuis un scénario ; regie rend aussitôt un identifiant et un état (en cours, prête, refusée, échec) que l'un ou l'autre peut suivre ; un échec nomme l'étape ou l'adresse fautive.
+- FR8 : regie produit, pour chaque génération, une vidéo verticale muette qui applique les règles de publication d'Établia : accroche en ouverture, zone sûre, lisibilité.
+- FR9 : Le fondateur ou Claude peut lire les scènes d'une vidéo : page d'origine, texte, animation.
+- FR10 : Le fondateur ou Claude peut modifier le texte et l'animation de chaque scène ; le fondateur peut prévisualiser la scène modifiée avant de regénérer.
+- FR11 : Le fondateur ou Claude peut regénérer une vidéo après modification de ses scènes.
+- FR12 : regie applique à chaque génération et regénération des gardes bloquantes de lisibilité et de zone sûre ; une vidéo hors garde passe en refusée, et aucun chemin, interface ou MCP, ne permet de forcer.
+- FR13 : Tout refus de garde désigne la scène fautive, la mesure constatée et le seuil ; le fondateur peut ouvrir l'éditeur directement sur cette scène.
+- FR14 : regie enregistre la durée de chaque génération et la rend visible avec la vidéo.
+
+### Librairie
+
+- FR15 : Le fondateur ou Claude peut consulter la librairie : chaque vidéo avec son statut (brouillon, prête, refusée, programmée, publiée, échec), sa date et la raison de son statut, filtrable par statut.
+- FR16 : Le fondateur ou Claude peut renseigner sur une vidéo une légende et au plus cinq hashtags en français, qui servent de valeurs par défaut à ses publications.
+- FR17 : regie vérifie chaque vidéo à l'entrée en librairie contre les bornes de chaque réseau pris en charge (conteneur, ratio, durée, taille) ; hors bornes, la vidéo passe en refusée avec la cause, jamais en prête.
+- FR18 : Le fondateur ou Claude peut supprimer, fichier compris, une vidéo qui n'a jamais eu de publication ; une vidéo qui a ou a eu une publication ne peut qu'être archivée : elle sort de la librairie courante, reste consultable, et ses publications, son audit et ses fichiers restent intacts. Toute suppression et tout archivage sont tracés dans l'audit.
+
+### Publication et programmation
+
+- FR19 : Le fondateur ou Claude peut créer une publication depuis une vidéo prête vers un réseau connecté ; la légende et les hashtags sont pré-remplis depuis la vidéo et ajustables sur la publication.
+- FR20 : regie vérifie chaque publication contre les bornes du réseau visé (longueur de légende, nombre de hashtags, règles propres au réseau) avant de l'accepter.
+- FR21 : Le fondateur ou Claude peut publier une publication maintenant, ou la programmer à une date et une heure exprimées en heure de Paris.
+- FR22 : regie exécute seule chaque publication programmée à l'heure prévue, y compris si elle a redémarré entre-temps.
+- FR23 : regie n'envoie jamais deux fois la même publication à un réseau, quels que soient les rejeux, redémarrages ou reprises.
+- FR24 : regie lit le quota de publication du réseau, quand celui-ci l'expose, avant de programmer ou de publier, et refuse avec la cause si le quota est atteint.
+- FR25 : Une publication réussie passe en publiée avec l'identifiant renvoyé par le réseau ; une publication ratée passe en échec avec sa cause, visible dans regie seulement, sans nouvelle tentative automatique.
+- FR26 : Le fondateur ou Claude peut rejouer une publication en échec ; l'historique de toutes les tentatives est conservé.
+- FR27 : Le fondateur ou Claude peut lister les publications par statut, par réseau et par période.
+- FR28 : Le fondateur ou Claude peut annuler une publication programmée qui n'est pas encore partie, ou la déplacer à une autre date et heure ; une vidéo dont la dernière publication programmée est annulée revient à l'état prête ; une publication dont l'envoi a commencé ne se modifie plus ; chaque annulation et chaque déplacement sont tracés dans l'audit.
+- FR29 (fin de V1) : Le fondateur peut, pour une publication TikTok, choisir le niveau de confidentialité et déclarer un contenu commercial avant l'envoi.
+
+### Réseaux et comptes
+
+- FR30 : Le fondateur peut saisir dans Paramètres les clés d'application de chaque réseau pris en charge ; un secret saisi n'est jamais réaffiché.
+- FR31 : Le fondateur peut connecter un compte par réseau par le parcours d'autorisation du réseau, depuis l'interface uniquement ; connecter un autre compte remplace le précédent.
+- FR32 : Le fondateur peut voir, pour chaque réseau, le compte connecté et l'échéance du jeton, est prévenu avant qu'une publication n'échoue pour jeton expiré, et peut reconnecter le compte ; les publications en échec pour cette cause redeviennent rejouables.
+- FR33 : Le fondateur ou Claude peut publier des Reels sur le compte Instagram connecté.
+- FR34 (fin de V1) : Le fondateur ou Claude peut publier sur la Page Facebook connectée, avec la même application Meta.
+- FR35 (fin de V1) : Le fondateur ou Claude peut publier sur le compte TikTok connecté, en privé tant que l'application n'est pas auditée.
+- FR36 (fin de V1) : Le fondateur peut saisir la clé LinkedIn et connecter le compte ; aucune publication LinkedIn avant l'agrément partenaire.
+
+### Pilotage par MCP
+
+- FR37 : Le fondateur peut générer un jeton MCP, affiché une seule fois, et le révoquer ; regie n'accepte aucune requête MCP sans jeton valide.
+- FR38 : Claude peut exécuter par MCP toute action des domaines scénarios, générations, vidéos, publications et audit, avec le même résultat que par l'interface.
+- FR39 : Aucun outil MCP ne lit ni n'écrit un secret (clés, jetons, identifiants de démo, jeton MCP, mot de passe) ; aucune réponse d'outil n'en contient.
+- FR40 : Toute opération longue lancée par MCP renvoie aussitôt un identifiant et un état que Claude peut interroger.
+- FR41 : Toute erreur renvoyée par MCP est structurée : code, message en français, contexte exploitable (scène, mesure et seuil pour une garde ; hôte refusé ; borne dépassée ; quota atteint).
+- FR42 : Le fondateur dispose d'une référence des outils MCP générée depuis le code et d'un exemple de prompt par parcours, à jour à chaque version.
+
+### Administration, sécurité et audit
+
+- FR43 : Le fondateur définit un mot de passe à la première mise en route de regie ; ensuite, toute page hors routes publiques exige une session ouverte avec ce mot de passe, et le fondateur peut le changer dans Paramètres. Le second facteur est hors V1.
+- FR44 : regie chiffre chaque secret au repos avec une clé maîtresse fournie par l'environnement, refuse de démarrer sans elle avec un message explicite, et le fondateur peut la faire tourner en rechiffrant tous les secrets.
+- FR45 : regie journalise chaque action qui modifie l'état et chaque tentative de publication : quoi, quand, réseau, résultat ou cause, origine (interface ou MCP avec l'identifiant du jeton), identifiant renvoyé par le réseau, hôte capturé pour une génération.
+- FR46 : Le fondateur ou Claude peut consulter le journal d'audit avec filtres (origine, statut, période, réseau) ; le journal ne se modifie ni ne s'efface.
+- FR47 (fin de V1) : regie sert publiquement les pages CGU et politique de confidentialité, au contenu versionné ; les seules routes accessibles sans session sont ces pages, les retours d'autorisation des réseaux et, si l'architecture le retient, une adresse temporaire de récupération d'une vidéo par un réseau.
+- FR48 : Aucune vidéo ne reste accessible publiquement après sa publication.
+- FR49 : Le fondateur peut installer regie sur son poste depuis le dépôt public et un fichier de configuration local ; le dépôt ne contient aucun secret.
+
+Hors de cette liste, par décision : publication LinkedIn, statistiques d'audience et installation par des tiers (V1.1) ; X et deuxième marque (V2) ; toute IA hors MCP ; second facteur d'authentification ; plusieurs comptes par réseau ; notification externe d'un échec ; nouvelle tentative automatique.
