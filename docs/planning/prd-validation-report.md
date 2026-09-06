@@ -7,7 +7,7 @@ inputDocuments:
   - saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs
   - saas-souverain:marketing/video/generer.mjs
   - assets-video-2466-sauvegarde:PUBLICATION.md
-validationStepsCompleted: [step-v-01-discovery]
+validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection]
 validationStatus: IN_PROGRESS
 ---
 
@@ -33,4 +33,36 @@ Aucun cahier produit (brief), aucune recherche, aucune séance de remue-méninge
 
 ## Constats de validation
 
-[Les constats seront ajoutés au fil de la validation]
+Chaque étape du référentiel ajoute sa section ci-dessous, dans l'ordre d'exécution.
+
+## Détection du format
+
+**Structure du PRD** (titres de niveau 2, dans l'ordre du document) :
+
+1. Résumé exécutif (l. 33)
+2. Classification du projet (l. 50)
+3. Critères de succès (l. 61)
+4. Périmètre du produit (l. 90)
+5. Parcours utilisateur (l. 114)
+6. Exigences propres au domaine (l. 173)
+7. Innovation et motifs inédits (l. 220)
+8. Exigences propres au type de projet (l. 264)
+9. Cadrage du projet et développement par phases (l. 386)
+10. Exigences fonctionnelles (l. 490)
+11. Exigences non fonctionnelles (l. 566)
+
+**Frontmatter** : `classification.projectType` = « web_app + developer_tool (serveur MCP) » ; `classification.domain` = « marketing réseaux sociaux (vidéos d'écrans d'Établia) » ; `classification.complexity` = « haute (jetons chiffrés + journal d'audit en V1 ; RGPD audience → V1.1) » ; `classification.projectContext` = « brownfield (moteur vidéo porté) / greenfield (régie, MCP, éditeur, librairie) » ; `releaseMode: phased` ; `workflowType: 'prd'` ; treize étapes de création consignées dans `stepsCompleted` (`step-01-init` à `step-11-polish`).
+
+**Sections de base BMAD présentes** (le PRD est rédigé en français, la correspondance avec le libellé du standard est donnée entre parenthèses) :
+
+- Résumé exécutif (Executive Summary) : présent
+- Critères de succès (Success Criteria) : présent
+- Périmètre du produit (Product Scope) : présent
+- Parcours utilisateur (User Journeys) : présent
+- Exigences fonctionnelles (Functional Requirements) : présent
+- Exigences non fonctionnelles (Non-Functional Requirements) : présent
+
+**Classification du format :** BMAD Standard
+**Sections de base présentes :** 6/6
+
+Les cinq autres titres (Classification du projet, Exigences propres au domaine, Innovation et motifs inédits, Exigences propres au type de projet, Cadrage du projet et développement par phases) sont les sections conditionnelles du gabarit de création BMAD ; leur contenu est examiné aux étapes suivantes, pas ici.
