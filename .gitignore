@@ -1,0 +1,8 @@
+# Secrets : jamais versionnés (variables d'environnement, mode 600)
+.env
+.env.*
+!.env.example
+
+# Dépendances et artefacts
+node_modules/
+.DS_Store
