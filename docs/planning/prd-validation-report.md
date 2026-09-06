@@ -7,7 +7,7 @@ inputDocuments:
   - saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs
   - saas-souverain:marketing/video/generer.mjs
   - assets-video-2466-sauvegarde:PUBLICATION.md
-validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection]
+validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation]
 validationStatus: IN_PROGRESS
 ---
 
@@ -66,3 +66,29 @@ Chaque étape du référentiel ajoute sa section ci-dessous, dans l'ordre d'exé
 **Sections de base présentes :** 6/6
 
 Les cinq autres titres (Classification du projet, Exigences propres au domaine, Innovation et motifs inédits, Exigences propres au type de projet, Cadrage du projet et développement par phases) sont les sections conditionnelles du gabarit de création BMAD ; leur contenu est examiné aux étapes suivantes, pas ici.
+
+## Densité d'information
+
+**Méthode.** Analyse directe, sans sous-processus (aucun sous-agent n'est ouvert dans cette session). Le PRD étant en français, chaque famille du standard a été balayée sur ses équivalents français, puis sur l'anglais littéral :
+
+- remplissage conversationnel : « permettra aux utilisateurs de », « permet à l'utilisateur », « il est important de noter », « il convient de noter », « à noter que », « afin de », « dans le but de », « en ce qui concerne », « rappelons que », « précisons que » ;
+- tournures verbeuses : « en raison du fait que », « du fait que », « dans l'éventualité où », « dans le cas où », « à ce stade », « à l'heure actuelle », « de manière à ce que », « de façon à ce que », « au niveau de », « dans le cadre de », « il y a lieu de », « il est nécessaire de », « il est possible de », « a la possibilité de », « est en mesure de » ;
+- redondances : « plans futurs », « projets futurs », « absolument essentiel », « historique passé », « terminer complètement », « prévoir à l'avance », « ajouter en plus », « obligatoirement nécessaire », « collaborer ensemble », « actuellement en cours », « au final », « voire même ».
+
+Témoin de bon fonctionnement du balayage : 56 lignes du PRD contiennent « regie ».
+
+**Violations par famille :**
+
+**Remplissage conversationnel :** 0 occurrence
+
+**Tournures verbeuses :** 0 occurrence
+
+**Redondances :** 0 occurrence
+
+**Total des violations :** 0
+
+**Sévérité :** Pass (seuil : Pass < 5, Warning 5 à 10, Critical > 10)
+
+Un second balayage, plus large que le standard (« permet de », « on peut », « de manière », « de façon », « au sein de », « en termes de », « par le biais de », « à l'avance », « comme par exemple », « voire »…), ne rend qu'une ligne : la FR12 (l. 510), « aucun chemin, interface ou MCP, ne permet de forcer ». C'est l'énoncé d'une garde, pas un remplissage ; elle n'est pas comptée.
+
+**Recommandation :** le PRD présente une bonne densité d'information, sans remplissage détecté.
