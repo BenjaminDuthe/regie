@@ -7,7 +7,7 @@ inputDocuments:
   - saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs
   - saas-souverain:marketing/video/generer.mjs
   - assets-video-2466-sauvegarde:PUBLICATION.md
-validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation]
+validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation]
 validationStatus: IN_PROGRESS
 ---
 
@@ -92,3 +92,7 @@ Témoin de bon fonctionnement du balayage : 56 lignes du PRD contiennent « regi
 Un second balayage, plus large que le standard (« permet de », « on peut », « de manière », « de façon », « au sein de », « en termes de », « par le biais de », « à l'avance », « comme par exemple », « voire »…), ne rend qu'une ligne : la FR12 (l. 510), « aucun chemin, interface ou MCP, ne permet de forcer ». C'est l'énoncé d'une garde, pas un remplissage ; elle n'est pas comptée.
 
 **Recommandation :** le PRD présente une bonne densité d'information, sans remplissage détecté.
+
+## Couverture du cahier produit
+
+**Statut :** sans objet — aucun cahier produit (Product Brief) n'a été fourni en entrée (`documentCounts.briefs: 0` dans le PRD ; inventaire de l'étape 1 confirmé). Le contrôle est passé sans analyse, conformément au référentiel.
