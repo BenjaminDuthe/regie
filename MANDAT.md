@@ -1,7 +1,7 @@
 # MANDAT — nouveau projet « régie réseaux sociaux + générateur vidéo » (2026-09-05)
 
-> Posé dans le scratchpad parce que le dépôt cible n'existe pas encore ;
-> à déplacer à la racine du nouveau dépôt dès sa création (R24 : versionné).
+> Versionné à la racine du dépôt public `github.com/BenjaminDuthe/regie` depuis le 2026-09-06 (R24) ;
+> rédigé le 2026-09-05 dans le scratchpad, avant la création du dépôt.
 
 ## Prompt d'origine (mot pour mot)
 
@@ -21,9 +21,9 @@ une fois les vidéo génrer elle sont disponible dans une librairie disponible p
 | # | Lot | Preuve de complétude | État |
 |---|-----|----------------------|------|
 | 1 | Grill : questions à 3 choix (+ « Autre »), une décision par question | Toutes les branches tranchées et consignées dans le PRD | en cours |
-| 2 | Verdict API payantes (TikTok, Instagram, Facebook Page, X, LinkedIn) → exclusion de la V1 | Tableau dans le PRD, validé par le fondateur | en cours |
+| 2 | Verdict API payantes (TikTok, Instagram, Facebook Page, X, LinkedIn) → exclusion de la V1 | Tableau dans le PRD, validé par le fondateur | fait (2026-09-06) — tableau « Classification du projet » et section « Exigences propres au domaine » du PRD |
 | 3 | PRD complet : régie web + générateur vidéo (URL ordonnées, connexion app enregistrée, scrap) + éditeur textes/animations + librairie + publication 1 clic / programmée + paramètres clés API + MCP | `prd.md` dans le nouveau dépôt, workflow BMAD arrivé à `step-12-complete` | à faire |
-| 4 | Nouveau dépôt GitHub PUBLIC rassemblant toutes les infos (PRD, mandat, moteur vidéo existant porté ou référencé) | `gh repo view` = public ; PRD + MANDAT à la racine | à faire |
+| 4 | Nouveau dépôt GitHub PUBLIC rassemblant toutes les infos (PRD, mandat, moteur vidéo existant porté ou référencé) | `gh repo view` = PUBLIC ; MANDAT à la racine, PRD dans `docs/planning/prd.md`, moteur vidéo référencé dans le PRD (portage = travail d'architecture) | fait (2026-09-06) |
 | 5 | Serveur de dev avec l'HTML prêt (maquette UX + structure) pour validation | Preview ouverte, capture envoyée, validation du fondateur | à faire |
 
 ## Contraintes posées par le fondateur
