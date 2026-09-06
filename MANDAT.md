@@ -25,6 +25,7 @@ une fois les vidéo génrer elle sont disponible dans une librairie disponible p
 | 3 | PRD complet : régie web + générateur vidéo (URL ordonnées, connexion app enregistrée, scrap) + éditeur textes/animations + librairie + publication 1 clic / programmée + paramètres clés API + MCP | `prd.md` dans le nouveau dépôt, workflow BMAD arrivé à `step-12-complete` | fait (2026-09-06) — `docs/planning/prd.md` (49 FR, 37 NFR), workflow arrivé à `step-12-complete` |
 | 4 | Nouveau dépôt GitHub PUBLIC rassemblant toutes les infos (PRD, mandat, moteur vidéo existant porté ou référencé) | `gh repo view` = PUBLIC ; MANDAT à la racine, PRD dans `docs/planning/prd.md`, moteur vidéo référencé dans le PRD (portage = travail d'architecture) | fait (2026-09-06) |
 | 5 | Serveur de dev avec l'HTML prêt (maquette UX + structure) pour validation | Preview ouverte, capture envoyée, validation du fondateur | à faire |
+| 6 | Validation du PRD par le workflow BMAD `bmad-validate-prd` (choix du fondateur, 2026-09-06, avant la maquette) | Rapport de validation dans `docs/planning/`, écarts traités ou consignés | en cours |
 
 ## Contraintes posées par le fondateur
 - Projet À PART de saas-souverain — rien dans ce dépôt-ci.
