@@ -7,7 +7,7 @@ inputDocuments:
   - saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs
   - saas-souverain:marketing/video/generer.mjs
   - assets-video-2466-sauvegarde:PUBLICATION.md
-validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation]
+validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation]
 validationStatus: IN_PROGRESS
 ---
 
@@ -172,3 +172,96 @@ Valeurs renvoyées au chronométrage ou à l'architecture, listées et non compt
 **Recommandation du référentiel :** de nombreuses exigences ne sont pas mesurables ou testables ; revoir les exigences en écart avec des critères précis.
 
 **Lecture.** Le seuil du référentiel est un nombre absolu, pas un taux : 12 écarts sur 86 exigences, soit 14 %, et 74 exigences conformes aux quatre critères. Aucun écart ne porte sur une exigence non testable dans le fond : 7 tiennent à l'absence d'une ligne « Vérification » sur une NFR dont le critère est déjà précis, 3 à un acteur implicite sur une FR dont le comportement est vérifié ailleurs, 1 à un qualificatif (« explicite ») et 1 à une cible chiffrée écartée par décision. Corrections attendues si le fondateur ouvre `bmad-edit-prd` : ajouter une ligne « Vérification » aux NFR3, 27, 30, 31, 33, 34 et 35 ; donner regie pour sujet aux FR25, FR41 et FR48 ; remplacer « message explicite » par un contenu vérifiable (la cause nommée, par exemple « variable REGIE_MASTER_KEY absente ») dans la FR44 et les NFR16, 34 et 35 ; laisser la NFR4 en l'état et reporter son seuil dans le PRD dès le chronométrage de « traiteur 1 ».
+
+## Validation de la traçabilité
+
+**Méthode.** Analyse directe, sans sous-processus (voie de dégradation prévue par l'étape). Les cinq éléments comparés sont le Résumé exécutif (l. 33-48), les Critères de succès (l. 61-88), le Périmètre du produit (l. 90-112), les Parcours utilisateur (l. 114-171) et les 49 exigences fonctionnelles (l. 490-562) du PRD (commit 3cbeab3). Règle de lecture : le référentiel BMAD accepte qu'une exigence remonte « à un besoin utilisateur ou à un objectif métier » ; une exigence sans parcours mais ancrée dans une décision du fondateur consignée dans le PRD, une exigence du domaine ou un objectif écrit n'est donc pas orpheline, elle est notée « objectif » dans la matrice. Une exigence n'est orpheline que si aucune ligne du PRD hors de sa propre section ne la justifie.
+
+### Validation des chaînes
+
+**Résumé exécutif → Critères de succès :** lacune identifiée (1). Le résumé porte trois des quatre dimensions de succès : temps fondateur et cadence (l. 41 : « trois vidéos par semaine, programmées, sans y penser »), reproductibilité et gardes (l. 46), secrets hors de portée du MCP (l. 45). La dimension « aucun échec silencieux » (critère l. 76 : cause visible, rejeu en un clic, aucune publication ne disparaît) n'est annoncée nulle part dans le résumé ; la l. 39 (« rien ne relie la vidéo à sa publication ») décrit le problème, pas la promesse.
+
+**Critères de succès → Parcours utilisateur :** lacune identifiée (1). Temps fondateur ≤ 10 min (l. 65) → parcours 1 (l. 124, « huit minutes ») ; « fini » = programmée ou publiée (l. 66) → parcours 1 (l. 124-126) ; moment « ça valait le coup » (l. 67) → parcours 1 (l. 126) ; cadence sur douze semaines (l. 71) → parcours 1 comme semaine type, mesure dans l'audit (parcours 1 et 2) ; aucun échec silencieux (l. 76) → parcours 2 et 5 ; aucun secret hors du coffre (l. 78) → parcours 3 et 4. Reproductibilité (l. 77) : la moitié « gardes non contournables » est jouée par le parcours 5 (l. 156) ; la moitié « même fiche → même vidéo » n'est montrée par aucun parcours (les parcours 4 et 5 regénèrent mais ne comparent pas deux rendus) et ne repose que sur le test automatisé annoncé l. 87.
+
+**Parcours utilisateur → Exigences fonctionnelles :** intacte. Parcours 1 → FR1, 2, 4, 7, 8, 10, 11, 15, 16, 19, 21, 22, 25, 33, 45 ; parcours 2 → FR25, 26, 31, 32, 45 ; parcours 3 → FR1, 4, 5, 30, 31, 36, 37, 49 ; parcours 4 → FR2, 7, 9, 10, 11, 13, 27, 37, 38, 39, 40, 41, 45, 46 ; parcours 5 → FR12, 13, 15. Le tableau de synthèse des parcours (l. 160-171) est cohérent avec cette couverture.
+
+**Périmètre → Exigences fonctionnelles :** alignée. Les sept points du MVP (l. 96-102) sont chacun portés : Paramètres → FR3, 4, 30, 31, 37 ; Générateur → FR1, 4, 7, 8 ; Éditeur → FR9-11, 13 ; Librairie → FR15-17 ; Publication → FR19, 21, 22, 25, 33 ; MCP → FR38-41 ; Socle → FR25, 26, 44, 45. La fin de V1 (l. 106) → FR29, 34, 35, 36, 47. Aucune exigence ne porte sur un élément déclaré hors périmètre (l. 107-112 et l. 564).
+
+### Éléments orphelins
+
+**Exigences fonctionnelles orphelines :** 0. Point d'attention sans être un écart : FR6 (média de substitution, l. 501) n'apparaît dans aucun parcours ni dans le périmètre ; sa seule source est une phrase du portage du moteur (l. 373 : « les médias de substitution restent possibles quand une page n'est pas capturable »), reprise de l'existant. FR14 (l. 304) et FR48 (l. 193) sont dans le même cas, chacune tenue par une seule ligne hors parcours.
+
+**Critères de succès non soutenus :** 1. Reproductibilité (l. 77), moitié « même fiche → même vidéo » : soutenue par un test automatisé (l. 87), par aucun parcours. C'est le même constat que la lacune de la chaîne Critères → Parcours ; il est compté une seule fois dans le total.
+
+**Parcours sans exigence fonctionnelle :** 0.
+
+### Matrice de traçabilité
+
+| Chaîne | État | Écarts |
+|---|---|---|
+| Résumé exécutif → Critères de succès | Lacune | 1 (échec visible absent du résumé) |
+| Critères de succès → Parcours | Lacune | 1 (reproductibilité « même fiche → même vidéo ») |
+| Parcours → Exigences fonctionnelles | Intacte | 0 |
+| Périmètre → Exigences fonctionnelles | Alignée | 0 |
+
+Couverture des 49 exigences fonctionnelles : 32 tracées à au moins un parcours, 17 tracées à un objectif ou à une décision consignée sans parcours, 0 orpheline. « P » = parcours ; « objectif » = source hors parcours, avec ses lignes.
+
+| FR | Source | Lignes du PRD |
+|---|---|---|
+| FR1 | P1, P3, P4 | 122, 140, 146, 162 |
+| FR2 | P4 | 146 |
+| FR3 | objectif : garde données de démo, hôtes autorisés | 175, 189, 212, 349 |
+| FR4 | P1, P3 | 122, 138 |
+| FR5 | P3 | 140 |
+| FR6 | objectif : portage du moteur, médias de substitution | 373 |
+| FR7 | P1, P4 ; un échec nomme l'adresse fautive | 122, 148, 260 |
+| FR8 | Résumé, P1, critère reproductibilité | 46, 122, 77 |
+| FR9 | P4 | 146 |
+| FR10 | P1, P4 ; îlot éditeur | 124, 148, 278 |
+| FR11 | P1, P4, P5 | 124, 148, 154 |
+| FR12 | critère gardes, P4, P5 | 77, 148, 156 |
+| FR13 | P4, P5 | 148, 154 |
+| FR14 | objectif : durée de génération visible | 304 |
+| FR15 | P1, P2, P5 | 124, 130, 154 |
+| FR16 | Résumé, P1, périmètre librairie | 35, 122, 99 |
+| FR17 | objectif : bornes par réseau à l'entrée en librairie | 175, 190 |
+| FR18 | décision du fondateur (suppression, archivage) | 492 |
+| FR19 | P1, périmètre publication | 124, 100 |
+| FR20 | objectif : bornes par réseau, surface MCP | 190, 352 |
+| FR21 | P1, critère « fini », programmation en heure de Paris | 124, 66, 192 |
+| FR22 | P1, programmation qui survit au redémarrage | 124, 192 |
+| FR23 | objectif : clé d'idempotence, risque de double envoi | 192, 210 |
+| FR24 | objectif : quota lu via l'API | 190, 215, 352 |
+| FR25 | critères « fini » et échec visible, P1, P2, préambule des parcours | 66, 76, 124, 130, 116 |
+| FR26 | critère échec visible, P2 | 76, 132 |
+| FR27 | P4, surface MCP | 146, 352 |
+| FR28 | décision du fondateur (annuler, déplacer) | 492 |
+| FR29 | objectif : règles d'interface TikTok, fin de V1 | 180, 106 |
+| FR30 | P3 | 138 |
+| FR31 | P2, P3 | 132, 138 |
+| FR32 | P2, cycle des jetons | 132, 191 |
+| FR33 | périmètre publication, P1 | 100, 124 |
+| FR34 | objectif : fin de V1, Meta, cadence sur trois réseaux | 106, 179, 71 |
+| FR35 | objectif : fin de V1, TikTok, cadence sur trois réseaux | 106, 180, 71 |
+| FR36 | P3 (« grisés »), fin de V1, LinkedIn | 138, 106, 181 |
+| FR37 | P3, P4, MCP à jeton révocable | 138, 146, 280 |
+| FR38 | Résumé, P4 | 45, 146, 150 |
+| FR39 | Résumé, critère secrets, P4, surface MCP | 45, 78, 146, 355 |
+| FR40 | P4, surface MCP | 148, 350 |
+| FR41 | P4, erreurs structurées | 148, 357 |
+| FR42 | objectif : référence MCP et prompts d'exemple | 271, 345, 361-369, 376, 381 |
+| FR43 | décision du fondateur (mot de passe), routes publiques | 492, 270, 182 |
+| FR44 | critère secrets, coffre | 78, 188 |
+| FR45 | critère secrets, P1, P2, P4, garde données de démo | 78, 124, 132, 148, 189 |
+| FR46 | P4, surface MCP | 146, 353 |
+| FR47 | objectif : pages CGU et confidentialité, routes publiques | 175, 182, 106, 270, 311 |
+| FR48 | objectif : aucune vidéo publique après publication | 193 |
+| FR49 | installation depuis le dépôt public, Résumé, critère, P3 | 334-339, 37, 88, 138 |
+
+**Total des écarts de traçabilité :** 2 (lacune Résumé → Critères ; critère de reproductibilité non joué par un parcours).
+
+**Sévérité :** Warning (lacunes sans exigence orpheline).
+
+**Recommandation du référentiel :** des lacunes de traçabilité ont été identifiées ; renforcer les chaînes pour que chaque exigence soit justifiée.
+
+**Lecture.** Les deux écarts sont des écarts d'amont, pas d'aval : aucune exigence n'est injustifiée, ce sont deux promesses du haut du document qui ne redescendent pas jusqu'en bas. Corrections proposées, à porter par `bmad-edit-prd` si le fondateur les retient : (1) une phrase dans le Résumé exécutif, au paragraphe de l'état futur (l. 41), annonçant qu'un échec de publication est visible avec sa cause et rejouable ; (2) pour la reproductibilité, soit accepter le test automatisé comme seule preuve (le critère l. 87 le dit déjà, coût nul), soit ajouter au parcours 4 un temps où Claude regénère une vidéo sans changement et constate un rendu identique. Point d'attention hors décompte : FR6 tient à une seule phrase du portage (l. 373) ; si l'exigence doit survivre à l'architecture, l'ancrer aussi dans le parcours 5 ou dans la table des risques du cadrage (rejeu de la connexion, page non capturable) la rendrait plus solide.
