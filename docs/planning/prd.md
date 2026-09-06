@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [step-01-init, step-02-discovery, step-02b-vision, step-02c-executive-summary, step-03-success, step-04-journeys, step-05-domain, step-06-innovation, step-07-project-type, step-08-scoping, step-09-functional]
+stepsCompleted: [step-01-init, step-02-discovery, step-02b-vision, step-02c-executive-summary, step-03-success, step-04-journeys, step-05-domain, step-06-innovation, step-07-project-type, step-08-scoping, step-09-functional, step-10-nonfunctional]
 inputDocuments:
   - ../../MANDAT.md
   - saas-souverain:marketing/video/README.md
@@ -562,3 +562,64 @@ Cette liste est le **contrat de capacités** de la V1 : la conception d'interfac
 - FR49 : Le fondateur peut installer regie sur son poste depuis le dépôt public et un fichier de configuration local ; le dépôt ne contient aucun secret.
 
 Hors de cette liste, par décision : publication LinkedIn, statistiques d'audience et installation par des tiers (V1.1) ; X et deuxième marque (V2) ; toute IA hors MCP ; second facteur d'authentification ; plusieurs comptes par réseau ; notification externe d'un échec ; nouvelle tentative automatique.
+
+## Exigences non fonctionnelles
+
+Cette section dit **comment** regie doit se comporter, là où les exigences fonctionnelles disent ce qu'elle fait. Elle ne retient que les catégories qui comptent pour ce produit : un outil mono-utilisateur, sur le poste du fondateur, qui manipule des jetons de publication et des rendus vidéo. La montée en charge n'est pas une catégorie : un seul utilisateur, une seule marque en V1 ; le seul volume qui compte est celui de la cadence, traité sous Performance. Chaque exigence est mesurable ; celles qui dépendent du chronométrage de « traiteur 1 » le disent, et la valeur proposée y sera **remplacée** par la valeur mesurée, jamais complétée. Décisions du fondateur prises à cette étape (2026-09-06) : une publication manquée parce que regie était éteinte est **rattrapée au démarrage dans une fenêtre bornée** ; toutes les données vivent dans **un seul dossier à copier**, restauration vérifiée par un test ; **une génération à la fois**, en file ; toute tâche longue a un **délai de garde** par type, fixé après le chronométrage.
+
+### Performance
+
+- NFR1 : Aucune page ni aucune réponse d'outil MCP n'attend la fin d'un rendu, d'un envoi vers un réseau ou d'un test de connexion : ces tâches renvoient aussitôt un identifiant et un état (FR7, FR40). Vérification : test automatisé qui lance une génération et constate que la réponse arrive avant la fin du rendu.
+- NFR2 : Les pages se rendent sans aucun appel réseau sortant ; quotas et échéances de jetons sont lus en tâche de fond et stockés. Vérification : test automatisé qui charge chaque page avec le réseau sortant coupé, sans erreur.
+- NFR3 : Une page qui montre une tâche en cours se rafraîchit toutes les 5 secondes ; aucune autre page ne se rafraîchit seule ; le même intervalle est recommandé à Claude pour interroger un état par MCP. Valeur proposée, à confirmer au chronométrage de « traiteur 1 ».
+- NFR4 : La durée de chaque génération est enregistrée et affichée avec la vidéo (FR14). Aucune cible numérique en V1 : la première tâche d'architecture chronomètre « traiteur 1 », et la valeur mesurée devient la référence de la V1.
+- NFR5 : Les générations s'exécutent une à la fois, dans l'ordre de demande ; chacune affiche sa position dans la file et son état. Vérification : test automatisé qui lance trois générations et constate qu'aucune ne démarre avant la fin de la précédente.
+- NFR6 : La librairie et la liste des publications se chargent sans erreur, filtres compris, au volume d'une année de cadence : trois vidéos par semaine sur trois réseaux, soit environ 160 vidéos et 470 publications par an (valeurs dérivées de la cadence, non mesurées). Vérification : test automatisé qui alimente la base à ce volume et charge les pages de liste, durée de rendu enregistrée.
+
+### Fiabilité
+
+- NFR7 : Quand regie tourne, une publication programmée part dans la minute qui suit l'heure prévue ; l'écart réel entre l'heure prévue et le départ est inscrit dans l'audit de chaque publication. Vérification : test automatisé avec horloge simulée.
+- NFR8 : Si regie était éteinte à l'heure prévue, la publication part au démarrage tant que le retard reste sous une fenêtre de rattrapage réglée dans Paramètres (2 heures proposées par défaut, valeur à confirmer) ; l'écart est inscrit dans l'audit. Au-delà de la fenêtre, la publication passe en échec avec la cause « regie éteinte à l'heure prévue » et se rejoue (FR26). Vérification : test automatisé avec horloge simulée, dans et hors fenêtre.
+- NFR9 : Aucune publication n'est envoyée deux fois, y compris après un redémarrage pendant l'envoi, un rejeu ou un rattrapage : chaque tentative porte une clé d'idempotence propre à la publication (FR23). Vérification : test automatisé qui interrompt regie pendant un envoi simulé et redémarre.
+- NFR10 : Toute tâche longue (capture, génération, envoi vers un réseau, test de connexion) a un délai de garde propre à son type ; dépassé, elle passe en échec avec la cause « délai dépassé », libère la file et se rejoue. Les valeurs sont fixées à l'architecture après le chronométrage de « traiteur 1 » (proposition : trois fois la durée mesurée pour une génération) et modifiables dans Paramètres. Vérification : test automatisé avec une tâche qui ne termine jamais.
+- NFR11 : 100 % des échecs d'appel à une API de réseau sont visibles dans regie avec leur cause et une action « rejouer » ; aucun échec n'est absorbé en silence (critère de succès). Vérification : test automatisé qui simule chaque classe d'erreur d'un connecteur (jeton expiré, quota atteint, format refusé, réseau injoignable, délai dépassé) et contrôle l'état, la cause et l'entrée d'audit.
+- NFR12 : Deux rendus successifs de la même fiche produisent la même durée, le même nombre de scènes et les mêmes textes (critère de succès). Vérification : test automatisé du moteur sur le scénario de référence.
+- NFR13 : Les publications programmées, la file de génération et leurs états survivent à un redémarrage : l'état de toute tâche est écrit avant son lancement et à chaque changement (FR22). Vérification : test automatisé qui redémarre regie avec une file non vide.
+- NFR14 : Toutes les données de regie (base, fichiers vidéo, médias de substitution, journal d'audit, coffre chiffré) vivent dans un seul dossier dont le chemin est configuré ; sauvegarder revient à copier ce dossier, la clé maîtresse restant gardée à part. La procédure de restauration est documentée et vérifiée par un test automatisé : après sauvegarde puis restauration sur une instance neuve avec la même clé, mêmes vidéos, mêmes publications, mêmes entrées d'audit, secrets déchiffrables.
+
+### Sécurité
+
+- NFR15 : Zéro secret en clair dans la base, les journaux, le dépôt et les réponses MCP (critère de succès). Vérification : test automatisé qui saisit un secret marqueur puis fouille base, journaux et réponses d'outils ; scan de secrets bloquant en CI à chaque commit.
+- NFR16 : Chaque secret au repos est chiffré par chiffrement authentifié (AES-256-GCM ou équivalent) avec la clé maîtresse lue dans `REGIE_MASTER_KEY` au démarrage ; la clé n'est écrite ni en base, ni dans le dépôt, ni dans les journaux ; sans elle, regie refuse de démarrer avec un message explicite (FR44). Le format chiffré porte un numéro de version. Vérification : test de démarrage sans clé ; test de rotation (rechiffrement, puis déchiffrement avec la nouvelle clé seule).
+- NFR17 : Aucune requête MCP n'est traitée sans jeton porteur valide ; un jeton révoqué est refusé dès la requête suivante ; le jeton n'apparaît qu'une fois, à sa création (FR37). Vérification : test automatisé sans jeton, avec jeton révoqué, avec jeton altéré.
+- NFR18 : Les routes accessibles sans session sont énumérées dans le code et se limitent aux pages CGU et confidentialité, aux retours d'autorisation des réseaux et, si l'architecture le retient, à l'adresse temporaire de récupération d'une vidéo (FR47) ; toute autre route exige une session. Vérification : test automatisé qui parcourt toutes les routes déclarées et vérifie que seules celles de la liste répondent sans session ; il rougit si une route apparaît hors liste.
+- NFR19 : Si une adresse temporaire de récupération existe, elle est signée, liée à une seule publication, et expire dès la publication confirmée ou au bout d'un délai fixé à l'architecture ; après publication, aucune vidéo n'est accessible publiquement (FR48). Vérification : test automatisé d'accès après expiration.
+- NFR20 : La capture ne se connecte qu'aux hôtes de la liste autorisée, avec les seuls identifiants du compte de démo ; l'hôte capturé est inscrit dans l'audit de chaque génération (FR3, FR45). Vérification : test automatisé avec une adresse hors liste, refus attendu par l'interface et par MCP.
+- NFR21 : Le journal d'audit ne s'écrit qu'en ajout : aucune route, aucun outil MCP, aucune commande ne le modifie ni ne l'efface (FR46). Vérification : test automatisé qui tente une modification par chaque chemin.
+- NFR22 : Le mot de passe du fondateur est stocké sous forme de hachage lent et salé, jamais réversible (FR43) ; chaque tentative de connexion échouée est tracée dans l'audit. Vérification : test automatisé que la valeur stockée ne contient pas le mot de passe et qu'une tentative échouée produit une entrée d'audit.
+- NFR23 : Les données personnelles traitées en V1 se limitent aux jetons du fondateur, aux identifiants de démo et au journal d'audit ; aucune donnée de tiers n'est collectée tant que les statistiques d'audience (V1.1) ne sont pas décidées avec leur traitement RGPD. Vérification : revue du schéma de base à chaque migration.
+
+### Accessibilité
+
+- NFR24 : Toute action de l'interface est réalisable au clavier : ordre de tabulation logique, focus visible, raccourcis de l'éditeur documentés. Vérification : contrôle automatisé de la présence d'un focus visible sur chaque élément interactif, sur chaque page maquettée puis en CI ; parcours 1 joué au clavier seul à la recette.
+- NFR25 : Le contraste texte/fond est d'au moins 4,5:1 (niveau AA) sur toutes les pages. Vérification : contrôle automatisé de contraste sur chaque page maquettée, puis en CI.
+- NFR26 : Chaque champ, bouton et statut porte un libellé texte ; aucun état n'est signifié par la seule couleur. Vérification : contrôle automatisé des libellés sur chaque page maquettée, puis en CI.
+- NFR27 : L'interface est prévue pour un écran d'au moins 1 280 px de large ; en dessous, un bandeau l'indique et rien n'est masqué en silence. Aucun audit par lecteur d'écran ni relecture mobile en V1.
+
+### Intégration
+
+- NFR28 : Chaque connecteur de réseau est isolé derrière la couche de services commune : un changement d'API d'un réseau ne touche que son connecteur et son fichier de bornes (§ Cadrage). Vérification : test de dépendances qui interdit tout import d'un connecteur depuis un autre connecteur ou depuis l'interface.
+- NFR29 : Les bornes de chaque réseau (conteneur, codec, ratio, durée minimale et maximale, taille maximale, longueur de légende, nombre de hashtags) vivent dans un fichier versionné par réseau, chargé et vérifié par un test automatisé ; la version d'API du réseau utilisée y est relevée.
+- NFR30 : Tout appel sortant vers un réseau passe par son connecteur, porte la clé d'idempotence de la tentative, respecte le délai de garde (NFR10) et journalise la requête, sans secret, et la réponse dans l'audit.
+- NFR31 : L'échéance de chaque jeton de réseau est lue et affichée dans Paramètres ; le fondateur est prévenu avant l'échéance, avec un délai fixé à l'architecture selon le réseau (Meta : jetons longue durée d'environ 60 jours ; TikTok : jeton court et rafraîchissement, à confirmer à l'implémentation) (FR32).
+- NFR32 : Chaque outil MCP correspond à un service unique, appelé aussi par l'interface ; un test automatisé de parité vérifie que le même appel par l'outil et par le service rend le même résultat et la même entrée d'audit, à l'origine près (FR38). Un test de dérive rougit si la référence MCP générée ne correspond plus aux outils exposés (FR42).
+- NFR33 : Le serveur MCP expose le transport Streamable HTTP du SDK TypeScript officiel, épinglé ; le retrait d'un outil est annoncé dans le journal des modifications une version avant d'être effectif.
+
+### Exploitation et maintenabilité
+
+- NFR34 : Installation en quatre étapes sur un poste disposant de Node LTS, pnpm, Chromium via Playwright et ffmpeg avec libx264 : clonage, `pnpm install`, fichier `.env`, démarrage. La version minimale de chaque dépendance système est documentée et contrôlée au démarrage, avec un message explicite si elle manque.
+- NFR35 : Mise à jour par `git pull` puis `pnpm install` ; les migrations de base sont versionnées dès la V1 et s'appliquent au démarrage sans étape manuelle ; une migration qui échoue arrête le démarrage avec un message explicite, sans laisser la base à moitié migrée.
+- NFR36 : La CI (GitHub Actions, Chromium et ffmpeg dans le job) exécute à chaque commit : typage, lint, tests unitaires, parité outil ⇔ service, absence de secret dans les réponses d'outils, chargement des bornes, reproductibilité du rendu, contraste et libellés, dérive de la référence MCP, scan de secrets bloquant. Aucun secret de plateforme en CI ; les tests contre Meta et TikTok restent manuels.
+- NFR37 : Toute date affichée, saisie ou programmée est en heure de Paris ; un changement d'heure d'été ou d'hiver ne décale aucune publication programmée. Vérification : test automatisé autour d'un changement d'heure.
+
+Hors de ces exigences, par décision : cible chiffrée de durée de rendu avant chronométrage ; montée en charge multi-utilisateurs ou multi-marques ; haute disponibilité ; audit par lecteur d'écran ; relecture mobile ; second facteur ; notification externe d'un échec ; nouvelle tentative automatique.
