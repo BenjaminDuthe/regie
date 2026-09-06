@@ -20,9 +20,9 @@ une fois les vidéo génrer elle sont disponible dans une librairie disponible p
 
 | # | Lot | Preuve de complétude | État |
 |---|-----|----------------------|------|
-| 1 | Grill : questions à 3 choix (+ « Autre »), une décision par question | Toutes les branches tranchées et consignées dans le PRD | en cours |
+| 1 | Grill : questions à 3 choix (+ « Autre »), une décision par question | Toutes les branches tranchées et consignées dans le PRD | fait (2026-09-06) |
 | 2 | Verdict API payantes (TikTok, Instagram, Facebook Page, X, LinkedIn) → exclusion de la V1 | Tableau dans le PRD, validé par le fondateur | fait (2026-09-06) — tableau « Classification du projet » et section « Exigences propres au domaine » du PRD |
-| 3 | PRD complet : régie web + générateur vidéo (URL ordonnées, connexion app enregistrée, scrap) + éditeur textes/animations + librairie + publication 1 clic / programmée + paramètres clés API + MCP | `prd.md` dans le nouveau dépôt, workflow BMAD arrivé à `step-12-complete` | à faire |
+| 3 | PRD complet : régie web + générateur vidéo (URL ordonnées, connexion app enregistrée, scrap) + éditeur textes/animations + librairie + publication 1 clic / programmée + paramètres clés API + MCP | `prd.md` dans le nouveau dépôt, workflow BMAD arrivé à `step-12-complete` | fait (2026-09-06) — `docs/planning/prd.md` (49 FR, 37 NFR), workflow arrivé à `step-12-complete` |
 | 4 | Nouveau dépôt GitHub PUBLIC rassemblant toutes les infos (PRD, mandat, moteur vidéo existant porté ou référencé) | `gh repo view` = PUBLIC ; MANDAT à la racine, PRD dans `docs/planning/prd.md`, moteur vidéo référencé dans le PRD (portage = travail d'architecture) | fait (2026-09-06) |
 | 5 | Serveur de dev avec l'HTML prêt (maquette UX + structure) pour validation | Preview ouverte, capture envoyée, validation du fondateur | à faire |
 
@@ -37,3 +37,12 @@ une fois les vidéo génrer elle sont disponible dans une librairie disponible p
 - RGPD sur les statistiques d'audience → V1.1 (les stats n'existent pas encore) — fondateur, 2026-09-05.
 - Comptes d'une deuxième marque (Fanny, MGA) → hors V1 ; le modèle prévoit la marque, n'en gère qu'une — fondateur, 2026-09-05.
 - X (API payante) → V2 ; LinkedIn : connecteur et clé présents, publication après agrément partenaire — fondateur, 2026-09-05.
+- Notification externe d'un échec de publication (courriel, Telegram…) et nouvelle tentative automatique → hors V1 ; l'échec est visible dans regie seulement, avec « rejouer » — fondateur, 2026-09-06.
+- Relecture mobile et audit par lecteur d'écran → hors V1 ; ordinateur seulement, bandeau sous 1 280 px — fondateur, 2026-09-06.
+- GitHub Pages pour les pages CGU et confidentialité → écarté ; regie sert ces pages elle-même (fin de V1) — fondateur, 2026-09-06.
+- Image Docker, paquet npm, ligne de commande, API REST publique, second runtime (Python…) → hors V1 ; Docker et npm arrivent en V1.1 avec l'installation tierce — fondateur, 2026-09-06.
+- TikTok → glisse en V1.1 en premier si le temps manque avant la fin de V1 ; la programmation et l'éditeur ne glissent jamais — fondateur, 2026-09-06.
+- Plusieurs comptes connectés par réseau → hors V1 ; un compte par réseau, remplaçable dans Paramètres — fondateur, 2026-09-06.
+- Second facteur d'authentification → hors V1 ; mot de passe défini à la première mise en route — fondateur, 2026-09-06.
+- Suppression d'une vidéo ayant eu une publication → refusée ; seule une vidéo jamais publiée se supprime, le reste s'archive — fondateur, 2026-09-06.
+- Cible chiffrée de durée de rendu avant le chronométrage de « traiteur 1 », montée en charge multi-utilisateurs ou multi-marques, haute disponibilité → hors V1 — fondateur, 2026-09-06.
