@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [step-01-init, step-02-discovery, step-02b-vision, step-02c-executive-summary, step-03-success, step-04-journeys, step-05-domain, step-06-innovation, step-07-project-type, step-08-scoping, step-09-functional, step-10-nonfunctional]
+stepsCompleted: [step-01-init, step-02-discovery, step-02b-vision, step-02c-executive-summary, step-03-success, step-04-journeys, step-05-domain, step-06-innovation, step-07-project-type, step-08-scoping, step-09-functional, step-10-nonfunctional, step-11-polish]
 inputDocuments:
   - ../../MANDAT.md
   - saas-souverain:marketing/video/README.md
@@ -180,7 +180,7 @@ Décisions du fondateur (2026-09-06) : clé du coffre en variable d'environnemen
 - **TikTok (Content Posting API)** — application non auditée : publications en privé uniquement. L'audit exige l'application publiée avec ses pages CGU et confidentialité, et impose des règles d'interface pour la publication directe (niveau de confidentialité choisi par l'utilisateur, mentions de contenu commercial) que la librairie doit respecter avant l'envoi.
 - **LinkedIn** — publication vidéo de page réservée au programme partenaire Community Management ; V1 = connecteur et emplacement de clé seulement, publication après agrément.
 - **Pages d'agrément servies par regie** — `/cgu` et `/confidentialite`, contenu versionné dans le dépôt, exposées sur une adresse publique. Conséquence : les routes publiques de regie sont **énumérées et minimales** (ces deux pages, les retours OAuth, et l'éventuelle URL signée temporaire de récupération d'une vidéo par un réseau) ; tout le reste — interface, MCP, fichiers — reste derrière authentification, et le serveur MCP n'est jamais joignable sans son jeton.
-- **RGPD** — données personnelles en V1 : les jetons du fondateur, les identifiants du compte de démo, le journal d'audit (initiateur UI ou MCP). Aucune donnée d'un tiers. Statistiques d'audience → V1.1 (déjà acté). Les captures ne montrent que le tenant de démo (garde ci-dessous).
+- **RGPD** — données personnelles en V1 : les jetons du fondateur, les identifiants du compte de démo, le journal d'audit (initiateur UI ou MCP). Aucune donnée d'un tiers. Statistiques d'audience → V1.1. Les captures ne montrent que le tenant de démo (garde ci-dessous).
 - **Droits sur le contenu** — vidéos muettes par conception, le son est ajouté dans l'application du réseau (couvert par sa licence) ; écrans d'Établia = propriété du fondateur ; ≤ 5 hashtags, FR.
 
 ### Contraintes techniques
@@ -221,7 +221,7 @@ Décisions du fondateur (2026-09-06) : clé du coffre en variable d'environnemen
 
 Décisions du fondateur (2026-09-06) : la combinaison est documentée comme innovation ; regie remet en cause deux hypothèses ; la validation est le parcours 1 joué par le MCP seul, chronométré ; le repli est « l'interface fait tout, le MCP devient complément ».
 
-Signaux du type de projet (`project-types.csv`) : `web_app` → « nouvelle interaction » ; `developer_tool` → « nouveau paradigme ». Les deux sont présents. Ni création de DSL ni WebAssembly.
+Les deux types du projet portent chacun un motif d'innovation : l'application web, une nouvelle interaction ; l'outil pour développeurs, un nouveau paradigme. Ni création de DSL ni WebAssembly.
 
 ### Zones d'innovation détectées
 
@@ -256,9 +256,9 @@ Un test unique, rejouable, à résultat binaire : **le parcours 1 exécuté par 
 | Risque | Parade |
 |---|---|
 | Le pilotage MCP est fragile (outils trop fins, états asynchrones mal exposés) | Repli décidé : l'interface fait tout, le MCP devient complément. Contrainte de conception qui en découle : MCP et interface appellent **les mêmes services applicatifs** ; aucune logique métier n'existe que côté MCP, ni que côté interface hors clés/OAuth. Un test automatisé vérifie que chaque outil MCP correspond à un service que l'interface appelle aussi. |
-| La capture rend une vidéo différente à chaque génération | Déjà exigé (critère technique « reproductibilité du rendu ») : versions épinglées, tenant de démo stable, hôtes autorisés. |
+| La capture rend une vidéo différente à chaque génération | Critère technique « reproductibilité du rendu » : versions épinglées, tenant de démo stable, hôtes autorisés. |
 | L'app change et casse un scénario | L'échec de génération nomme l'URL fautive ; le scénario se corrige dans l'éditeur, sans tournage. |
-| Un serveur MCP exposé est une surface d'attaque | Déjà couvert : jeton obligatoire, jamais de secret via MCP, origine « MCP » dans l'audit, MCP jamais joignable sans jeton. |
+| Un serveur MCP exposé est une surface d'attaque | Couvert au § Exigences propres au domaine : jeton obligatoire, jamais de secret via MCP, origine « MCP » dans l'audit, MCP jamais joignable sans jeton. |
 | Personne d'autre ne veut de cette combinaison | Sans effet en V1 ; à réévaluer avant V1.1 (installation tierce). |
 
 ## Exigences propres au type de projet
@@ -274,11 +274,11 @@ Deux types se combinent : **application web** (la régie, l'éditeur, la librair
 ### Considérations d'architecture technique
 
 - **Une seule base de code, un seul runtime** : Node LTS + TypeScript, gestion par pnpm. Le moteur vidéo existant (`.mjs`) est porté dans ce runtime, sans réécriture dans un autre langage.
-- **Une couche de services partagée** : chaque capacité métier (scénarios, générations, vidéos, publications, audit) est un service applicatif appelé **à l'identique** par les pages de l'interface et par les outils MCP. Ni l'un ni l'autre ne porte de logique propre, hors saisie des clés et OAuth (interface seulement). Un test automatisé vérifie la correspondance outil MCP ⇔ service (déjà exigé au chapitre Innovation).
+- **Une couche de services partagée** : chaque capacité métier (scénarios, générations, vidéos, publications, audit) est un service applicatif appelé **à l'identique** par les pages de l'interface et par les outils MCP. Ni l'un ni l'autre ne porte de logique propre, hors saisie des clés et OAuth (interface seulement). Un test automatisé vérifie la correspondance outil MCP ⇔ service (§ Innovation et motifs inédits).
 - **Pages serveur + îlots interactifs** : les pages (librairie, Paramètres, audit, liste des scénarios) sont rendues côté serveur ; deux îlots interactifs : l'éditeur de scènes (texte, animation, prévisualisation) et l'ordonnancement des URL d'un scénario. Framework tranché à l'architecture.
 - **Rafraîchissement périodique, pas de flux temps réel** : une page qui affiche une génération ou une publication en cours réinterroge le même point de lecture que l'outil MCP « suivre l'état ». Aucun canal WebSocket ou SSE en V1.
 - **Serveur MCP en HTTP distant** : point d'entrée HTTP de la régie (transport MCP « Streamable HTTP »), jeton porteur obligatoire sur chaque requête, révocable depuis Paramètres, jamais de session sans jeton. Serveur MCP et interface tournent dans le même processus ou dans deux processus du même dépôt (tranché à l'architecture) et partagent la base, le coffre et les services.
-- **Tâches longues hors requête** : générations (Chromium + ffmpeg) et publications programmées s'exécutent hors du cycle requête/réponse, avec état persistant ; la programmation survit au redémarrage (déjà exigé au chapitre Domaine).
+- **Tâches longues hors requête** : générations (Chromium + ffmpeg) et publications programmées s'exécutent hors du cycle requête/réponse, avec état persistant ; la programmation survit au redémarrage (§ Exigences propres au domaine).
 - **Stockage** : base de données et fichiers vidéo locaux au poste ou au serveur qui héberge regie ; chemin configuré ; aucun stockage externe en V1. Le choix de la base (fichier ou serveur) est tranché à l'architecture ; le PRD exige des migrations de schéma versionnées dès la V1.
 
 ### Navigateurs pris en charge
@@ -336,7 +336,7 @@ V1 = un seul chemin, pour le fondateur :
 3. `pnpm exec playwright install chromium` ; vérifier ffmpeg.
 4. `pnpm dev` (ou `pnpm start` après `pnpm build`) ; ouvrir l'interface, suivre le parcours 3 (Paramètres → réseaux → application à capturer → clé MCP).
 
-Le dépôt ne contient aucun secret ; `.env.exemple` liste chaque variable avec une valeur vide et un commentaire. Un scan de secrets bloque toute contribution (déjà exigé). Image Docker et paquet npm → V1.1, avec l'installation tierce.
+Le dépôt ne contient aucun secret ; `.env.exemple` liste chaque variable avec une valeur vide et un commentaire. Un scan de secrets bloque toute contribution. Image Docker et paquet npm → V1.1, avec l'installation tierce.
 
 ### Surface d'API
 
@@ -372,7 +372,7 @@ S'y ajoutent : le bloc de configuration pour déclarer le serveur dans Claude Co
 
 - **Portage du moteur vidéo** (brownfield) : `format`, `scenes`, `montage`, `rendu`, `ffmpeg`, `images` sont repris tels quels dans regie, gardes comprises (zone sûre 880×1220 à (0, 220), 1080×1920 à 25 i/s, lisibilité). Ce qui change : un scénario vit en base (plus un fichier `.mjs` par vidéo) ; la connexion à l'app vient du coffre (plus des variables d'environnement lues par une spec e2e) ; les médias de substitution restent possibles quand une page n'est pas capturable. Recette du portage : les six scénarios existants (trois traiteur, trois restaurateur) réécrits comme scénarios regie et rendus à l'identique.
 - **Schéma de données** : migrations versionnées dès le premier commit ; aucune modification de schéma sans migration ; une V1.1 se met à jour par `git pull` + `pnpm install` + migrations au démarrage.
-- **Coffre** : rotation de `REGIE_MASTER_KEY` par commande de rechiffrement (déjà exigé) ; le format chiffré porte un numéro de version pour permettre un changement d'algorithme.
+- **Coffre** : rotation de `REGIE_MASTER_KEY` par commande de rechiffrement ; le format chiffré porte un numéro de version pour permettre un changement d'algorithme.
 - **MCP** : la référence générée est versionnée avec le code ; un outil retiré ou renommé est annoncé dans le journal des modifications avant la version qui le retire.
 
 ### Considérations de mise en œuvre
@@ -426,7 +426,7 @@ Ce que le MVP **ne contient pas**, par décision : Facebook Page, TikTok, Linked
 Les sept points du § Périmètre du produit, avec ce que « fini » veut dire pour chacun :
 
 1. **Paramètres** — clés de l'application Meta, OAuth Instagram, hôtes autorisés, identifiants du tenant de démo chiffrés à la saisie, jeton MCP révocable, signalement d'un jeton à renouveler. Fini quand un secret saisi n'apparaît ni en base en clair, ni dans un log, ni dans une réponse MCP.
-2. **Générateur** — scénario (URL ordonnées, textes par défaut), connexion enregistrée au tenant de démo, capture Playwright, montage et rendu par le moteur porté, vidéo 1080 × 1920 muette. Fini quand les six scénarios existants rendent à l'identique (recette du portage).
+2. **Générateur** — scénario (URL ordonnées, textes par défaut), connexion enregistrée au tenant de démo, capture Playwright, montage et rendu par le moteur porté, vidéo 1080×1920 muette. Fini quand les six scénarios existants rendent à l'identique (recette du portage).
 3. **Éditeur** — textes et animations de chaque scène modifiables, regénération, ouverture sur une scène donnée, gardes bloquantes avec diagnostic. Fini quand le parcours 5 se joue dans l'interface et par MCP.
 4. **Librairie** — statuts brouillon / prête / refusée / programmée / publiée / échec, légende, cinq hashtags FR, date ; bornes Instagram vérifiées à l'entrée.
 5. **Publication Instagram** — Reel en un clic ou programmé, exécution différée qui survit au redémarrage, clé d'idempotence, « rejouer » avec historique, quota lu via l'API.
