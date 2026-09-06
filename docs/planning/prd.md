@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [step-01-init, step-02-discovery, step-02b-vision, step-02c-executive-summary, step-03-success, step-04-journeys, step-05-domain, step-06-innovation, step-07-project-type]
+stepsCompleted: [step-01-init, step-02-discovery, step-02b-vision, step-02c-executive-summary, step-03-success, step-04-journeys, step-05-domain, step-06-innovation, step-07-project-type, step-08-scoping]
 inputDocuments:
   - ../../MANDAT.md
   - saas-souverain:marketing/video/README.md
@@ -21,6 +21,7 @@ vision:
   pilotage: Claude pilote tout par MCP, l'UI est un miroir pour relire et corriger
   parityException: saisie des clés API et connexion OAuth restent UI seulement (aucun secret ne transite par MCP) — fondateur, 2026-09-05
   etatFutur: 3 vidéos/semaine, programmées, sur les comptes Établia, sans y penser
+releaseMode: phased
 workflowType: 'prd'
 ---
 
@@ -381,3 +382,107 @@ S'y ajoutent : le bloc de configuration pour déclarer le serveur dans Claude Co
 - **CI** : GitHub Actions sur le dépôt public (Chromium et ffmpeg installés dans le job), scan de secrets bloquant, tests ci-dessus. Aucun secret de plateforme dans la CI en V1 : les tests contre Meta ou TikTok sont manuels, sur les comptes Établia.
 - **Maquette avant code** : la maquette HTML servie par le serveur de développement (lot 5 du mandat) fixe la structure des pages et des deux îlots avant toute implémentation.
 - **Hors périmètre confirmé** : Docker, paquet npm, ligne de commande, API REST publique, mobile, temps réel, second runtime.
+
+## Cadrage du projet et développement par phases
+
+Le fondateur a fixé les phases dès le mandat : X en V2 (API payante), installation par des tiers en V1.1, LinkedIn en publication après agrément. Le cadrage ci-dessous ne crée donc pas de phases, il les remplit. Décisions prises à cette étape (fondateur, 2026-09-06) : après le MVP, l'ordre est **Facebook Page → TikTok → connecteur LinkedIn** ; l'hypothèse technique la plus risquée est **vérifiée par un script jetable avant toute ligne de régie** ; la recette du MVP se fait sur **un compte Instagram de test dédié**, le compte Établia ne recevant que la première vraie vidéo ; si le temps manque, **TikTok glisse en V1.1** en premier.
+
+### Stratégie et philosophie du MVP
+
+#### Approche MVP
+
+Le MVP est **la chaîne complète sur Instagram seul, pilotée par MCP** (§ Périmètre du produit) : un scénario, une génération, une correction dans l'éditeur, une publication programmée qui part seule, une ligne d'audit. Il ne vise pas la couverture des réseaux mais la preuve de la chaîne : si le parcours 1 se joue par MCP seul, en moins de dix minutes de temps fondateur, le produit tient ; sinon le repli est déjà défini (§ Innovation : l'interface fait tout, le MCP devient complément).
+
+Trois principes tiennent ce MVP :
+
+1. **Le plus risqué d'abord.** Avant toute ligne de régie, un script jetable hors dépôt publie un Reel muet sur le compte de test via l'API Meta en mode développeur, sans agrément. Le résultat (réussite, ou blocage et sa cause) est consigné dans ce PRD. Si la publication ne passe pas sans agrément, la forme du MVP est revue avant qu'une ligne de régie n'existe.
+2. **Rien de silencieux, rien d'inventé.** Chaque état est visible (§ Parcours utilisateur), chaque échec porte sa cause, chaque garde renvoie la scène et la mesure. Les cibles de performance restent des propositions tant qu'une génération du scénario « traiteur 1 » n'a pas été chronométrée (§ Exigences propres au type de projet).
+3. **La recette ne touche pas la marque.** Un compte Instagram professionnel de test, rattaché à l'application Meta, reçoit toutes les publications de recette. Le compte Établia est ajouté dans Paramètres après la recette et ne reçoit que la première vraie vidéo, relue par le fondateur.
+
+Ce que le MVP **ne contient pas**, par décision : Facebook Page, TikTok, LinkedIn, les pages `/cgu` et `/confidentialite` (nécessaires aux dossiers d'agrément, pas à la publication en mode développeur sur les comptes rattachés), les dossiers d'agrément, les statistiques d'audience, l'installation par des tiers, toute IA hors MCP.
+
+#### Ressources nécessaires
+
+- **Personnes** : le fondateur (produit, comptes et clés, OAuth, relecture, dossiers d'agrément, première publication) et Claude (code, tests, documentation, pilotage par MCP). Aucun tiers.
+- **Compétences** : Node/TypeScript, Playwright, ffmpeg (déjà pratiqués sur le moteur existant) ; API Meta Graph (nouveau) ; SDK MCP TypeScript officiel (nouveau).
+- **Comptes et accès** : une application Meta en mode développeur ; un compte Instagram professionnel de test rattaché à l'application ; le tenant de démo d'Établia avec ses identifiants dans le coffre ; le dépôt public `regie`.
+- **Matériel** : le poste du fondateur (rendu Chromium + ffmpeg en local, ordinateur seulement en V1). Aucun serveur ni service payant pour le MVP ; l'adresse publique des pages d'agrément (fin de V1) se tranche à l'architecture.
+- **Charge** : aucune estimation n'est posée ici ; elle relève de l'architecture, après le script jetable et le chronométrage de « traiteur 1 ». La seule échéance qui engage est le critère de succès : la cadence de trois vidéos par semaine se mesure sur douze semaines à partir de la livraison de la V1.
+
+### Périmètre fonctionnel du MVP (phase 1)
+
+#### Parcours utilisateur couverts
+
+| Parcours | Couverture MVP |
+|---|---|
+| 1 — Trois vidéos programmées depuis une phrase | Entier, sur Instagram : c'est le parcours de validation, joué par MCP seul et chronométré |
+| 2 — La publication de 7 h a échoué | Entier : échec visible avec cause, reconnexion OAuth dans Paramètres, « rejouer » avec historique |
+| 3 — Première mise en route | Bloc Réseaux limité à Meta/Instagram ; blocs Application à capturer et Clé MCP entiers ; test de connexion ; premier scénario |
+| 4 — Claude pilote tout par MCP | Entier : les cinq familles d'outils, aucun outil sur les secrets, origine « MCP » dans l'audit |
+| 5 — La vidéo refusée par la garde | Entier : statut « refusée », diagnostic scène + mesure, éditeur ouvert sur la scène en cause |
+
+#### Capacités indispensables
+
+Les sept points du § Périmètre du produit, avec ce que « fini » veut dire pour chacun :
+
+1. **Paramètres** — clés de l'application Meta, OAuth Instagram, hôtes autorisés, identifiants du tenant de démo chiffrés à la saisie, jeton MCP révocable, signalement d'un jeton à renouveler. Fini quand un secret saisi n'apparaît ni en base en clair, ni dans un log, ni dans une réponse MCP.
+2. **Générateur** — scénario (URL ordonnées, textes par défaut), connexion enregistrée au tenant de démo, capture Playwright, montage et rendu par le moteur porté, vidéo 1080 × 1920 muette. Fini quand les six scénarios existants rendent à l'identique (recette du portage).
+3. **Éditeur** — textes et animations de chaque scène modifiables, regénération, ouverture sur une scène donnée, gardes bloquantes avec diagnostic. Fini quand le parcours 5 se joue dans l'interface et par MCP.
+4. **Librairie** — statuts brouillon / prête / refusée / programmée / publiée / échec, légende, cinq hashtags FR, date ; bornes Instagram vérifiées à l'entrée.
+5. **Publication Instagram** — Reel en un clic ou programmé, exécution différée qui survit au redémarrage, clé d'idempotence, « rejouer » avec historique, quota lu via l'API.
+6. **MCP** — un outil par action des points 2 à 5, aucun sur les clés, l'OAuth ou les identifiants ; test automatisé de correspondance outil ⇔ service.
+7. **Socle** — coffre chiffré, journal d'audit (tentative, cause, origine, identifiant renvoyé), CI avec scan de secrets.
+
+**Sortie du MVP** : parcours 1 joué par MCP seul, chronométré sous dix minutes de temps fondateur ; première publication réelle sur le compte Établia, relue par le fondateur ; résultat du script jetable et chronométrage de « traiteur 1 » consignés.
+
+### Fonctionnalités après le MVP
+
+#### Phase 2 — fin de V1
+
+Dans l'ordre décidé, chaque réseau livré et recetté avant le suivant :
+
+1. **Facebook Page** — même application Meta, même jeton ; connecteur, fichier de bornes propre au format Page, test de chargement. Réutilise tout du MVP.
+2. **TikTok** — application TikTok séparée, connecteur Content Posting API, fichier de bornes, règles d'interface imposées à la publication directe (niveau de confidentialité, mention commerciale). Livré = connecteur qui publie **en privé** tant que l'audit n'est pas passé ; la demande d'audit est une tâche du fondateur, hors code, qui exige les pages d'agrément ci-dessous.
+3. **Connecteur LinkedIn** — connecteur et emplacement de clé, sans publication (agrément partenaire requis).
+4. **Pages `/cgu` et `/confidentialite`** servies par regie, contenu versionné, routes publiques énumérées ; **dossiers d'agrément Meta et TikTok** déposés par le fondateur.
+
+Livrable de fin de V1 : la cadence de trois vidéos par semaine sur Instagram, Facebook Page et TikTok (privé ou public selon l'audit), mesurée douze semaines dans le journal de regie.
+
+#### Phase 3 — V1.1
+
+- **Publication LinkedIn** dès l'agrément partenaire obtenu.
+- **Statistiques d'audience** avec le traitement RGPD associé (premières données de tiers).
+- **Installation par des tiers** : documentation, configuration par instance, Docker ou paquet npm, support.
+- **TikTok**, si le fondateur l'a fait glisser depuis la V1 faute de temps.
+
+**Au-delà (V2, vision)** : X (API payante), deuxième marque (Fanny, MGA) ; toute IA au-delà du MCP reste hors feuille de route tant qu'elle n'est pas décidée.
+
+### Stratégie de maîtrise des risques
+
+#### Risques techniques
+
+| Risque | Parade de cadrage |
+|---|---|
+| La publication d'un Reel sans agrément ne passe pas en mode développeur | Script jetable **avant toute ligne de régie** ; résultat consigné ; si blocage, forme du MVP revue |
+| Le rejeu de la connexion enregistrée casse (session expirée, écran de connexion modifié, second facteur exigé) | Test de connexion dans Paramètres ; génération en « échec » avec l'étape fautive ; à vérifier sur le tenant de démo : le compte de capture ne doit pas exiger de second facteur, sinon le rejeu automatique est impossible |
+| Le moteur porté ne rend plus comme l'original | Recette du portage = six scénarios existants rendus à l'identique ; versions Chromium et ffmpeg épinglées |
+| Les cibles de performance proposées sont fausses | Chronométrage de « traiteur 1 » en première tâche d'architecture ; les valeurs proposées sont remplacées, pas complétées |
+| Jeton Meta expiré, jeton TikTok non rafraîchi | Contrôle d'expiration proactif dans Paramètres ; échec rejouable ; jamais de reprise automatique |
+
+#### Risques de marché
+
+| Risque | Parade de cadrage |
+|---|---|
+| Le pilotage par MCP n'est pas plus rapide que la main | Validation = parcours 1 par MCP seul, chronométré ; repli décidé : l'interface fait tout, le MCP devient complément (mêmes services) |
+| Agrément Meta ou TikTok tardif ou refusé | Le MVP ne dépend d'aucun agrément (mode développeur sur ses propres comptes) ; TikTok publie en privé ; la cadence tient sur Meta seul |
+| Un réseau change ses bornes, ses permissions ou son API | Fichier de bornes versionné avec test ; connecteur isolé derrière la couche de services commune, un changement ne touche qu'un connecteur ; versions d'API relevées à l'implémentation |
+| Le contenu ne trouve pas d'audience | Hors critères V1 par décision (§ Critères de succès) ; les statistiques arrivent en V1.1 |
+
+#### Risques de ressources
+
+| Risque | Parade de cadrage |
+|---|---|
+| Une seule personne, un temps borné | Ordre de livraison fixé (Instagram → Facebook Page → TikTok → LinkedIn) ; chaque réseau recetté avant le suivant, donc à tout moment un produit utilisable |
+| Le temps manque avant la fin de V1 | **TikTok glisse en V1.1** en premier (décidé) ; la V1 reste Meta seule, Instagram + Facebook Page ; la programmation et l'éditeur ne glissent pas |
+| La recette abîme le compte de la marque | Compte de test dédié pour toute la recette ; Établia ne reçoit que la première vraie vidéo, relue |
+| Le fondateur est le goulot (clés, OAuth, dossiers) | Tâches fondateur hors code, listées et planifiées avant chaque connecteur |
