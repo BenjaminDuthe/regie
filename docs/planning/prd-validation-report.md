@@ -7,7 +7,7 @@ inputDocuments:
   - saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs
   - saas-souverain:marketing/video/generer.mjs
   - assets-video-2466-sauvegarde:PUBLICATION.md
-validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation, step-v-08-domain-compliance-validation]
+validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation, step-v-08-domain-compliance-validation, step-v-09-project-type-validation]
 validationStatus: IN_PROGRESS
 ---
 
@@ -311,3 +311,43 @@ Couverture des 49 exigences fonctionnelles : 32 tracées à au moins un parcours
 **Méthode.** Le domaine déclaré au frontmatter du PRD a été confronté au référentiel des domaines réglementés (santé, finance, secteur public, éducation, aéronautique, automobile, recherche, droit, assurance, énergie, contrôle de procédés industriels, automatisation du bâtiment). Aucun signal de ces domaines n'apparaît dans le PRD : ni donnée de santé, ni transaction financière, ni marché public, ni dossier scolaire, ni système critique pour la sécurité des personnes. Le produit publie des vidéos de démonstration d'une application, sur les comptes de sa propre marque. Le référentiel classe ce cas en « général », complexité basse : les contrôles détaillés de conformité sectorielle sont donc écartés, conformément à la règle de l'étape.
 
 **Lecture.** La mention « complexité haute » portée au frontmatter du PRD ne contredit pas ce classement : elle qualifie la **complexité technique** du produit (chiffrement des secrets au repos, journal d'audit inaltérable, protocole MCP, portage d'un moteur de rendu), pas une exposition réglementaire sectorielle. Les deux exigences à caractère normatif présentes dans le PRD sont traitées à leur place et n'appellent aucune section spéciale ici : le RGPD, qui n'entre qu'avec les statistiques d'audience, explicitement renvoyées en V1.1 avec « le traitement RGPD associé » ; et les conditions d'utilisation des plateformes (agrément Meta et TikTok, agrément partenaire LinkedIn), qui sont des obligations contractuelles de tiers, déjà portées par le cadrage des phases et par les pages CGU et confidentialité servies en fin de V1. Un point reste à vérifier hors PRD, au moment de la mise en œuvre : la capture s'exécute sur un tenant de démonstration, et le PRD exige déjà qu'aucune donnée réelle de client d'Établia n'y figure — c'est une contrainte d'exploitation, pas une lacune du document.
+
+## Validation de conformité au type de projet
+
+**Type de projet :** `web_app + developer_tool (serveur MCP)`
+
+**Méthode.** Le référentiel des types de projet a été chargé en entier, puis les deux types déclarés au frontmatter du PRD y ont été confrontés. Les deux se cumulent : les sections requises de l'un s'ajoutent à celles de l'autre, et une section exclue par un type mais requise par l'autre reste due — la règle d'exclusion cède devant l'exigence. Le contrôle a été mené par lecture directe du PRD au commit `3cbeab3`, sans sous-processus, chaque section étant cherchée par son titre puis vérifiée sur son contenu, jamais sur son seul intitulé.
+
+### Sections requises
+
+Type `web_app` :
+
+- **Matrice des navigateurs** (`browser_matrix`) : Présente — « Navigateurs pris en charge » (l. 284-293) ; tableau Chromium récents testé en CI, Firefox récent pris en charge non testé, navigateurs mobiles hors V1, définition de « récent », version de capture unique partagée avec Playwright.
+- **Mise en page réactive** (`responsive_design`) : Présente — « Mise en page » (l. 295-297) et NFR27 (l. 607) ; ordinateur seulement, largeur minimale proposée de 1 280 px, bandeau en dessous sans rien masquer, décision du fondateur datée.
+- **Cibles de performance** (`performance_targets`) : Présente — « Cibles de performance » (l. 299-307) et NFR1 à NFR12 (l. 572-586) ; l'absence de cible chiffrée sur la durée de rendu est déclarée, motivée (aucune mesure n'existe) et rattachée à une tâche nommée, le chronométrage de « traiteur 1 ».
+- **Stratégie de référencement** (`seo_strategy`) : Présente — « Référencement » (l. 309-311) ; stratégie assumée du non-référencement : `noindex` sur les routes authentifiées, `/cgu` et `/confidentialite` accessibles sans être promues, `robots.txt` fermé sur le reste.
+- **Niveau d'accessibilité** (`accessibility_level`) : Présente — « Niveau d'accessibilité » (l. 313-315) et NFR24 à NFR27 (l. 604-607) ; niveau nommé (socle), seuil chiffré (contraste AA 4,5:1), moyen de vérification par exigence, et exclusions déclarées (lecteur d'écran, mobile).
+
+Type `developer_tool` :
+
+- **Matrice des langages** (`language_matrix`) : Présente — « Langages et environnement » (l. 317-328) ; tableau runtime, langage, gestionnaire, capture, rendu, SDK MCP, chacun avec son mode d'épinglage ; Python, conteneurisation et tout second runtime écartés de la V1.
+- **Méthodes d'installation** (`installation_methods`) : Présente — « Installation » (l. 330-339), FR49 (l. 562) et NFR34 (l. 620) ; quatre étapes énumérées, prérequis système documentés et vérifiés au démarrage, `.env.exemple` sans valeur, image de conteneur et paquet renvoyés en V1.1 avec l'installation tierce.
+- **Surface d'API** (`api_surface`) : Présente — « Surface d'API » (l. 341-357), FR37 à FR42 (l. 547-552) et NFR33 (l. 616) ; cinq familles d'outils MCP, jeton obligatoire, aucun outil sur les secrets, erreurs structurées, opérations longues rendant un identifiant, transport et règle de retrait d'un outil.
+- **Exemples d'usage** (`code_examples`) : Présente — « Exemples » (l. 359-369) et FR42 ; le PRD justifie que les exemples soient des prompts, le consommateur étant Claude, et en exige au moins cinq, un par parcours, rejoués à chaque version.
+- **Guide de migration** (`migration_guide`) : Présente — « Portage et migrations » (l. 371-376) et NFR35 (l. 621) ; migrations de schéma versionnées dès le premier commit et appliquées au démarrage, procédure de mise à jour d'une version à l'autre, rotation de la clé maîtresse par rechiffrement avec version de format, retrait d'un outil MCP annoncé une version à l'avance.
+
+### Sections exclues (ne doivent pas figurer)
+
+- **Conception visuelle** (`visual_design`, exclue par `developer_tool`) : Absente ✓ — aucune palette, typographie ni charte ; le PRD renvoie explicitement la référence visuelle à la maquette HTML du lot 5 (l. 272 et l. 383). Cette exclusion ne prive pas le PRD des exigences d'interface dues au type `web_app` : accessibilité et mise en page sont traitées à leur place, comme exigences de comportement, pas de style.
+- **Conformité de boutique** (`store_compliance`, exclue par `developer_tool`) : Absente ✓ — aucune boutique d'applications n'est visée. À ne pas confondre avec les agréments Meta, TikTok et LinkedIn, qui sont des conditions d'accès à des API de publication et sont traités au cadrage.
+- **Fonctions natives** (`native_features`, exclue par `web_app`) : Absente ✓ — aucune fonction de système d'exploitation, aucun accès matériel, aucune notification poussée ; le mobile est hors V1.
+- **Commandes en ligne** (`cli_commands`, exclue par `web_app`) : Absente ✓ — la ligne de commande figure au hors-périmètre confirmé (l. 384). Seule subsiste, en l. 375, une commande d'administration de rotation de la clé maîtresse : c'est une opération d'exploitation isolée, pas une interface en ligne de commande, et elle ne constitue pas une violation.
+
+### Synthèse de conformité
+
+**Sections requises :** 10 sur 10 présentes
+**Sections exclues présentes :** 0 (attendu : 0)
+**Score de conformité :** 100 %
+**Sévérité :** Pass — toutes les sections requises sont présentes et complètes, aucune section exclue n'a été trouvée.
+
+**Recommandation.** Aucune correction n'est requise à ce titre. Le PRD porte, en l. 272, la déclaration explicite de ce que le cumul des deux types écarte — conception visuelle poussée, conformité de boutique, fonctions natives, commandes en ligne — ce qui rend la conformité vérifiable sans reconstruction. Le seul point à surveiller à l'architecture n'est pas une lacune de section mais une valeur en attente : les cibles de performance restent des propositions jusqu'au chronométrage de « traiteur 1 », et le PRD exige que les valeurs mesurées **remplacent** les valeurs proposées plutôt que de s'y ajouter.
