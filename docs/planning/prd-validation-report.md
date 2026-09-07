@@ -7,7 +7,7 @@ inputDocuments:
   - saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs
   - saas-souverain:marketing/video/generer.mjs
   - assets-video-2466-sauvegarde:PUBLICATION.md
-validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation, step-v-08-domain-compliance-validation, step-v-09-project-type-validation, step-v-10-smart-validation, step-v-11-holistic-quality-validation]
+validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation, step-v-08-domain-compliance-validation, step-v-09-project-type-validation, step-v-10-smart-validation, step-v-11-holistic-quality-validation, step-v-12-completeness-validation]
 validationStatus: IN_PROGRESS
 ---
 
@@ -518,3 +518,65 @@ Le document est complet, cohérent, dense et traçable ; les trois principes par
 **Ce PRD est :** un contrat de capacités complet et traçable pour la V1 de regie, solide sur le périmètre et les parcours, dont les seules faiblesses sont des valeurs différées à une mesure et cinq exigences non fonctionnelles rédigées en solution.
 
 **Pour le rendre excellent :** traiter les trois améliorations ci-dessus.
+
+## Validation de complétude
+
+**Méthode.** Contrôle de recevabilité mené directement dans le contexte courant (dégradation gracieuse : aucun sous-agent ouvert). Quatre balayages : variables de gabarit restées dans le texte, présence du contenu attendu par section, complétude propre à chaque section, complétude du frontmatter. Ce contrôle ne juge pas la qualité — elle a été appréciée à l'étape précédente — seulement ce qui manque.
+
+### Complétude du gabarit
+
+**Variables de gabarit trouvées : 0**
+
+Balayage sur `{variable}`, `{{variable}}`, `[placeholder]`, `TBD`, `TODO`, `XXX` et leurs équivalents français : aucune occurrence. Aucune variable de gabarit ne subsiste ✓
+
+Seule occurrence d'accolades dans le document : `marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs` au frontmatter — un chemin de fichiers réel en notation d'expansion, pas un espace réservé.
+
+### Complétude du contenu par section
+
+**Résumé exécutif :** complet — quatre paragraphes (définition du produit, utilisateur cible, problème résolu, état futur visé) plus quatre puces « Ce qui rend ce produit singulier ». L'énoncé de vision est présent et repris au frontmatter (`vision.pilotage`, `vision.etatFutur`).
+
+**Critères de succès :** complet — succès utilisateur, succès business, succès technique, et une table `Résultats mesurables` à cinq indicateurs, chacun avec sa cible et sa méthode de mesure.
+
+**Périmètre du produit :** complet — MVP en sept points, Croissance (fin de V1, V1.1), Vision (V2 et au-delà). Le hors-périmètre est énoncé à trois endroits concordants : ici, au Cadrage, et en phrase de clôture des exigences fonctionnelles puis non fonctionnelles.
+
+**Parcours utilisateur :** complet — cinq parcours numérotés (P1 à P5) plus une table de synthèse rattachant dix capacités à leur parcours d'origine.
+
+**Exigences fonctionnelles :** complet — 49 exigences numérotées FR1 à FR49 sans trou, réparties en sept familles, précédées d'un préambule qui pose la valeur contractuelle de la liste.
+
+**Exigences non fonctionnelles :** complet — 37 exigences numérotées NFR1 à NFR37 sans trou, réparties en six familles (performance, fiabilité, sécurité, accessibilité, intégration, exploitation).
+
+**Autres sections :** complètes — Classification du projet (table à six lignes), Exigences propres au domaine, Innovation et motifs inédits, Exigences propres au type de projet, Cadrage du projet et développement par phases.
+
+### Complétude propre à chaque section
+
+**Mesurabilité des critères de succès : tous** mesurables — chacun des cinq indicateurs porte une cible et la source qui la constate (journal des publications, journal d'audit, test automatisé, scan de secrets).
+
+**Couverture des parcours : oui** — le produit n'a que deux acteurs, le fondateur et Claude ; les deux sont couverts, Claude comme acteur principal du parcours 4 et acteur alternatif des parcours 1 et 5.
+
+**Couverture du périmètre MVP par les exigences fonctionnelles : oui** — les sept capacités du MVP trouvent chacune leurs exigences : Paramètres (FR30 à FR32, FR43, FR44), Générateur (FR1 à FR8), Éditeur (FR9 à FR13), Librairie (FR15 à FR18), Publication Instagram (FR19 à FR29, FR33), MCP (FR37 à FR42), Socle (FR44 à FR46, FR49).
+
+**Critères propres aux exigences non fonctionnelles : une partie** — la forme mesurable est présente partout, mais douze exigences laissent leur valeur ouverte, volontairement renvoyée au chronométrage du scénario « traiteur 1 » et aux décisions d'architecture (relevé en détail à l'étape de mesurabilité).
+
+### Complétude du frontmatter
+
+**stepsCompleted :** présent — 13 entrées, une par étape de création.
+**classification :** présent — `projectType`, `domain`, `complexity`, `projectContext`, `distribution`.
+**inputDocuments :** présent — cinq entrées, plus `documentCounts` (0 cahier produit, 0 recherche, 0 idéation, 9 documents projet).
+**date :** absent — aucun champ de date, de version ou d'horodatage dans le frontmatter.
+
+**Complétude du frontmatter : 3/4**
+
+### Bilan de complétude
+
+**Complétude d'ensemble : 100 %** (6 sections requises complètes sur 6, et 5 sections supplémentaires complètes).
+
+**Manques bloquants : 0**
+
+**Manques mineurs : 2**
+
+1. Aucun champ de date au frontmatter : le document ne porte pas sa date de rédaction. Les décisions du fondateur sont datées dans le corps du texte, ce qui limite la portée du manque, mais un lecteur ne peut pas dater le document lui-même sans consulter l'historique du dépôt.
+2. Douze exigences non fonctionnelles sans valeur chiffrée, en attente d'une mesure assumée et planifiée (chronométrage, décisions d'architecture).
+
+**Sévérité : Warning** (aucune variable de gabarit, aucune section manquante ; deux manques mineurs).
+
+**Recommandation :** le PRD est recevable. Ajouter un champ de date au frontmatter, et remplacer les douze valeurs différées dès que le chronométrage aura eu lieu. Aucun des deux manques n'empêche de passer à l'étape suivante du cycle.
