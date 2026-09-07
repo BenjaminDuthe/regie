@@ -7,7 +7,7 @@ inputDocuments:
   - saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs
   - saas-souverain:marketing/video/generer.mjs
   - assets-video-2466-sauvegarde:PUBLICATION.md
-validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation]
+validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation]
 validationStatus: IN_PROGRESS
 ---
 
@@ -265,3 +265,37 @@ Couverture des 49 exigences fonctionnelles : 32 tracées à au moins un parcours
 **Recommandation du référentiel :** des lacunes de traçabilité ont été identifiées ; renforcer les chaînes pour que chaque exigence soit justifiée.
 
 **Lecture.** Les deux écarts sont des écarts d'amont, pas d'aval : aucune exigence n'est injustifiée, ce sont deux promesses du haut du document qui ne redescendent pas jusqu'en bas. Corrections proposées, à porter par `bmad-edit-prd` si le fondateur les retient : (1) une phrase dans le Résumé exécutif, au paragraphe de l'état futur (l. 41), annonçant qu'un échec de publication est visible avec sa cause et rejouable ; (2) pour la reproductibilité, soit accepter le test automatisé comme seule preuve (le critère l. 87 le dit déjà, coût nul), soit ajouter au parcours 4 un temps où Claude regénère une vidéo sans changement et constate un rendu identique. Point d'attention hors décompte : FR6 tient à une seule phrase du portage (l. 373) ; si l'exigence doit survivre à l'architecture, l'ancrer aussi dans le parcours 5 ou dans la table des risques du cadrage (rejeu de la connexion, page non capturable) la rendrait plus solide.
+
+## Validation des fuites d'implémentation
+
+**Méthode.** Analyse directe, sans sous-processus : balayage intégral des exigences fonctionnelles (l. 496-562) et non fonctionnelles (l. 572-623) du PRD au commit `3cbeab3`, à la recherche des sept familles du référentiel — cadres d'interface, cadres serveur, bases de données, plateformes d'hébergement, infrastructure, bibliothèques, autres détails d'implémentation — augmentées des protocoles et des formats. Un terme compte comme fuite quand il dit **comment construire** ; il est admis quand il nomme une **capacité** que le produit doit rendre ou une **contrainte du domaine** imposée de l'extérieur. Une occurrence par terme et par ligne vaut un écart.
+
+### Fuites par catégorie
+
+**Cadres d'interface :** 0 écart. Aucune exigence ne nomme de bibliothèque d'interface ; les exigences d'interface (NFR24 à NFR27) parlent de clavier, de contraste, de libellés et de largeur d'écran, jamais d'un cadre.
+
+**Cadres serveur :** 0 écart. Aucun serveur applicatif n'est nommé.
+
+**Bases de données :** 0 écart. NFR6 et NFR23 disent « la base » et « le schéma de base » sans jamais désigner de moteur.
+
+**Plateformes d'hébergement :** 1 écart. NFR36 (l. 622) nomme « GitHub Actions » comme lieu d'exécution de la CI ; l'exigence réelle est qu'un ensemble de contrôles s'exécute à chaque commit, non la plateforme qui les héberge.
+
+**Infrastructure :** 2 écarts. NFR34 (l. 620) exige « Chromium via Playwright » sur le poste ; NFR36 (l. 622) exige « Chromium et ffmpeg dans le job ». Le besoin est qu'un moteur de rendu et un moteur d'encodage soient disponibles, non que ce soient ceux-là.
+
+**Bibliothèques :** 4 écarts. NFR33 (l. 616) impose « le transport Streamable HTTP du SDK TypeScript officiel, épinglé » ; NFR34 (l. 620) nomme « Playwright » puis « ffmpeg avec libx264 » ; NFR36 (l. 622) nomme « ffmpeg » une seconde fois. Le choix d'une bibliothèque et l'épinglage de sa version relèvent de l'architecture.
+
+**Autres détails d'implémentation :** 5 écarts. NFR16 (l. 593) nomme la variable d'environnement `REGIE_MASTER_KEY`, alors que FR44 exprime déjà la même exigence sans la nommer (« une clé maîtresse fournie par l'environnement ») ; NFR34 (l. 620) impose « Node LTS », puis « pnpm » avec la commande `pnpm install`, puis le fichier `.env` ; NFR35 (l. 621) impose la mise à jour « par `git pull` puis `pnpm install` ».
+
+**Termes examinés et admis.** MCP (23 occurrences) : le produit *est* un serveur MCP par mandat du fondateur, c'est la capacité elle-même. Jeton (20) : objet du domaine, manipulé par le fondateur dans Paramètres. « API de réseau » (NFR11, NFR28, NFR29) : le système consommé est une API tierce, c'est un fait du domaine. « Streamable HTTP » (NFR33) : forme du contrat avec le client MCP, imposée de l'extérieur — seule la mention du SDK est comptée en fuite. « AES-256-GCM ou équivalent » (NFR16) : plancher de sécurité assorti d'une équivalence, donc un niveau exigé, pas un choix d'implémentation ; même lecture pour « hachage lent et salé » (NFR22). « Clé d'idempotence » (NFR9, NFR30, FR23) : propriété observable, non une technique. CI et commit (NFR15, NFR36) : le contrôle à chaque commit *est* l'exigence. Heure de Paris (NFR37), 1 280 px (NFR27), Meta, Instagram, Reels, Facebook, TikTok, LinkedIn : contraintes du domaine, toutes décidées par le fondateur.
+
+### Synthèse
+
+**Total des fuites d'implémentation :** 12
+
+**Sévérité :** Critical (plus de 5 écarts)
+
+**Recommandation du référentiel :** fuites d'implémentation étendues. Des exigences disent *comment* au lieu de *quoi*. Retirer les détails d'implémentation, qui relèvent de l'architecture, pas du PRD.
+
+**Note.** Les consommateurs d'API, le protocole MCP et les autres termes qui décrivent ce que le système doit faire restent admis quand ils énoncent le *quoi* et non le *comment*.
+
+**Lecture.** Les douze écarts sont concentrés dans cinq exigences (NFR16, NFR33, NFR34, NFR35, NFR36) et ont trois origines, toutes traçables : le portage brownfield du moteur vidéo existant, qui repose déjà sur Chromium et ffmpeg (l. 373, « repris tels quels ») ; les décisions techniques prises par le fondateur à l'étape « type de projet » et **déjà consignées** aux lignes 276, 280, 321-326, 334-337, 374 et 382 — un seul runtime, installation par clonage puis installation des dépendances, MCP en HTTP distant, CI à chaque commit ; le nom d'une variable d'environnement, déjà porté par les lignes 335 et 375. Aucune de ces mentions n'est fausse ni contestée : elles sont **redondantes**, répétées dans les exigences alors que la section « type de projet » les porte déjà et fait foi. La correction est donc à faible coût et sans perte d'information, si le fondateur la retient via `bmad-edit-prd` : NFR33 → « transport MCP distant avec jeton, conforme à la spécification MCP courante, version de la bibliothèque épinglée à l'architecture » ; NFR34 → « installation en quatre étapes sur un poste disposant du runtime unique et du moteur de rendu existant, prérequis documentés et contrôlés au démarrage » ; NFR35 → « mise à jour par récupération du dépôt puis installation des dépendances, migrations appliquées au démarrage » ; NFR36 → « CI exécutée à chaque commit, moteur de rendu disponible dans le job » ; NFR16 → « clé maîtresse lue dans l'environnement au démarrage », le nom de la variable étant renvoyé à l'architecture et au fichier d'exemple.
