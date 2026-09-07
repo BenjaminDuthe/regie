@@ -7,8 +7,10 @@ inputDocuments:
   - saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs
   - saas-souverain:marketing/video/generer.mjs
   - assets-video-2466-sauvegarde:PUBLICATION.md
-validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation, step-v-08-domain-compliance-validation, step-v-09-project-type-validation, step-v-10-smart-validation, step-v-11-holistic-quality-validation, step-v-12-completeness-validation]
-validationStatus: IN_PROGRESS
+validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation, step-v-08-domain-compliance-validation, step-v-09-project-type-validation, step-v-10-smart-validation, step-v-11-holistic-quality-validation, step-v-12-completeness-validation, step-v-13-report-complete]
+validationStatus: COMPLETE
+holisticQualityRating: '4/5 — Bon'
+overallStatus: Critical
 ---
 
 # Rapport de validation du PRD
@@ -580,3 +582,77 @@ Seule occurrence d'accolades dans le document : `marketing/video/moteur/{format,
 **Sévérité : Warning** (aucune variable de gabarit, aucune section manquante ; deux manques mineurs).
 
 **Recommandation :** le PRD est recevable. Ajouter un champ de date au frontmatter, et remplacer les douze valeurs différées dès que le chronométrage aura eu lieu. Aucun des deux manques n'empêche de passer à l'étape suivante du cycle.
+
+## Synthèse de validation
+
+**Méthode.** Cette section ne produit aucun constat nouveau : elle rassemble les résultats des douze contrôles précédents, tels qu'ils ont été écrits aux sections ci-dessus, et en tire un statut d'ensemble, une lecture et une recommandation. Toute divergence entre cette synthèse et une section amont doit être tranchée en faveur de la section amont.
+
+### Statut d'ensemble
+
+**Statut d'ensemble : Critical**, au sens strict du référentiel — deux contrôles sur douze rendent une sévérité Critical, et la règle veut qu'un seul suffise à porter l'ensemble à ce niveau.
+
+**Lecture.** Ce statut ne dit pas que le PRD est inutilisable, et il ne doit pas être lu ainsi. Les deux contrôles en cause pointent **deux causes bornées et déjà identifiées**, dont aucune ne touche la structure, le périmètre ni la traçabilité du document :
+
+1. **Douze valeurs chiffrées volontairement différées** à une mesure qui n'a pas encore eu lieu — le chronométrage d'une génération du scénario « traiteur 1 ». Ces douze écarts sont comptés une fois en mesurabilité (v-05, Critical) et recomptés en manque mineur de complétude (v-12) ; ce sont les mêmes.
+2. **Cinq exigences non fonctionnelles rédigées en solution** plutôt qu'en effet observable — NFR16 et NFR33 à NFR36 —, qui produisent les douze fuites d'implémentation relevées en v-07 (Critical). Aucune exigence fonctionnelle n'est concernée : les quarante-neuf FR sont intactes.
+
+Autrement dit, le document est complet à 100 %, conforme à son type de projet à 100 %, sans exigence orpheline et sans variable de gabarit ; ce qui le fait tomber en Critical tient à deux corrections circonscrites, l'une en attente d'une mesure, l'autre purement rédactionnelle.
+
+### Résultats par contrôle
+
+| # | Contrôle | Résultat |
+|---|---|---|
+| v-01 | Découverte des documents d'entrée | 5 documents, aucun cahier produit |
+| v-02 | Détection du format | BMAD Standard — 6 sections de base sur 6 |
+| v-03 | Densité d'information | **Pass** (0 violation) |
+| v-04 | Couverture du cahier produit | Sans objet (aucun cahier produit fourni) |
+| v-05 | Mesurabilité | **Critical** (12 exigences en écart) |
+| v-06 | Traçabilité | **Warning** (2 lacunes, 0 exigence orpheline) |
+| v-07 | Fuites d'implémentation | **Critical** (12 fuites, toutes dans les NFR) |
+| v-08 | Conformité au domaine | Sans objet (domaine non réglementé) |
+| v-09 | Conformité au type de projet | **Pass** (100 %) |
+| v-10 | Qualité SMART des exigences | **Pass** (0 % d'exigences signalées) |
+| v-11 | Appréciation holistique | **4/5 — Bon** (4 principes BMAD atteints sur 7) |
+| v-12 | Complétude | **Warning** (100 % de complétude, 2 manques mineurs) |
+
+### Écarts bloquants
+
+**Deux familles, 24 occurrences, aucune dans les exigences fonctionnelles.**
+
+1. **Mesurabilité — 12 exigences sans valeur chiffrée** (v-05). Des gabarits de NFR laissés ouverts en attendant le chronométrage : durée de rendu, seuils de lisibilité, délais de garde. Tant qu'ils portent une formule plutôt qu'un nombre, ces exigences ne sont ni testables ni opposables.
+2. **Fuites d'implémentation — 12 occurrences dans cinq NFR** (v-07 : NFR16, NFR33, NFR34, NFR35, NFR36). Ces exigences nomment le moyen (l'outil, la bibliothèque, le mécanisme) au lieu d'énoncer l'effet observable ; elles préemptent des décisions qui reviennent à l'architecture.
+
+### Avertissements
+
+1. **Traçabilité — 2 lacunes** (v-06) : sur 49 exigences fonctionnelles, 32 se rattachent à un parcours utilisateur, 16 à un objectif ou à une décision du fondateur, et **FR6** (média de substitution pour une page impossible à capturer) ne se rattache à aucun parcours. Aucune exigence orpheline au sens strict.
+2. **Complétude — 2 manques mineurs** (v-12) : le frontmatter du PRD ne porte **aucun champ de date** (3 champs attendus sur 4) ; et les douze valeurs différées déjà comptées au titre de la mesurabilité.
+
+### Forces
+
+- **Complétude intégrale** : les six sections de base BMAD sont présentes et complètes, cinq sections supplémentaires les renforcent, et le document ne contient **aucune variable de gabarit**, aucun `TODO`, aucun `[à compléter]`.
+- **Densité d'information sans remplissage** : contrôle v-03 en Pass, aucune violation détectée sur 625 lignes.
+- **Traçabilité explicite** : la table « Synthèse des exigences issues des parcours » et ses dix capacités font charnière entre les parcours et les exigences ; aucune exigence n'est orpheline.
+- **Qualité SMART** : 0 % des exigences fonctionnelles signalées, le meilleur résultat de la validation.
+- **Périmètre stable** : le hors-périmètre est énoncé en trois endroits concordants, chaque exclusion datée et attribuée au fondateur.
+- **Conformité au type de projet** : 100 %, pour un type composite (`web_app` + `developer_tool`) qui cumule deux référentiels.
+- **Double public servi** : 4/5 — un dirigeant lit le Résumé exécutif et cinq indicateurs chiffrés, un développeur lit 49 FR numérotées en sept familles.
+
+### Appréciation holistique
+
+**4/5 — Bon.** Quatre principes BMAD atteints sur sept (densité d'information, conscience du domaine, double public, format Markdown), trois partiels (mesurabilité, traçabilité, absence d'anti-motifs), aucun non atteint.
+
+### Trois améliorations prioritaires
+
+1. **Remplacer les gabarits de NFR restés sans valeur.** Chronométrer une génération du scénario « traiteur 1 », écrire la valeur constatée majorée d'une marge ; à défaut, écrire la valeur à partir de laquelle le résultat serait refusé. Lève les 12 écarts de mesurabilité et le second manque de complétude.
+2. **Réécrire les cinq NFR qui décrivent une solution** (NFR16, NFR33 à NFR36) : énoncer l'effet observable dans l'exigence, déplacer le moyen vers les Considérations de mise en œuvre. Lève les 12 fuites d'implémentation.
+3. **Rattacher FR6 à un parcours** — l'ajouter au parcours 5 comme échappatoire encadrée — ou l'assumer explicitement hors MVP, en fin de V1. Lève la lacune de traçabilité.
+
+À ces trois-là s'ajoute une correction d'une ligne : **ajouter un champ de date au frontmatter du PRD**, absent aujourd'hui.
+
+### Recommandation
+
+**Le PRD est recevable sous réserve des deux corrections ci-dessus.** Il est complet, structuré, traçable et conforme à son type de projet ; ce qui le maintient en Critical est circonscrit à douze valeurs en attente d'une mesure et à cinq exigences non fonctionnelles à reformuler — soit un travail d'édition ciblé, sans reprise de la structure ni du périmètre.
+
+Deux voies s'offrent donc, et elles ne s'excluent pas : corriger d'abord ces deux familles d'écarts (workflow `bmad-edit-prd`, qui sait consommer ce rapport), ou poursuivre la conception en tenant les valeurs différées pour ce qu'elles sont — un engagement à mesurer avant l'architecture. La seule chose à ne pas faire est de laisser les douze valeurs ouvertes traverser l'architecture : c'est là qu'elles deviendraient des hypothèses tacites.
+
+**Rapport de validation enregistré :** `docs/planning/prd-validation-report.md`
