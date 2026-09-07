@@ -7,7 +7,7 @@ inputDocuments:
   - saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs
   - saas-souverain:marketing/video/generer.mjs
   - assets-video-2466-sauvegarde:PUBLICATION.md
-validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation, step-v-08-domain-compliance-validation, step-v-09-project-type-validation]
+validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation, step-v-08-domain-compliance-validation, step-v-09-project-type-validation, step-v-10-smart-validation]
 validationStatus: IN_PROGRESS
 ---
 
@@ -351,3 +351,97 @@ Type `developer_tool` :
 **Sévérité :** Pass — toutes les sections requises sont présentes et complètes, aucune section exclue n'a été trouvée.
 
 **Recommandation.** Aucune correction n'est requise à ce titre. Le PRD porte, en l. 272, la déclaration explicite de ce que le cumul des deux types écarte — conception visuelle poussée, conformité de boutique, fonctions natives, commandes en ligne — ce qui rend la conformité vérifiable sans reconstruction. Le seul point à surveiller à l'architecture n'est pas une lacune de section mais une valeur en attente : les cibles de performance restent des propositions jusqu'au chronométrage de « traiteur 1 », et le PRD exige que les valeurs mesurées **remplacent** les valeurs proposées plutôt que de s'y ajouter.
+
+## Validation SMART des exigences
+
+**Total des exigences fonctionnelles :** 49 (FR1 à FR49, l. 496 à 562 du PRD)
+
+**Méthode.** Notation directe, exigence par exigence, sans sous-processus (voie de dégradation prévue par l'étape ; aucun sous-agent n'est ouvert dans cette session). Chaque FR est notée de 1 à 5 sur les cinq critères SMART, avec ces règles de lecture, appliquées uniformément :
+
+- **Spécifique** — 5 : acteur nommé, capacité sans ambiguïté ; 4 : capacité claire mais acteur implicite ou terme défini ailleurs ; 3 : un qualificatif non défini subsiste.
+- **Mesurable** — 5 : critère de réussite lisible dans l'exigence même ; 4 : critère lisible avec une autre exigence nommée (seuil, borne, délai) ; 3 : le seuil ou le délai est renvoyé à l'architecture.
+- **Atteignable** — 5 : ne dépend que de regie ; 4 : dépend d'un tiers dont le repli est écrit ; 3 : repose sur une hypothèse externe encore non vérifiée.
+- **Pertinent** — 5 : sert un critère de succès ou un parcours ; 4 : sert une décision consignée du fondateur.
+- **Traçable** — reprend la table de la validation de traçabilité : 5 = tracée à un parcours utilisateur, 4 = tracée à un objectif ou à une décision consignée, 3 = source unique et hors parcours.
+
+### Bilan des notes
+
+**Toutes notes ≥ 3 :** 100 % (49/49)
+**Toutes notes ≥ 4 :** 85,7 % (42/49)
+**Moyenne générale :** 4,67 / 5,0 (1 145 points sur 245 notes)
+**Exigences signalées (une note < 3) :** 0
+
+### Table de notation
+
+| FR | Spécifique | Mesurable | Atteignable | Pertinent | Traçable | Moyenne | Signal |
+|---|---|---|---|---|---|---|---|
+| FR1 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR2 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR3 | 5 | 5 | 5 | 5 | 4 | 4,8 | |
+| FR4 | 5 | 5 | 3 | 5 | 5 | 4,6 | |
+| FR5 | 5 | 4 | 4 | 5 | 5 | 4,6 | |
+| FR6 | 4 | 4 | 4 | 4 | 3 | 3,8 | |
+| FR7 | 5 | 4 | 5 | 5 | 5 | 4,8 | |
+| FR8 | 4 | 3 | 4 | 5 | 5 | 4,2 | |
+| FR9 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR10 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR11 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR12 | 4 | 3 | 4 | 5 | 5 | 4,2 | |
+| FR13 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR14 | 5 | 5 | 5 | 4 | 4 | 4,6 | |
+| FR15 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR16 | 5 | 4 | 5 | 5 | 5 | 4,8 | |
+| FR17 | 5 | 5 | 4 | 5 | 4 | 4,6 | |
+| FR18 | 5 | 5 | 5 | 5 | 4 | 4,8 | |
+| FR19 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR20 | 5 | 5 | 4 | 5 | 4 | 4,6 | |
+| FR21 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR22 | 5 | 5 | 4 | 5 | 5 | 4,8 | |
+| FR23 | 5 | 4 | 4 | 5 | 4 | 4,4 | |
+| FR24 | 4 | 4 | 4 | 5 | 4 | 4,2 | |
+| FR25 | 4 | 5 | 5 | 5 | 5 | 4,8 | |
+| FR26 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR27 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR28 | 5 | 5 | 5 | 5 | 4 | 4,8 | |
+| FR29 | 4 | 4 | 4 | 4 | 4 | 4,0 | |
+| FR30 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR31 | 5 | 5 | 4 | 5 | 5 | 4,8 | |
+| FR32 | 4 | 3 | 4 | 5 | 5 | 4,2 | |
+| FR33 | 5 | 5 | 3 | 5 | 5 | 4,6 | |
+| FR34 | 5 | 5 | 4 | 5 | 4 | 4,6 | |
+| FR35 | 4 | 4 | 4 | 5 | 4 | 4,2 | |
+| FR36 | 5 | 4 | 4 | 4 | 5 | 4,4 | |
+| FR37 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR38 | 4 | 4 | 4 | 5 | 5 | 4,4 | |
+| FR39 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR40 | 5 | 4 | 5 | 5 | 5 | 4,8 | |
+| FR41 | 4 | 4 | 5 | 5 | 5 | 4,6 | |
+| FR42 | 5 | 5 | 4 | 5 | 4 | 4,6 | |
+| FR43 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR44 | 3 | 4 | 4 | 5 | 4 | 4,0 | |
+| FR45 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR46 | 5 | 5 | 5 | 5 | 5 | 5,0 | |
+| FR47 | 5 | 5 | 4 | 4 | 4 | 4,4 | |
+| FR48 | 4 | 4 | 5 | 5 | 4 | 4,4 | |
+| FR49 | 5 | 4 | 4 | 5 | 5 | 4,6 | |
+
+**Légende :** 1 = insuffisant, 3 = acceptable, 5 = excellent. **Signal** : une note inférieure à 3 dans au moins un critère — aucune exigence n'en porte.
+
+### Suggestions d'amélioration
+
+Aucune exigence n'atteint le seuil de signalement (note < 3), donc aucune correction n'est due à ce titre. Les sept exigences qui portent un 3 sont listées ici comme points d'attention, avec ce qui les relèverait — à porter par `bmad-edit-prd` seulement si le fondateur retient l'un d'eux :
+
+- **FR4** (Atteignable 3) — le rejeu de la connexion enregistrée suppose que le compte de démo n'exige pas de second facteur et que son écran de connexion ne change pas. Le cadrage nomme déjà ce risque ; l'exigence gagnerait à porter la condition qu'elle suppose (« sur un compte sans second facteur »).
+- **FR6** (Traçable 3) — le média de substitution n'est appelé par aucun parcours ni par le périmètre du MVP ; sa seule source est le paragraphe de portage du moteur. Le rattacher au parcours de génération, ou le déclarer explicitement comme capacité de secours.
+- **FR8** et **FR12** (Mesurable 3) — les gardes de lisibilité et de zone sûre sont nommées, mais leurs seuils chiffrés vivent hors du PRD. FR13 impose déjà que le refus affiche la mesure et le seuil ; nommer où ces seuils sont définis (fichier de règles versionné) rendrait la mesure vérifiable sans lire le code.
+- **FR32** (Mesurable 3) — « prévenu avant qu'une publication n'échoue pour jeton expiré » n'a pas de délai ; NFR31 renvoie ce délai à l'architecture. Une valeur proposée, même à confirmer, suffirait à rendre l'exigence testable.
+- **FR33** (Atteignable 3) — la publication d'un Reel sans agrément est l'hypothèse la plus risquée du projet ; le cadrage la fait vérifier par un script jetable avant toute ligne de code. La note remontera d'elle-même quand ce résultat sera consigné.
+- **FR44** (Spécifique 3) — « un message explicite » est le seul adjectif non défini des 49 exigences (déjà relevé à la validation de la mesurabilité). Nommer ce que le message doit contenir : la variable attendue et l'action à faire.
+
+### Appréciation d'ensemble
+
+**Sévérité :** Pass (0 % d'exigences signalées ; seuil du référentiel : Pass < 10 %, Warning 10-30 %, Critical > 30 %)
+
+**Recommandation :** les exigences fonctionnelles présentent une bonne qualité SMART d'ensemble. Aucune révision n'est requise à ce titre.
+
+**Lecture.** Les deux critères les plus fermes sont **Pertinent** (aucune exigence sans usage) et **Traçable** (aucune orpheline, conformément à la table de traçabilité). Les notes basses se concentrent sur **Atteignable** et **Mesurable**, et toujours pour la même raison : une valeur ou une hypothèse volontairement renvoyée à une mesure future — le chronométrage, le script jetable, les seuils de garde. Ce n'est pas un défaut de rédaction, c'est une dette de vérification que le PRD assume et nomme ; elle s'éteindra aux premières mesures, sans réécrire une seule exigence.
