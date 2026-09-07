@@ -7,7 +7,7 @@ inputDocuments:
   - saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs
   - saas-souverain:marketing/video/generer.mjs
   - assets-video-2466-sauvegarde:PUBLICATION.md
-validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation]
+validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation, step-v-08-domain-compliance-validation]
 validationStatus: IN_PROGRESS
 ---
 
@@ -299,3 +299,15 @@ Couverture des 49 exigences fonctionnelles : 32 tracées à au moins un parcours
 **Note.** Les consommateurs d'API, le protocole MCP et les autres termes qui décrivent ce que le système doit faire restent admis quand ils énoncent le *quoi* et non le *comment*.
 
 **Lecture.** Les douze écarts sont concentrés dans cinq exigences (NFR16, NFR33, NFR34, NFR35, NFR36) et ont trois origines, toutes traçables : le portage brownfield du moteur vidéo existant, qui repose déjà sur Chromium et ffmpeg (l. 373, « repris tels quels ») ; les décisions techniques prises par le fondateur à l'étape « type de projet » et **déjà consignées** aux lignes 276, 280, 321-326, 334-337, 374 et 382 — un seul runtime, installation par clonage puis installation des dépendances, MCP en HTTP distant, CI à chaque commit ; le nom d'une variable d'environnement, déjà porté par les lignes 335 et 375. Aucune de ces mentions n'est fausse ni contestée : elles sont **redondantes**, répétées dans les exigences alors que la section « type de projet » les porte déjà et fait foi. La correction est donc à faible coût et sans perte d'information, si le fondateur la retient via `bmad-edit-prd` : NFR33 → « transport MCP distant avec jeton, conforme à la spécification MCP courante, version de la bibliothèque épinglée à l'architecture » ; NFR34 → « installation en quatre étapes sur un poste disposant du runtime unique et du moteur de rendu existant, prérequis documentés et contrôlés au démarrage » ; NFR35 → « mise à jour par récupération du dépôt puis installation des dépendances, migrations appliquées au démarrage » ; NFR36 → « CI exécutée à chaque commit, moteur de rendu disponible dans le job » ; NFR16 → « clé maîtresse lue dans l'environnement au démarrage », le nom de la variable étant renvoyé à l'architecture et au fichier d'exemple.
+
+## Validation de conformité au domaine
+
+**Domaine :** marketing réseaux sociaux (vidéos d'écrans d'Établia)
+
+**Complexité réglementaire du domaine :** basse (domaine général)
+
+**Évaluation :** sans objet — aucune section de conformité sectorielle n'est exigée.
+
+**Méthode.** Le domaine déclaré au frontmatter du PRD a été confronté au référentiel des domaines réglementés (santé, finance, secteur public, éducation, aéronautique, automobile, recherche, droit, assurance, énergie, contrôle de procédés industriels, automatisation du bâtiment). Aucun signal de ces domaines n'apparaît dans le PRD : ni donnée de santé, ni transaction financière, ni marché public, ni dossier scolaire, ni système critique pour la sécurité des personnes. Le produit publie des vidéos de démonstration d'une application, sur les comptes de sa propre marque. Le référentiel classe ce cas en « général », complexité basse : les contrôles détaillés de conformité sectorielle sont donc écartés, conformément à la règle de l'étape.
+
+**Lecture.** La mention « complexité haute » portée au frontmatter du PRD ne contredit pas ce classement : elle qualifie la **complexité technique** du produit (chiffrement des secrets au repos, journal d'audit inaltérable, protocole MCP, portage d'un moteur de rendu), pas une exposition réglementaire sectorielle. Les deux exigences à caractère normatif présentes dans le PRD sont traitées à leur place et n'appellent aucune section spéciale ici : le RGPD, qui n'entre qu'avec les statistiques d'audience, explicitement renvoyées en V1.1 avec « le traitement RGPD associé » ; et les conditions d'utilisation des plateformes (agrément Meta et TikTok, agrément partenaire LinkedIn), qui sont des obligations contractuelles de tiers, déjà portées par le cadrage des phases et par les pages CGU et confidentialité servies en fin de V1. Un point reste à vérifier hors PRD, au moment de la mise en œuvre : la capture s'exécute sur un tenant de démonstration, et le PRD exige déjà qu'aucune donnée réelle de client d'Établia n'y figure — c'est une contrainte d'exploitation, pas une lacune du document.
