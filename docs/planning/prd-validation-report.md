@@ -7,7 +7,7 @@ inputDocuments:
   - saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs
   - saas-souverain:marketing/video/generer.mjs
   - assets-video-2466-sauvegarde:PUBLICATION.md
-validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation, step-v-08-domain-compliance-validation, step-v-09-project-type-validation, step-v-10-smart-validation]
+validationStepsCompleted: [step-v-01-discovery, step-v-02-format-detection, step-v-03-density-validation, step-v-04-brief-coverage-validation, step-v-05-measurability-validation, step-v-06-traceability-validation, step-v-07-implementation-leakage-validation, step-v-08-domain-compliance-validation, step-v-09-project-type-validation, step-v-10-smart-validation, step-v-11-holistic-quality-validation]
 validationStatus: IN_PROGRESS
 ---
 
@@ -445,3 +445,76 @@ Aucune exigence n'atteint le seuil de signalement (note < 3), donc aucune correc
 **Recommandation :** les exigences fonctionnelles présentent une bonne qualité SMART d'ensemble. Aucune révision n'est requise à ce titre.
 
 **Lecture.** Les deux critères les plus fermes sont **Pertinent** (aucune exigence sans usage) et **Traçable** (aucune orpheline, conformément à la table de traçabilité). Les notes basses se concentrent sur **Atteignable** et **Mesurable**, et toujours pour la même raison : une valeur ou une hypothèse volontairement renvoyée à une mesure future — le chronométrage, le script jetable, les seuils de garde. Ce n'est pas un défaut de rédaction, c'est une dette de vérification que le PRD assume et nomme ; elle s'éteindra aux premières mesures, sans réécrire une seule exigence.
+
+## Appréciation holistique de la qualité
+
+**Méthode.** Évaluation directe du document entier dans le contexte courant (voie de dégradation gracieuse : aucun sous-agent n'est ouvert dans cette session, l'élicitation avancée n'est pas disponible). Le PRD a été relu pour sa forme d'ensemble — les 50 titres de ses 625 lignes, son ouverture, sa charnière de traçabilité et sa clôture — et non composant par composant : ce contrôle juge la lecture, pas les exigences prises une à une, déjà notées aux étapes v-03 à v-10.
+
+### Déroulé et cohérence du document
+
+**Appréciation.** L'ordonnancement va du général au vérifiable sans revenir en arrière : Résumé exécutif → Classification → Critères de succès → Périmètre → Parcours utilisateur → Exigences propres au domaine → Innovation → Exigences propres au type de projet → Cadrage et phases → Exigences fonctionnelles → Exigences non fonctionnelles. Chaque section suppose la précédente et aucune n'exige la suivante pour se comprendre. Un lecteur qui s'arrête après le Périmètre sait déjà ce qu'est le produit et ce qu'il ne sera pas ; un lecteur qui va jusqu'aux FR sait pourquoi chacune existe.
+
+**Forces.**
+
+- La **charnière de traçabilité est explicite** : la table « Synthèse des exigences issues des parcours » nomme dix capacités et le parcours qui les impose, avant que la première FR ne soit écrite. Elle transforme le passage narratif → contractuel en un objet vérifiable, ce qu'a confirmé v-06 (32 FR sur 49 remontent à un parcours nommé).
+- Le **périmètre se répète sans se contredire** : ce qui est hors V1 est dit au Périmètre, redit au Cadrage avec sa phase de retour, et reformulé en une phrase d'exclusion à la fin des FR puis des NFR. Les trois formulations disent la même chose ; c'est de la redondance utile, pas de la dérive.
+- La **voix est constante** : présent de l'indicatif, sujet nommé (le fondateur, Claude, regie), pas de conditionnel. Le document ne négocie pas avec lui-même.
+- Les **décisions du fondateur sont datées et attribuées** au fil des sections, jamais fondues dans une justification anonyme. Un lecteur peut rouvrir un arbitrage sans deviner qui l'a tranché.
+
+**Axes d'amélioration.**
+
+- Le document **n'a ni sommaire ni index des exigences**. À 625 lignes et 50 titres, une table des matières en tête et un renvoi FR → section d'origine feraient gagner un temps réel à la relecture, surtout pour l'architecture qui reviendra chercher une exigence isolée.
+- La **section Innovation et motifs inédits est la plus faible en information dure** : elle argumente une position (le pilotage par MCP comme motif rare) sans chiffre ni source, là où le reste du document s'appuie sur des décisions datées ou des mesures à venir. Elle ne ment pas — elle assume une conviction — mais elle détonne dans un document par ailleurs très factuel.
+- Les **valeurs de performance restent des propositions**, marquées comme telles et renvoyées au chronométrage de « traiteur 1 ». C'est honnête et c'est la bonne décision, mais cela laisse un lecteur pressé sans cible chiffrée sur toute la section Performance.
+
+### Efficacité pour le double public
+
+**Pour les humains.**
+
+- *Dirigeant* : le Résumé exécutif tient en quatre paragraphes et la table Résultats mesurables donne cinq indicateurs chiffrés. Une décision d'engagement se prend sur ces deux blocs.
+- *Développeur* : les 49 FR sont numérotées, thématisées en sept familles et énoncent un acteur et un effet, sans dire comment le faire — v-07 a relevé douze fuites d'implémentation, toutes concentrées dans les NFR (NFR16, NFR33 à NFR36), aucune dans les FR.
+- *Concepteur d'interface* : les cinq parcours décrivent un enchaînement d'écrans et d'états sans imposer de maquette ; les états de la librairie (brouillon, prête, refusée, programmée, publiée, échec) et les diagnostics de garde donnent la matière d'un écran sans la dessiner.
+- *Décideur de périmètre* : le Cadrage nomme l'ordre de livraison, ce qui glisse en premier si le temps manque, et ce qui ne glisse jamais. Un arbitrage de fin de V1 se tranche sans rouvrir le débat.
+
+**Pour les modèles de langage.**
+
+- *Structure lisible par machine* : titres à trois niveaux cohérents, exigences préfixées `FR`/`NFR` numérotées sans trou, tables Markdown régulières, frontmatter YAML renseigné (classification, vision, phases, documents d'entrée). Un traitement automatique peut extraire les exigences sans analyse de prose.
+- *Prêt pour la conception d'interface* : les parcours fournissent acteurs, états et transitions ; les libellés d'états sont fixés dans le document et repris à l'identique dans les FR.
+- *Prêt pour l'architecture* : les contraintes techniques, les intégrations, les bornes par réseau, la clé maîtresse et le runtime unique sont posés ; ce qui manque est explicitement renvoyé à l'architecture, jamais laissé vide en silence.
+- *Prêt pour les epics et stories* : les sept familles de FR se découpent presque directement en epics, et le Cadrage donne l'ordre. Réserve : les douze écarts de mesurabilité relevés en v-05 devront recevoir leur valeur avant qu'une story ne soit dite « finie ».
+
+**Note du double public : 4/5.** Le document sert les deux publics sans compromis visible ; ce qui coûte le cinquième point est l'absence de sommaire et de renvoi FR → parcours dans le corps même du document — utiles à l'humain, et évidents à produire pour la machine.
+
+### Conformité aux principes du PRD BMAD
+
+| Principe | Statut | Notes |
+|---|---|---|
+| Densité d'information | Atteint | v-03 : 0 remplissage, 0 tournure verbeuse, 0 redondance sur les trois familles du standard (sévérité Pass) |
+| Mesurabilité | Partiel | v-05 : 12 écarts Critical, tous des gabarits de NFR laissés sans valeur, renvoyés au chronométrage à venir |
+| Traçabilité | Partiel | v-06 : 2 Warning ; 32 FR sur 49 remontent à un parcours nommé, 16 à un objectif ou une décision datée, 1 (FR6) à une source unique hors parcours |
+| Conscience du domaine | Atteint | v-08 : sans objet au sens du référentiel (aucun domaine réglementé), mais conformité RGPD, CGU et règles de plateforme traitées explicitement |
+| Absence d'anti-motifs | Partiel | v-07 : 12 fuites d'implémentation, toutes dans les NFR (NFR16, NFR33 à NFR36) ; aucune dans les 49 FR |
+| Double public | Atteint | Ouverture exécutive, exigences numérotées, tables régulières, frontmatter structuré ; note 4/5 ci-dessus |
+| Format Markdown | Atteint | v-02 : format détecté et conforme ; titres hiérarchisés, tables valides, frontmatter YAML complet |
+
+**Principes atteints : 4/7** (3 partiels, 0 non atteint).
+
+### Note globale de qualité
+
+**Note : 4/5 — Bon.**
+
+Échelle : 5 Excellent (prêt sans réserve) · 4 Bon (solide, corrections mineures) · 3 Adéquat (utilisable, lacunes notables) · 2 À retravailler (écarts importants) · 1 Problématique (refonte nécessaire).
+
+Le document est complet, cohérent, dense et traçable ; les trois principes partiels tiennent à deux causes précises et bornées — des valeurs volontairement renvoyées à une mesure future, et des NFR rédigées en solution plutôt qu'en exigence. Aucune des deux ne remet en cause la structure ni le périmètre. Le cinquième point s'obtiendra par correction, pas par réécriture.
+
+### Trois améliorations prioritaires
+
+1. **Remplacer les gabarits de NFR restés sans valeur.** Douze exigences non fonctionnelles portent une forme mesurable mais pas de nombre (v-05, Critical). Pourquoi : une NFR sans valeur ne se teste pas, donc ne se refuse pas — elle passera en recette par défaut. Comment : chronométrer une génération du scénario « traiteur 1 » comme prévu, puis écrire la valeur constatée majorée d'une marge assumée dans chaque NFR concernée ; là où la mesure n'existera pas avant l'architecture, écrire la valeur qui déclenche le refus plutôt que de laisser le champ ouvert.
+2. **Réécrire les cinq NFR qui décrivent une solution.** NFR16 et NFR33 à NFR36 nomment un moyen (mécanisme, dispositif, outillage) là où l'exigence devrait nommer un effet observable (v-07, 12 occurrences Critical). Pourquoi : une exigence qui impose le moyen ferme l'espace d'architecture avant qu'elle ne commence, et rend l'exigence invérifiable autrement qu'en inspectant le code. Comment : pour chacune, énoncer ce que le fondateur doit pouvoir constater, et déplacer le moyen évoqué vers les Considérations de mise en œuvre, où il est légitime comme intention.
+3. **Rattacher FR6 à un parcours ou l'assumer comme hors parcours.** FR6 (média de substitution pour une page impossible à capturer) est la seule exigence dont la source est une remarque isolée, sans parcours ni décision datée (v-06, et point d'attention repris en v-10). Pourquoi : une exigence sans parcours n'a pas de recette naturelle, et se retrouve arbitrée en cours de route par celui qui la code. Comment : soit l'ajouter au parcours 5 (la vidéo refusée par la garde) comme échappatoire encadrée avec sa recette, soit la marquer explicitement hors MVP et la faire descendre en fin de V1.
+
+### Synthèse
+
+**Ce PRD est :** un contrat de capacités complet et traçable pour la V1 de regie, solide sur le périmètre et les parcours, dont les seules faiblesses sont des valeurs différées à une mesure et cinq exigences non fonctionnelles rédigées en solution.
+
+**Pour le rendre excellent :** traiter les trois améliorations ci-dessus.
