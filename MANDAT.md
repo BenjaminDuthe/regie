@@ -24,8 +24,9 @@ une fois les vidéo génrer elle sont disponible dans une librairie disponible p
 | 2 | Verdict API payantes (TikTok, Instagram, Facebook Page, X, LinkedIn) → exclusion de la V1 | Tableau dans le PRD, validé par le fondateur | fait (2026-09-06) — tableau « Classification du projet » et section « Exigences propres au domaine » du PRD |
 | 3 | PRD complet : régie web + générateur vidéo (URL ordonnées, connexion app enregistrée, scrap) + éditeur textes/animations + librairie + publication 1 clic / programmée + paramètres clés API + MCP | `prd.md` dans le nouveau dépôt, workflow BMAD arrivé à `step-12-complete` | fait (2026-09-06) — `docs/planning/prd.md` (49 FR, 37 NFR), workflow arrivé à `step-12-complete` |
 | 4 | Nouveau dépôt GitHub PUBLIC rassemblant toutes les infos (PRD, mandat, moteur vidéo existant porté ou référencé) | `gh repo view` = PUBLIC ; MANDAT à la racine, PRD dans `docs/planning/prd.md`, moteur vidéo référencé dans le PRD (portage = travail d'architecture) | fait (2026-09-06) |
-| 5 | Serveur de dev avec l'HTML prêt (maquette UX + structure) pour validation | Preview ouverte, capture envoyée, validation du fondateur | en cours (2026-09-08) |
+| 5 | Serveur de dev avec l'HTML prêt (maquette UX + structure) pour validation | Preview ouverte, capture envoyée, validation du fondateur | fait (2026-09-08) — 7 écrans servis par `maquette/serveur.mjs` (port 4310), preview ouverte, 8 captures envoyées, UX validée par le fondateur le 2026-09-08 |
 | 6 | Validation du PRD par le workflow BMAD `bmad-validate-prd` (choix du fondateur, 2026-09-06, avant la maquette) | Rapport de validation dans `docs/planning/`, écarts traités ou consignés | fait (2026-09-08) — docs/planning/prd-validation-report.md, 13 étapes, statut Critical, note 4/5 |
+| 7 | Architecture technique (`bmad-create-architecture`) : briques retenues, schéma des données, contrat des outils MCP, portage du moteur vidéo existant | `docs/planning/architecture.md` dans le dépôt, workflow BMAD arrivé à sa dernière étape | en cours (2026-09-08) |
 
 ## Contraintes posées par le fondateur
 - Projet À PART de saas-souverain — rien dans ce dépôt-ci.
