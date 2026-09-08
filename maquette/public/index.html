@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Librairie — regie (maquette)</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="bandeau-maquette">
+  <strong>Maquette regie</strong>
+  <span>Données d'exemple, aucune donnée réelle — aucun bouton n'agit. Validation de l'UX et de la structure uniquement.</span>
+</div>
+<div class="garde-largeur">
+  regie est prévue pour un écran d'ordinateur d'au moins 1 280 px de large. Cette fenêtre est plus étroite : la mise en page n'est pas représentative.
+</div>
+
+<div class="app">
+  <aside class="rail">
+    <div class="marque">
+      <b>regie</b>
+      <em>Établia — marque unique</em>
+    </div>
+    <nav>
+      <a href="/index.html" aria-current="page">Librairie <span class="pastille">7</span></a>
+      <a href="/generateur.html">Générateur</a>
+      <a href="/editeur.html">Éditeur</a>
+      <a href="/publication.html">Publications <span class="pastille">3</span></a>
+      <div class="separateur"></div>
+      <a href="/parametres.html">Paramètres</a>
+      <a href="/audit.html">Journal d'audit</a>
+      <div class="separateur"></div>
+      <a href="/mise-en-route.html">Première mise en route</a>
+    </nav>
+    <div class="separateur"></div>
+    <p class="note">Tout ce qui est visible ici est aussi pilotable par Claude via MCP, sauf les clés d'API et les autorisations de réseaux, réservées à l'interface.</p>
+  </aside>
+
+  <main class="page">
+    <div class="entete">
+      <div>
+        <h1>Librairie</h1>
+        <p>Chaque vidéo générée, son statut et la raison de ce statut. Une vidéo prête peut partir en publication immédiate ou programmée.</p>
+      </div>
+      <div class="actions">
+        <a class="bouton" href="/generateur.html">Nouvelle génération</a>
+        <a class="bouton primaire" href="/publication.html">Programmer une publication</a>
+      </div>
+    </div>
+
+    <div class="pile">
+
+      <div class="carte">
+        <header>
+          <h2>Filtres</h2>
+          <span class="sous">7 vidéos courantes · 2 archivées</span>
+        </header>
+        <div class="corps">
+          <div class="filtres">
+            <button class="puce" aria-pressed="true">Toutes</button>
+            <button class="puce" aria-pressed="false">Brouillon</button>
+            <button class="puce" aria-pressed="false">Prête</button>
+            <button class="puce" aria-pressed="false">Refusée</button>
+            <button class="puce" aria-pressed="false">Programmée</button>
+            <button class="puce" aria-pressed="false">Publiée</button>
+            <button class="puce" aria-pressed="false">Échec</button>
+            <button class="puce" aria-pressed="false">Archivées</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="carte">
+        <header>
+          <h2>Vidéos</h2>
+          <span class="sous">Verticales, muettes, générées depuis un scénario de pages</span>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 38%">Vidéo</th>
+              <th>Statut</th>
+              <th>Légende et hashtags</th>
+              <th>Durée de rendu</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="ligne-video">
+                  <div class="vignette">9:16</div>
+                  <div>
+                    <div class="titre">Relevés entre services</div>
+                    <div class="meta">Scénario « restaurateur 1 » · 6 scènes · générée le 08/09 à 09:14</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="etat prete">Prête</span><div class="meta">Bornes des 3 réseaux vérifiées</div></td>
+              <td>
+                <div class="meta">« Trois relevés par service, et le registre se remplit tout seul. »</div>
+                <div class="meta">5 hashtags sur 5</div>
+              </td>
+              <td class="meta">1 min 48 s</td>
+              <td class="actions-cel">
+                <a class="bouton" href="/editeur.html">Éditer</a>
+                <a class="bouton primaire" href="/publication.html">Publier</a>
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                <div class="ligne-video">
+                  <div class="vignette">9:16</div>
+                  <div>
+                    <div class="titre">Plan de nettoyage</div>
+                    <div class="meta">Scénario « restaurateur 2 » · 5 scènes · générée le 08/09 à 08:52</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="etat refusee">Refusée</span>
+                <div class="meta">Garde de zone sûre — scène 3</div>
+              </td>
+              <td class="meta">Légende non renseignée</td>
+              <td class="meta">1 min 12 s</td>
+              <td class="actions-cel">
+                <a class="bouton" href="/editeur.html">Ouvrir la scène fautive</a>
+                <button class="bouton primaire" disabled>Publier</button>
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                <div class="ligne-video">
+                  <div class="vignette">9:16</div>
+                  <div>
+                    <div class="titre">Chaîne du froid</div>
+                    <div class="meta">Scénario « traiteur 3 » · 7 scènes · générée le 07/09 à 18:30</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="etat programmee">Programmée</span>
+                <div class="meta">Instagram — 09/09 à 12:30 (heure de Paris)</div>
+              </td>
+              <td>
+                <div class="meta">« La chaîne du froid, de la réception à l'assiette. »</div>
+                <div class="meta">4 hashtags sur 5</div>
+              </td>
+              <td class="meta">2 min 05 s</td>
+              <td class="actions-cel">
+                <a class="bouton" href="/publication.html">Déplacer</a>
+                <a class="bouton" href="/publication.html">Annuler</a>
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                <div class="ligne-video">
+                  <div class="vignette">9:16</div>
+                  <div>
+                    <div class="titre">Traçabilité amont</div>
+                    <div class="meta">Scénario « traiteur 2 » · 6 scènes · générée le 05/09 à 10:02</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="etat publiee">Publiée</span>
+                <div class="meta">Instagram · identifiant renvoyé : 178…4021</div>
+              </td>
+              <td>
+                <div class="meta">« Le lot du fournisseur suit le plat jusqu'au client. »</div>
+                <div class="meta">5 hashtags sur 5</div>
+              </td>
+              <td class="meta">1 min 57 s</td>
+              <td class="actions-cel">
+                <button class="bouton" disabled>Supprimer</button>
+                <button class="bouton">Archiver</button>
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                <div class="ligne-video">
+                  <div class="vignette">9:16</div>
+                  <div>
+                    <div class="titre">Contrôle surprise</div>
+                    <div class="meta">Scénario « restaurateur 3 » · 5 scènes · générée le 04/09 à 16:41</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="etat echec">Échec</span>
+                <div class="meta">Jeton Instagram expiré — rejouable après reconnexion</div>
+              </td>
+              <td>
+                <div class="meta">« Le contrôleur entre. Vous ouvrez le registre. »</div>
+                <div class="meta">5 hashtags sur 5</div>
+              </td>
+              <td class="meta">1 min 33 s</td>
+              <td class="actions-cel">
+                <a class="bouton" href="/parametres.html">Reconnecter</a>
+                <button class="bouton primaire">Rejouer</button>
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                <div class="ligne-video">
+                  <div class="vignette">9:16</div>
+                  <div>
+                    <div class="titre">Production du jour</div>
+                    <div class="meta">Scénario « traiteur 1 » · 8 scènes · génération en cours</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="etat attente">En cours</span>
+                <div class="meta">Étape 5 sur 8 — capture de la page « fiche de production »</div>
+              </td>
+              <td class="meta">—</td>
+              <td class="meta">chronométrage en cours</td>
+              <td class="actions-cel">
+                <button class="bouton" disabled>Éditer</button>
+                <button class="bouton primaire" disabled>Publier</button>
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                <div class="ligne-video">
+                  <div class="vignette">9:16</div>
+                  <div>
+                    <div class="titre">Réception HACCP</div>
+                    <div class="meta">Scénario « réception » · 6 scènes · brouillon du 03/09</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="etat brouillon">Brouillon</span>
+                <div class="meta">Jamais publiée — suppression possible</div>
+              </td>
+              <td class="meta">Légende non renseignée</td>
+              <td class="meta">1 min 41 s</td>
+              <td class="actions-cel">
+                <a class="bouton" href="/editeur.html">Éditer</a>
+                <button class="bouton">Supprimer</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grille-2">
+        <div class="carte">
+          <header><h2>Légende et hashtags de la vidéo sélectionnée</h2></header>
+          <div class="corps">
+            <div class="champ">
+              <label for="legende">Légende par défaut</label>
+              <textarea id="legende">Trois relevés par service, et le registre se remplit tout seul. Le contrôle sanitaire n'a plus rien à chercher.</textarea>
+              <span class="aide">Sert de valeur par défaut à chaque publication créée depuis cette vidéo ; ajustable publication par publication.</span>
+            </div>
+            <div class="champ">
+              <label for="hashtags">Hashtags (5 au maximum, en français)</label>
+              <input id="hashtags" value="#haccp #hygienealimentaire #restauration #restaurateur #controlesanitaire">
+              <span class="aide">5 sur 5 — le sixième est refusé à la saisie.</span>
+            </div>
+            <button class="bouton primaire">Enregistrer</button>
+          </div>
+        </div>
+
+        <div class="carte">
+          <header><h2>Suppression et archivage</h2></header>
+          <div class="corps">
+            <div class="encart tiede">
+              <b>Une vidéo qui a eu une publication ne se supprime pas.</b>
+              Elle s'archive : elle sort de la librairie courante, reste consultable, et ses publications, son journal d'audit et ses fichiers restent intacts.
+            </div>
+            <p class="aide" style="margin-top: 14px">
+              Seule une vidéo qui n'a jamais eu de publication se supprime, fichier compris. Toute suppression et tout archivage sont tracés dans le journal d'audit.
+            </p>
+            <div class="encart" style="margin-top: 14px">
+              <b>Vérification à l'entrée en librairie</b>
+              Chaque vidéo est contrôlée contre les bornes de chaque réseau pris en charge — conteneur, ratio, durée, taille. Hors bornes, elle passe en refusée avec sa cause, jamais en prête.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

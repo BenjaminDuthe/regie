@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Première mise en route — regie (maquette)</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="bandeau-maquette">
+  <strong>Maquette regie</strong>
+  <span>Données d'exemple, aucune donnée réelle — aucun bouton n'agit. Validation de l'UX et de la structure uniquement.</span>
+</div>
+<div class="garde-largeur">
+  regie est prévue pour un écran d'ordinateur d'au moins 1 280 px de large. Cette fenêtre est plus étroite : la mise en page n'est pas représentative.
+</div>
+
+<div class="app">
+  <aside class="rail">
+    <div class="marque">
+      <b>regie</b>
+      <em>Établia — marque unique</em>
+    </div>
+    <nav>
+      <a href="/index.html">Librairie <span class="pastille">7</span></a>
+      <a href="/generateur.html">Générateur</a>
+      <a href="/editeur.html">Éditeur</a>
+      <a href="/publication.html">Publications <span class="pastille">3</span></a>
+      <div class="separateur"></div>
+      <a href="/parametres.html">Paramètres</a>
+      <a href="/audit.html">Journal d'audit</a>
+      <div class="separateur"></div>
+      <a href="/mise-en-route.html" aria-current="page">Première mise en route</a>
+    </nav>
+    <div class="separateur"></div>
+    <p class="note">Tout ce qui est visible ici est aussi pilotable par Claude via MCP, sauf les clés d'API et les autorisations de réseaux, réservées à l'interface.</p>
+  </aside>
+
+  <main class="page">
+    <div class="entete">
+      <div>
+        <h1>Première mise en route</h1>
+        <p>Ce que voit quelqu'un qui vient de cloner le dépôt public et de lancer regie pour la première fois. Aucun secret n'est livré avec le code : tout se saisit ici.</p>
+      </div>
+    </div>
+
+    <div class="pile">
+
+      <div class="carte">
+        <header>
+          <h2>Avant de démarrer</h2>
+          <span class="sous">Trois commandes, aucune clé dans le dépôt</span>
+        </header>
+        <div class="corps">
+          <div class="mono-bloc">git clone https://github.com/BenjaminDuthe/regie
+cd regie &amp;&amp; pnpm install
+cp .env.exemple .env      # puis renseigner REGIE_MASTER_KEY
+pnpm start                # http://localhost:4310</div>
+          <p class="aide" style="margin-top: 12px">
+            <span class="mono">.env</span> ne contient qu'une seule variable obligatoire : <span class="mono">REGIE_MASTER_KEY</span>, la clé qui chiffre tous les secrets au repos. Les clés d'API des réseaux ne s'écrivent jamais dans un fichier : elles se saisissent dans Paramètres, une fois regie démarrée.
+          </p>
+        </div>
+      </div>
+
+      <div class="grille-2" style="grid-template-columns: 1fr 1fr">
+
+        <div class="carte">
+          <header>
+            <h2>Étapes</h2>
+            <span class="sous">Étape 3 sur 6</span>
+          </header>
+          <div class="corps">
+            <ul class="liste-nue">
+              <li class="phase faite">
+                <span class="num">✓</span>
+                <div>
+                  <b>Clé maîtresse détectée</b>
+                  <div class="meta"><span class="mono">REGIE_MASTER_KEY</span> lue dans l'environnement. Le coffre est prêt.</div>
+                </div>
+              </li>
+              <li class="phase faite">
+                <span class="num">✓</span>
+                <div>
+                  <b>Dossier de données créé</b>
+                  <div class="meta"><span class="mono">./donnees</span> — base, vidéos et secrets chiffrés y tiennent ensemble.</div>
+                </div>
+              </li>
+              <li class="phase active">
+                <span class="num">3</span>
+                <div>
+                  <b>Définir le mot de passe d'accès</b>
+                  <div class="meta">Il n'y a pas de mot de passe par défaut. Tant qu'il n'est pas défini, regie ne sert que cette page.</div>
+                </div>
+              </li>
+              <li class="phase">
+                <span class="num">4</span>
+                <div>
+                  <b>Déclarer l'application à capturer</b>
+                  <div class="meta">Hôtes autorisés et identifiants du compte de démonstration.</div>
+                </div>
+              </li>
+              <li class="phase">
+                <span class="num">5</span>
+                <div>
+                  <b>Connecter un réseau</b>
+                  <div class="meta">Instagram suffit pour la chaîne complète. Les autres se branchent plus tard.</div>
+                </div>
+              </li>
+              <li class="phase">
+                <span class="num">6</span>
+                <div>
+                  <b>Créer un jeton MCP</b>
+                  <div class="meta">Facultatif ici : l'interface fait tout ce que fait MCP. Sans jeton, le serveur MCP ne répond à rien.</div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="pile">
+          <div class="carte">
+            <header>
+              <h2>Étape 3 — Mot de passe d'accès</h2>
+              <span class="sous">Défini une seule fois, ici</span>
+            </header>
+            <div class="corps">
+              <div class="champ">
+                <label for="mdp1">Mot de passe</label>
+                <input id="mdp1" type="password" value="">
+                <span class="aide">12 caractères au minimum. Stocké haché, jamais en clair, jamais réaffiché.</span>
+              </div>
+              <div class="champ">
+                <label for="mdp2">Confirmation</label>
+                <input id="mdp2" type="password" value="">
+              </div>
+              <div class="encart">
+                <b>Un seul utilisateur en V1</b>
+                regie est une application mono-poste : un mot de passe, pas de comptes ni de rôles. Le second facteur est hors V1 — il est noté, pas oublié.
+              </div>
+              <button class="bouton primaire" style="margin-top: 14px">Définir le mot de passe et continuer</button>
+            </div>
+          </div>
+
+          <div class="carte">
+            <header><h2>Ce que regie ne fait pas à votre place</h2></header>
+            <div class="corps">
+              <ul class="liste-nue">
+                <li class="phase"><span class="num">·</span><div><b>Elle ne crée aucun compte de réseau social</b><div class="meta">Les comptes existent déjà ; regie s'y connecte, c'est tout.</div></div></li>
+                <li class="phase"><span class="num">·</span><div><b>Elle n'écrit aucun texte</b><div class="meta">Aucune IA en V1 hors MCP. Les légendes et les scènes viennent de vous, ou de Claude par MCP.</div></div></li>
+                <li class="phase"><span class="num">·</span><div><b>Elle ne capture jamais un compte réel</b><div class="meta">La capture refuse de démarrer hors du compte de démonstration déclaré.</div></div></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="grille-3">
+        <div class="carte">
+          <header><h2>Aucun secret dans le dépôt</h2></header>
+          <div class="corps">
+            <p class="aide" style="margin-top:0">Le dépôt public ne contient ni clé, ni jeton, ni identifiant — seulement <span class="mono">.env.exemple</span> avec des valeurs vides. Une installation neuve démarre sans rien savoir de la vôtre.</p>
+          </div>
+        </div>
+        <div class="carte">
+          <header><h2>Sauvegarde</h2></header>
+          <div class="corps">
+            <p class="aide" style="margin-top:0">Un seul dossier à copier : <span class="mono">./donnees</span>. La restauration se teste — copier le dossier sur une machine vierge et relancer regie doit suffire.</p>
+          </div>
+        </div>
+        <div class="carte">
+          <header><h2>Pages publiques</h2></header>
+          <div class="corps">
+            <p class="aide" style="margin-top:0">regie sert elle-même ses <a href="#">conditions d'utilisation</a> et sa <a href="#">politique de confidentialité</a> : les réseaux exigent ces deux URL pour valider une application.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

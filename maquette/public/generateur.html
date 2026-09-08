@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Générateur — regie (maquette)</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="bandeau-maquette">
+  <strong>Maquette regie</strong>
+  <span>Données d'exemple, aucune donnée réelle — aucun bouton n'agit. Validation de l'UX et de la structure uniquement.</span>
+</div>
+<div class="garde-largeur">
+  regie est prévue pour un écran d'ordinateur d'au moins 1 280 px de large. Cette fenêtre est plus étroite : la mise en page n'est pas représentative.
+</div>
+
+<div class="app">
+  <aside class="rail">
+    <div class="marque">
+      <b>regie</b>
+      <em>Établia — marque unique</em>
+    </div>
+    <nav>
+      <a href="/index.html">Librairie <span class="pastille">7</span></a>
+      <a href="/generateur.html" aria-current="page">Générateur</a>
+      <a href="/editeur.html">Éditeur</a>
+      <a href="/publication.html">Publications <span class="pastille">3</span></a>
+      <div class="separateur"></div>
+      <a href="/parametres.html">Paramètres</a>
+      <a href="/audit.html">Journal d'audit</a>
+      <div class="separateur"></div>
+      <a href="/mise-en-route.html">Première mise en route</a>
+    </nav>
+    <div class="separateur"></div>
+    <p class="note">Tout ce qui est visible ici est aussi pilotable par Claude via MCP, sauf les clés d'API et les autorisations de réseaux, réservées à l'interface.</p>
+  </aside>
+
+  <main class="page">
+    <div class="entete">
+      <div>
+        <h1>Générateur</h1>
+        <p>Un scénario est une liste ordonnée d'URL de l'application à capturer. regie ouvre chaque page connectée au compte de démonstration, capture, puis assemble une vidéo verticale muette.</p>
+      </div>
+      <div class="actions">
+        <button class="bouton">Tester la connexion</button>
+        <button class="bouton primaire">Lancer la génération</button>
+      </div>
+    </div>
+
+    <div class="pile">
+
+      <div class="grille-2">
+        <div class="carte">
+          <header>
+            <h2>Scénario</h2>
+            <span class="sous">Enregistré dans regie</span>
+          </header>
+          <div class="corps">
+            <div class="champ">
+              <label for="nom">Nom du scénario</label>
+              <input id="nom" value="restaurateur 1 — relevés entre services">
+            </div>
+            <div class="champ">
+              <label for="marque">Marque</label>
+              <select id="marque"><option>Établia</option></select>
+              <span class="aide">Une seule marque en V1.</span>
+            </div>
+            <div class="champ">
+              <label for="compte">Compte utilisé pour la capture</label>
+              <input id="compte" value="Compte de démonstration — demo@…" readonly>
+              <span class="aide">Les identifiants sont dans le coffre, jamais affichés ici ni renvoyés par MCP.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="carte">
+          <header>
+            <h2>Hôtes autorisés</h2>
+            <span class="sous">Garde de capture</span>
+          </header>
+          <div class="corps">
+            <div class="champ">
+              <label for="hotes">Liste blanche</label>
+              <textarea id="hotes">preprod.etablia.fr
+demo.etablia.fr</textarea>
+              <span class="aide">Une URL hors de cette liste est refusée à l'enregistrement du scénario, pas au moment de la capture.</span>
+            </div>
+            <div class="encart info">
+              <b>Garde compte de démonstration</b>
+              La capture refuse de démarrer si le compte connecté n'est pas celui déclaré comme compte de démonstration. Aucune donnée réelle ne peut se retrouver dans une vidéo.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="carte">
+        <header>
+          <h2>Pages à capturer</h2>
+          <span class="sous">6 pages · l'ordre est celui du montage</span>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 48px">Ordre</th>
+              <th>URL</th>
+              <th>Attente avant capture</th>
+              <th>Média de substitution</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">1</td>
+              <td><span class="mono">/m/haccp/registre</span><div class="meta">Registre des températures</div></td>
+              <td class="meta">Réseau au repos</td>
+              <td class="meta">—</td>
+              <td class="actions-cel"><button class="bouton discret">Monter</button><button class="bouton discret">Descendre</button></td>
+            </tr>
+            <tr>
+              <td class="mono">2</td>
+              <td><span class="mono">/m/haccp/registre#ligne-12</span><div class="meta">Détail d'un relevé</div></td>
+              <td class="meta">Réseau au repos</td>
+              <td class="meta">—</td>
+              <td class="actions-cel"><button class="bouton discret">Monter</button><button class="bouton discret">Descendre</button></td>
+            </tr>
+            <tr>
+              <td class="mono">3</td>
+              <td><span class="mono">/m/haccp/releve/nouveau</span><div class="meta">Saisie d'un relevé</div></td>
+              <td class="meta">Sélecteur <span class="mono">form[data-pret]</span></td>
+              <td class="meta">—</td>
+              <td class="actions-cel"><button class="bouton discret">Monter</button><button class="bouton discret">Descendre</button></td>
+            </tr>
+            <tr>
+              <td class="mono">4</td>
+              <td><span class="mono">/m/haccp/registre?filtre=jour</span><div class="meta">Registre du jour rempli</div></td>
+              <td class="meta">Réseau au repos</td>
+              <td class="meta">—</td>
+              <td class="actions-cel"><button class="bouton discret">Monter</button><button class="bouton discret">Descendre</button></td>
+            </tr>
+            <tr>
+              <td class="mono">5</td>
+              <td><span class="mono">/m/haccp/export</span><div class="meta">Export du registre</div></td>
+              <td class="meta">Réseau au repos</td>
+              <td>
+                <span class="etat attente">Substitut v0</span>
+                <div class="meta">La page n'a rien rendu au dernier essai</div>
+              </td>
+              <td class="actions-cel"><button class="bouton discret">Monter</button><button class="bouton discret">Descendre</button></td>
+            </tr>
+            <tr>
+              <td class="mono">6</td>
+              <td><span class="mono">/m/conformite</span><div class="meta">Écran de clôture</div></td>
+              <td class="meta">Réseau au repos</td>
+              <td class="meta">—</td>
+              <td class="actions-cel"><button class="bouton discret">Monter</button><button class="bouton discret">Descendre</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="corps" style="border-top: 1px solid var(--bord)">
+          <button class="bouton">Ajouter une page</button>
+        </div>
+      </div>
+
+      <div class="grille-2">
+        <div class="carte">
+          <header><h2>Test de connexion</h2></header>
+          <div class="corps">
+            <p class="aide" style="margin-top: 0">
+              Vérifie, avant toute génération, que regie sait ouvrir une session sur l'hôte déclaré avec les identifiants du coffre, et que le compte atteint est bien le compte de démonstration.
+            </p>
+            <ul class="liste-nue">
+              <li class="phase faite"><span class="num">✓</span><div><b>Hôte joignable</b><div class="meta">preprod.etablia.fr — réponse en 240 ms</div></div></li>
+              <li class="phase faite"><span class="num">✓</span><div><b>Session ouverte</b><div class="meta">Identifiants lus dans le coffre, jamais journalisés</div></div></li>
+              <li class="phase faite"><span class="num">✓</span><div><b>Compte de démonstration confirmé</b><div class="meta">Le garde autorise la capture</div></div></li>
+              <li class="phase active"><span class="num">4</span><div><b>Rendu des 6 pages</b><div class="meta">Une page sur six n'a rien rendu — substitut v0 prévu</div></div></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="carte">
+          <header><h2>Génération en cours</h2></header>
+          <div class="corps">
+            <div class="encart">
+              <b>Une seule génération à la fois</b>
+              Les demandes suivantes attendent dans une file. Lancée depuis l'interface ou par MCP, c'est la même file.
+            </div>
+            <table style="margin-top: 12px">
+              <tbody>
+                <tr>
+                  <td><b>traiteur 1 — production</b><div class="meta">Lancée par MCP à 09:31 <span class="origine mcp">MCP</span></div></td>
+                  <td><span class="etat attente">Étape 5 sur 8</span></td>
+                  <td class="actions-cel"><button class="bouton">Interrompre</button></td>
+                </tr>
+                <tr>
+                  <td><b>restaurateur 1 — relevés</b><div class="meta">En file, position 1 <span class="origine">Interface</span></div></td>
+                  <td><span class="etat brouillon">En attente</span></td>
+                  <td class="actions-cel"><button class="bouton">Retirer</button></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="encart tiede" style="margin-top: 12px">
+              <b>Délai de garde</b>
+              Chaque type de tâche a son délai maximal ; la valeur chiffrée sera fixée après le chronométrage de « traiteur 1 ». Au-delà, la tâche échoue explicitement — jamais d'attente silencieuse.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

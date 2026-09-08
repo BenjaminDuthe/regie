@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journal d'audit — regie (maquette)</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="bandeau-maquette">
+  <strong>Maquette regie</strong>
+  <span>Données d'exemple, aucune donnée réelle — aucun bouton n'agit. Validation de l'UX et de la structure uniquement.</span>
+</div>
+<div class="garde-largeur">
+  regie est prévue pour un écran d'ordinateur d'au moins 1 280 px de large. Cette fenêtre est plus étroite : la mise en page n'est pas représentative.
+</div>
+
+<div class="app">
+  <aside class="rail">
+    <div class="marque">
+      <b>regie</b>
+      <em>Établia — marque unique</em>
+    </div>
+    <nav>
+      <a href="/index.html">Librairie <span class="pastille">7</span></a>
+      <a href="/generateur.html">Générateur</a>
+      <a href="/editeur.html">Éditeur</a>
+      <a href="/publication.html">Publications <span class="pastille">3</span></a>
+      <div class="separateur"></div>
+      <a href="/parametres.html">Paramètres</a>
+      <a href="/audit.html" aria-current="page">Journal d'audit</a>
+      <div class="separateur"></div>
+      <a href="/mise-en-route.html">Première mise en route</a>
+    </nav>
+    <div class="separateur"></div>
+    <p class="note">Tout ce qui est visible ici est aussi pilotable par Claude via MCP, sauf les clés d'API et les autorisations de réseaux, réservées à l'interface.</p>
+  </aside>
+
+  <main class="page">
+    <div class="entete">
+      <div>
+        <h1>Journal d'audit</h1>
+        <p>Tout changement d'état est écrit ici, avec son origine : l'interface ou MCP. Le journal se consulte et se filtre ; il ne se modifie pas, et aucune ligne ne s'efface.</p>
+      </div>
+      <div class="actions">
+        <button class="bouton">Exporter la vue (CSV)</button>
+      </div>
+    </div>
+
+    <div class="pile">
+
+      <div class="carte">
+        <header>
+          <h2>Filtres</h2>
+          <span class="sous">312 entrées · 14 sur cette page</span>
+        </header>
+        <div class="corps pile" style="gap: 12px">
+          <div class="filtres">
+            <button class="puce" aria-pressed="true">Toutes les origines</button>
+            <button class="puce" aria-pressed="false">Interface</button>
+            <button class="puce" aria-pressed="false">MCP</button>
+            <button class="puce" aria-pressed="false">Système</button>
+          </div>
+          <div class="filtres">
+            <button class="puce" aria-pressed="true">Tous les objets</button>
+            <button class="puce" aria-pressed="false">Scénario</button>
+            <button class="puce" aria-pressed="false">Vidéo</button>
+            <button class="puce" aria-pressed="false">Publication</button>
+            <button class="puce" aria-pressed="false">Réseau</button>
+            <button class="puce" aria-pressed="false">Sécurité</button>
+          </div>
+          <div class="grille-3" style="gap: 12px">
+            <div class="champ">
+              <label for="du">Du</label>
+              <input id="du" value="01/09/2026">
+            </div>
+            <div class="champ">
+              <label for="au">Au</label>
+              <input id="au" value="08/09/2026">
+            </div>
+            <div class="champ">
+              <label for="recherche">Contient</label>
+              <input id="recherche" placeholder="nom de vidéo, réseau, message…">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="carte">
+        <header>
+          <h2>Entrées</h2>
+          <span class="sous">De la plus récente à la plus ancienne · heure de Paris</span>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 130px">Quand</th>
+              <th style="width: 100px">Origine</th>
+              <th style="width: 22%">Objet</th>
+              <th>Changement</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">08/09 09:31</td>
+              <td><span class="origine mcp">MCP</span></td>
+              <td><b>Vidéo</b><div class="meta">Production du jour</div></td>
+              <td>Génération lancée — scénario « traiteur 1 », 8 pages<div class="meta">outil <span class="mono">regie.generer_video</span> · jeton « Poste principal »</div></td>
+            </tr>
+            <tr>
+              <td class="mono">08/09 09:14</td>
+              <td><span class="origine">Interface</span></td>
+              <td><b>Vidéo</b><div class="meta">Relevés entre services</div></td>
+              <td><span class="etat brouillon">brouillon</span> → <span class="etat prete">prête</span><div class="meta">Bornes des 3 réseaux vérifiées à l'entrée en librairie</div></td>
+            </tr>
+            <tr>
+              <td class="mono">08/09 08:52</td>
+              <td><span class="origine">Système</span></td>
+              <td><b>Vidéo</b><div class="meta">Plan de nettoyage</div></td>
+              <td><span class="etat brouillon">brouillon</span> → <span class="etat refusee">refusée</span><div class="meta">Garde de zone sûre, scène 3 — dépassement 48 px sur un seuil de 1 220 px</div></td>
+            </tr>
+            <tr>
+              <td class="mono">08/09 08:49</td>
+              <td><span class="origine mcp">MCP</span></td>
+              <td><b>Scénario</b><div class="meta">restaurateur 2</div></td>
+              <td>Texte de la scène 3 modifié<div class="meta">outil <span class="mono">regie.modifier_scene</span></div></td>
+            </tr>
+            <tr>
+              <td class="mono">07/09 18:30</td>
+              <td><span class="origine">Interface</span></td>
+              <td><b>Publication</b><div class="meta">Chaîne du froid → Instagram</div></td>
+              <td>Programmée pour le 09/09 à 12:30<div class="meta">Compte @etablia</div></td>
+            </tr>
+            <tr>
+              <td class="mono">07/09 18:02</td>
+              <td><span class="origine">Système</span></td>
+              <td><b>Réseau</b><div class="meta">Instagram</div></td>
+              <td>Jeton renouvelé automatiquement — nouvelle échéance 31/10<div class="meta">Aucune valeur de jeton n'est écrite dans ce journal</div></td>
+            </tr>
+            <tr>
+              <td class="mono">05/09 10:20</td>
+              <td><span class="origine mcp">MCP</span></td>
+              <td><b>Publication</b><div class="meta">Traçabilité amont → Instagram</div></td>
+              <td><span class="etat programmee">programmée</span> → <span class="etat publiee">publiée</span><div class="meta">Identifiant renvoyé par le réseau : 178…4021</div></td>
+            </tr>
+            <tr>
+              <td class="mono">05/09 09:58</td>
+              <td><span class="origine">Interface</span></td>
+              <td><b>Sécurité</b><div class="meta">Jeton MCP « Portable »</div></td>
+              <td>Révoqué<div class="meta">Empreinte 7b40…1de — la valeur n'a jamais été réaffichée</div></td>
+            </tr>
+            <tr>
+              <td class="mono">04/09 16:45</td>
+              <td><span class="origine">Système</span></td>
+              <td><b>Publication</b><div class="meta">Contrôle surprise → Instagram</div></td>
+              <td><span class="etat programmee">programmée</span> → <span class="etat echec">échec</span><div class="meta">Jeton expiré (code 190). Aucune nouvelle tentative automatique.</div></td>
+            </tr>
+            <tr>
+              <td class="mono">03/09 11:12</td>
+              <td><span class="origine">Interface</span></td>
+              <td><b>Scénario</b><div class="meta">restaurateur 1</div></td>
+              <td>URL refusée à l'enregistrement<div class="meta">Hôte <span class="mono">app.exemple.fr</span> absent de la liste des hôtes autorisés</div></td>
+            </tr>
+            <tr>
+              <td class="mono">02/09 14:20</td>
+              <td><span class="origine">Interface</span></td>
+              <td><b>Réseau</b><div class="meta">Facebook Page</div></td>
+              <td>Compte connecté — Page Établia<div class="meta">Autorisation OAuth donnée depuis l'interface ; MCP ne peut pas déclencher cette action</div></td>
+            </tr>
+            <tr>
+              <td class="mono">02/09 12:00</td>
+              <td><span class="origine">Système</span></td>
+              <td><b>Publication</b><div class="meta">Plan de nettoyage → Instagram</div></td>
+              <td><span class="etat programmee">programmée</span> → <span class="etat echec">échec</span><div class="meta">Quota du compte atteint (25 publications sur 24 h)</div></td>
+            </tr>
+            <tr>
+              <td class="mono">01/09 08:00</td>
+              <td><span class="origine mcp">MCP</span></td>
+              <td><b>Publication</b><div class="meta">Réception HACCP → Instagram</div></td>
+              <td><span class="etat programmee">programmée</span> → <span class="etat archivee">annulée</span><div class="meta">Annulée avant tout envoi · outil <span class="mono">regie.annuler_publication</span></div></td>
+            </tr>
+            <tr>
+              <td class="mono">01/09 07:41</td>
+              <td><span class="origine">Système</span></td>
+              <td><b>Sécurité</b><div class="meta">Coffre</div></td>
+              <td>Rotation de la clé maîtresse — 11 secrets rechiffrés<div class="meta">Aucune valeur en clair dans la trace</div></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="corps" style="border-top: 1px solid var(--bord); display: flex; gap: 8px; align-items: center">
+          <button class="bouton" disabled>Page précédente</button>
+          <button class="bouton">Page suivante</button>
+          <span class="meta">Page 1 sur 23</span>
+        </div>
+      </div>
+
+      <div class="grille-3">
+        <div class="carte">
+          <header><h2>Inaltérable</h2></header>
+          <div class="corps">
+            <p class="aide" style="margin-top:0">Le journal ne propose ni modification ni suppression — pas plus par l'interface que par MCP. Une correction s'écrit comme une nouvelle entrée, jamais en réécrivant l'ancienne.</p>
+          </div>
+        </div>
+        <div class="carte">
+          <header><h2>Jamais un secret</h2></header>
+          <div class="corps">
+            <p class="aide" style="margin-top:0">Une entrée nomme l'objet, l'action et son résultat. Jamais un jeton, un mot de passe ni une clé — même partiellement, même sur une entrée d'échec.</p>
+          </div>
+        </div>
+        <div class="carte">
+          <header><h2>L'origine est toujours écrite</h2></header>
+          <div class="corps">
+            <p class="aide" style="margin-top:0">Trois origines possibles : <span class="origine">Interface</span> pour une action du fondateur, <span class="origine mcp">MCP</span> pour un appel d'outil avec le jeton utilisé, <span class="origine">Système</span> pour une transition faite par regie elle-même.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

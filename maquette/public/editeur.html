@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Éditeur — regie (maquette)</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="bandeau-maquette">
+  <strong>Maquette regie</strong>
+  <span>Données d'exemple, aucune donnée réelle — aucun bouton n'agit. Validation de l'UX et de la structure uniquement.</span>
+</div>
+<div class="garde-largeur">
+  regie est prévue pour un écran d'ordinateur d'au moins 1 280 px de large. Cette fenêtre est plus étroite : la mise en page n'est pas représentative.
+</div>
+
+<div class="app">
+  <aside class="rail">
+    <div class="marque">
+      <b>regie</b>
+      <em>Établia — marque unique</em>
+    </div>
+    <nav>
+      <a href="/index.html">Librairie <span class="pastille">7</span></a>
+      <a href="/generateur.html">Générateur</a>
+      <a href="/editeur.html" aria-current="page">Éditeur</a>
+      <a href="/publication.html">Publications <span class="pastille">3</span></a>
+      <div class="separateur"></div>
+      <a href="/parametres.html">Paramètres</a>
+      <a href="/audit.html">Journal d'audit</a>
+      <div class="separateur"></div>
+      <a href="/mise-en-route.html">Première mise en route</a>
+    </nav>
+    <div class="separateur"></div>
+    <p class="note">Tout ce qui est visible ici est aussi pilotable par Claude via MCP, sauf les clés d'API et les autorisations de réseaux, réservées à l'interface.</p>
+  </aside>
+
+  <main class="page">
+    <div class="entete">
+      <div>
+        <h1>Éditeur — « Plan de nettoyage »</h1>
+        <p>Chaque scène porte un texte, une animation et une durée. Toute modification faite ici est faisable à l'identique par MCP, et inversement.</p>
+      </div>
+      <div class="actions">
+        <a class="bouton" href="/index.html">Retour à la librairie</a>
+        <button class="bouton primaire">Regénérer la vidéo</button>
+      </div>
+    </div>
+
+    <div class="encart alerte" style="margin-bottom: 18px">
+      <b>Rendu refusé — garde de zone sûre, scène 3</b>
+      Le texte de la scène 3 mesure 1 268 px de haut ; le seuil de la zone sûre est 1 220 px. Le dépassement est de 48 px. Tant qu'il subsiste, la vidéo reste refusée : cette garde ne se force pas.
+    </div>
+
+    <div class="grille-2" style="grid-template-columns: 1.35fr 1fr">
+
+      <div class="pile">
+        <div class="carte">
+          <header>
+            <h2>Scènes</h2>
+            <span class="sous">5 scènes · 21 s au total</span>
+          </header>
+          <div class="corps pile" style="gap: 8px">
+            <div class="scene">
+              <span class="rang">1</span>
+              <div class="txt">
+                <b>Le nettoyage, c'est tous les jours</b>
+                <span>Apparition en fondu · 3,5 s · capture <span class="mono">/m/haccp/nettoyage</span></span>
+              </div>
+              <span class="etat prete">OK</span>
+            </div>
+            <div class="scene">
+              <span class="rang">2</span>
+              <div class="txt">
+                <b>Un plan, des zones, des fréquences</b>
+                <span>Glissement vers le haut · 4 s · capture <span class="mono">/m/haccp/nettoyage/plan</span></span>
+              </div>
+              <span class="etat prete">OK</span>
+            </div>
+            <div class="scene fautive selectionnee">
+              <span class="rang">3</span>
+              <div class="txt">
+                <b>Chaque poste a sa fiche, chaque fiche a son responsable et son horaire de passage</b>
+                <span>Glissement vers le haut · 5 s · dépasse la zone sûre de 48 px</span>
+              </div>
+              <span class="etat refusee">Hors zone</span>
+            </div>
+            <div class="scene">
+              <span class="rang">4</span>
+              <div class="txt">
+                <b>Signature au passage</b>
+                <span>Apparition en fondu · 4 s · capture <span class="mono">/m/haccp/nettoyage/signature</span></span>
+              </div>
+              <span class="etat prete">OK</span>
+            </div>
+            <div class="scene">
+              <span class="rang">5</span>
+              <div class="txt">
+                <b>Le contrôle a la preuve, pas votre parole</b>
+                <span>Apparition en fondu · 4,5 s · plan de clôture</span>
+              </div>
+              <span class="etat prete">OK</span>
+            </div>
+            <button class="bouton" style="align-self: flex-start; margin-top: 4px">Ajouter une scène</button>
+          </div>
+        </div>
+
+        <div class="carte">
+          <header>
+            <h2>Scène 3</h2>
+            <span class="sous">Sélectionnée</span>
+          </header>
+          <div class="corps">
+            <div class="champ">
+              <label for="texte">Texte affiché</label>
+              <textarea id="texte">Chaque poste a sa fiche, chaque fiche a son responsable et son horaire de passage</textarea>
+              <span class="aide">78 caractères. Le diagnostic indique un dépassement de 48 px : raccourcir le texte ou réduire la taille suffit.</span>
+            </div>
+            <div class="grille-2" style="gap: 12px">
+              <div class="champ">
+                <label for="anim">Animation</label>
+                <select id="anim">
+                  <option>Glissement vers le haut</option>
+                  <option>Apparition en fondu</option>
+                  <option>Aucune</option>
+                </select>
+              </div>
+              <div class="champ">
+                <label for="duree">Durée (secondes)</label>
+                <input id="duree" value="5">
+              </div>
+              <div class="champ">
+                <label for="taille">Taille du texte</label>
+                <select id="taille">
+                  <option>Grande (64 px)</option>
+                  <option>Moyenne (52 px)</option>
+                  <option>Petite (44 px)</option>
+                </select>
+              </div>
+              <div class="champ">
+                <label for="pos">Position dans le cadre</label>
+                <select id="pos">
+                  <option>Bas de la zone sûre</option>
+                  <option>Centre</option>
+                  <option>Haut de la zone sûre</option>
+                </select>
+              </div>
+            </div>
+            <button class="bouton primaire">Appliquer à la scène</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pile">
+        <div class="carte">
+          <header>
+            <h2>Aperçu</h2>
+            <span class="sous">1080 × 1920 · muet</span>
+          </header>
+          <div class="corps">
+            <div class="apercu">
+              <div class="etiquette-zone">Zone sûre 880 × 1220</div>
+              <div class="zone-sure"></div>
+              <div class="texte-scene">Chaque poste a sa fiche, chaque fiche a son responsable et son horaire de passage</div>
+            </div>
+            <p class="aide" style="margin-top: 12px">
+              Le cadre en pointillés est la zone sûre. Le texte de la scène 3 en sort par le haut : c'est exactement ce que la garde mesure.
+            </p>
+          </div>
+        </div>
+
+        <div class="carte">
+          <header><h2>Diagnostic de refus</h2></header>
+          <div class="corps">
+            <div class="mono-bloc">scene       : 3
+mesure      : hauteur_texte = 1268 px
+seuil       : zone_sure_hauteur = 1220 px
+depassement : 48 px
+regle       : texte_dans_zone_sure
+forcable    : non</div>
+            <p class="aide" style="margin-top: 12px">
+              Le même objet est renvoyé par MCP, en français, avec la scène, la mesure et le seuil. Une erreur sans scène ni chiffre serait un échec silencieux.
+            </p>
+          </div>
+        </div>
+
+        <div class="carte">
+          <header><h2>Média de substitution</h2></header>
+          <div class="corps">
+            <div class="encart tiede">
+              <b>Aucune page en substitut sur cette vidéo</b>
+              Quand une page ne rend rien, regie insère le substitut v0 déclaré pour ce scénario et le signale ici. Elle n'invente jamais d'écran.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

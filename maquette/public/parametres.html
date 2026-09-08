@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paramètres — regie (maquette)</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="bandeau-maquette">
+  <strong>Maquette regie</strong>
+  <span>Données d'exemple, aucune donnée réelle — aucun bouton n'agit. Validation de l'UX et de la structure uniquement.</span>
+</div>
+<div class="garde-largeur">
+  regie est prévue pour un écran d'ordinateur d'au moins 1 280 px de large. Cette fenêtre est plus étroite : la mise en page n'est pas représentative.
+</div>
+
+<div class="app">
+  <aside class="rail">
+    <div class="marque">
+      <b>regie</b>
+      <em>Établia — marque unique</em>
+    </div>
+    <nav>
+      <a href="/index.html">Librairie <span class="pastille">7</span></a>
+      <a href="/generateur.html">Générateur</a>
+      <a href="/editeur.html">Éditeur</a>
+      <a href="/publication.html">Publications <span class="pastille">3</span></a>
+      <div class="separateur"></div>
+      <a href="/parametres.html" aria-current="page">Paramètres</a>
+      <a href="/audit.html">Journal d'audit</a>
+      <div class="separateur"></div>
+      <a href="/mise-en-route.html">Première mise en route</a>
+    </nav>
+    <div class="separateur"></div>
+    <p class="note">Tout ce qui est visible ici est aussi pilotable par Claude via MCP, sauf les clés d'API et les autorisations de réseaux, réservées à l'interface.</p>
+  </aside>
+
+  <main class="page">
+    <div class="entete">
+      <div>
+        <h1>Paramètres</h1>
+        <p>Le seul endroit où l'on saisit un secret, et le seul qui ne passe jamais par MCP. Une clé enregistrée n'est plus jamais réaffichée — ni ici, ni dans un journal, ni dans une réponse d'outil.</p>
+      </div>
+    </div>
+
+    <div class="pile">
+
+      <div class="carte">
+        <header>
+          <h2>Réseaux sociaux</h2>
+          <span class="sous">Un compte par réseau, remplaçable</span>
+        </header>
+        <table>
+          <thead>
+            <tr><th style="width: 28%">Réseau</th><th>Compte connecté</th><th>Jeton</th><th>État en V1</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="reseau"><span class="jeton actif">IG</span><b>Instagram</b></div><div class="meta">API Graph, gratuite</div></td>
+              <td><b>@etablia</b><div class="meta">Reels · autorisé le 02/09</div></td>
+              <td><span class="etat prete">Valide</span><div class="meta">échoit le 31/10 — renouvellement à J-7</div></td>
+              <td><span class="etat publiee">Publication active</span></td>
+              <td class="actions-cel"><button class="bouton">Remplacer le compte</button></td>
+            </tr>
+            <tr>
+              <td><div class="reseau"><span class="jeton actif">FB</span><b>Facebook Page</b></div><div class="meta">Même application Meta, gratuite</div></td>
+              <td><b>Page Établia</b><div class="meta">autorisé le 02/09</div></td>
+              <td><span class="etat prete">Valide</span><div class="meta">échoit le 31/10</div></td>
+              <td><span class="etat attente">Livré en fin de V1</span></td>
+              <td class="actions-cel"><button class="bouton">Remplacer le compte</button></td>
+            </tr>
+            <tr>
+              <td><div class="reseau"><span class="jeton">TT</span><b>TikTok</b></div><div class="meta">Content Posting API, gratuite</div></td>
+              <td class="meta">Aucun compte connecté</td>
+              <td class="meta">—</td>
+              <td><span class="etat attente">Fin de V1 · glisse en V1.1 si le temps manque</span></td>
+              <td class="actions-cel"><button class="bouton">Connecter</button></td>
+            </tr>
+            <tr>
+              <td><div class="reseau"><span class="jeton">IN</span><b>LinkedIn</b></div><div class="meta">Gratuite ; vidéo de page soumise à agrément</div></td>
+              <td class="meta">Aucun compte connecté</td>
+              <td class="meta">—</td>
+              <td><span class="etat brouillon">Connecteur et clé présents, publication après agrément</span></td>
+              <td class="actions-cel"><button class="bouton">Connecter</button></td>
+            </tr>
+            <tr>
+              <td><div class="reseau"><span class="jeton">X</span><b>X</b></div><div class="meta">API payante</div></td>
+              <td class="meta">—</td>
+              <td class="meta">—</td>
+              <td><span class="etat archivee">Reporté en V2</span></td>
+              <td class="actions-cel"><button class="bouton" disabled>Connecter</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="corps" style="border-top: 1px solid var(--bord)">
+          <div class="encart info">
+            <b>L'autorisation se donne ici, jamais par MCP</b>
+            La connexion OAuth d'un réseau et la saisie d'une clé sont les deux seules actions de regie qu'un outil MCP ne peut pas déclencher. Claude peut constater qu'un jeton a échoué ; il ne peut ni le lire, ni le renouveler.
+          </div>
+        </div>
+      </div>
+
+      <div class="grille-2">
+
+        <div class="carte">
+          <header>
+            <h2>Application à capturer</h2>
+            <span class="sous">Compte de démonstration</span>
+          </header>
+          <div class="corps">
+            <div class="champ">
+              <label for="hote">Hôtes autorisés</label>
+              <textarea id="hote">preprod.etablia.fr
+demo.etablia.fr</textarea>
+              <span class="aide">Un scénario qui vise un autre hôte est refusé à l'enregistrement.</span>
+            </div>
+            <div class="champ">
+              <label for="ident">Identifiant du compte de démonstration</label>
+              <input id="ident" value="demo@etablia.fr">
+            </div>
+            <div class="champ">
+              <label for="mdp">Mot de passe du compte de démonstration</label>
+              <input id="mdp" type="password" value="................" readonly>
+              <span class="aide">Enregistré chiffré. Jamais réaffiché, jamais journalisé, jamais renvoyé par MCP.</span>
+            </div>
+            <button class="bouton">Remplacer le mot de passe</button>
+          </div>
+        </div>
+
+        <div class="carte">
+          <header>
+            <h2>Clé MCP</h2>
+            <span class="sous">Accès de Claude à regie</span>
+          </header>
+          <div class="corps">
+            <div class="encart tiede">
+              <b>Le jeton n'est affiché qu'une fois</b>
+              À sa création. Ensuite, il ne reste que son empreinte et sa date. Perdu, il se révoque et se recrée.
+            </div>
+            <table style="margin-top: 12px">
+              <tbody>
+                <tr>
+                  <td><b>Poste principal</b><div class="meta">créé le 06/09 · empreinte <span class="mono">a3f1…9c2</span></div></td>
+                  <td><span class="etat prete">Actif</span><div class="meta">dernier appel il y a 12 min</div></td>
+                  <td class="actions-cel"><button class="bouton">Révoquer</button></td>
+                </tr>
+                <tr>
+                  <td><b>Portable</b><div class="meta">créé le 03/09 · empreinte <span class="mono">7b40…1de</span></div></td>
+                  <td><span class="etat archivee">Révoqué le 05/09</span></td>
+                  <td class="actions-cel"></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="champ" style="margin-top: 14px">
+              <label for="endpoint">Adresse du serveur MCP</label>
+              <input id="endpoint" value="https://regie.local/mcp" readonly>
+              <span class="aide">HTTP distant. Sans jeton valide, le serveur ne répond à aucun outil — y compris en lecture.</span>
+            </div>
+            <button class="bouton primaire">Créer un jeton</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="grille-2">
+
+        <div class="carte">
+          <header>
+            <h2>Sécurité</h2>
+            <span class="sous">Coffre et accès</span>
+          </header>
+          <div class="corps">
+            <div class="champ">
+              <label for="master">Clé maîtresse</label>
+              <input id="master" value="REGIE_MASTER_KEY — lue dans l'environnement" readonly>
+              <span class="aide">Tous les secrets de regie sont chiffrés avec cette clé. Elle ne se saisit pas dans l'interface et n'est jamais écrite dans un fichier du dépôt.</span>
+            </div>
+            <div class="encart">
+              <b>Rotation</b>
+              La rotation rechiffre tous les secrets avec la nouvelle clé, sans jamais les exposer en clair. La procédure est journalisée ; les valeurs ne le sont pas.
+            </div>
+            <div class="champ" style="margin-top: 14px">
+              <label for="mdpapp">Mot de passe d'accès à regie</label>
+              <input id="mdpapp" type="password" value="............" readonly>
+              <span class="aide">Défini à la première mise en route. Second facteur hors V1.</span>
+            </div>
+            <button class="bouton">Changer le mot de passe</button>
+          </div>
+        </div>
+
+        <div class="carte">
+          <header>
+            <h2>Exécution</h2>
+            <span class="sous">Files, délais, sauvegarde</span>
+          </header>
+          <div class="corps">
+            <div class="champ">
+              <label for="fenetre">Fenêtre de rattrapage au démarrage</label>
+              <input id="fenetre" value="2 heures">
+              <span class="aide">Une publication en retard au-delà de cette fenêtre passe en échec plutôt que de partir hors de propos.</span>
+            </div>
+            <div class="champ">
+              <label for="paris">Fuseau des programmations</label>
+              <input id="paris" value="Europe/Paris" readonly>
+            </div>
+            <div class="champ">
+              <label for="donnees">Dossier de données</label>
+              <input id="donnees" value="./donnees" readonly>
+              <span class="aide">Un seul dossier à copier pour sauvegarder : base, vidéos, secrets chiffrés. La restauration est testée, pas supposée.</span>
+            </div>
+            <div class="encart tiede">
+              <b>Délais de garde</b>
+              Un délai maximal par type de tâche (capture, montage, envoi). Les valeurs chiffrées seront fixées après le chronométrage de « traiteur 1 » — aucune n'est inventée d'ici là.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

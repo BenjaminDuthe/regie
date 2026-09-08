@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "maquette-regie",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["maquette/serveur.mjs"],
+      "port": 4310
+    }
+  ]
+}

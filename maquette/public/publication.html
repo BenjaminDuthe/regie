@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Publications — regie (maquette)</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="bandeau-maquette">
+  <strong>Maquette regie</strong>
+  <span>Données d'exemple, aucune donnée réelle — aucun bouton n'agit. Validation de l'UX et de la structure uniquement.</span>
+</div>
+<div class="garde-largeur">
+  regie est prévue pour un écran d'ordinateur d'au moins 1 280 px de large. Cette fenêtre est plus étroite : la mise en page n'est pas représentative.
+</div>
+
+<div class="app">
+  <aside class="rail">
+    <div class="marque">
+      <b>regie</b>
+      <em>Établia — marque unique</em>
+    </div>
+    <nav>
+      <a href="/index.html">Librairie <span class="pastille">7</span></a>
+      <a href="/generateur.html">Générateur</a>
+      <a href="/editeur.html">Éditeur</a>
+      <a href="/publication.html" aria-current="page">Publications <span class="pastille">3</span></a>
+      <div class="separateur"></div>
+      <a href="/parametres.html">Paramètres</a>
+      <a href="/audit.html">Journal d'audit</a>
+      <div class="separateur"></div>
+      <a href="/mise-en-route.html">Première mise en route</a>
+    </nav>
+    <div class="separateur"></div>
+    <p class="note">Tout ce qui est visible ici est aussi pilotable par Claude via MCP, sauf les clés d'API et les autorisations de réseaux, réservées à l'interface.</p>
+  </aside>
+
+  <main class="page">
+    <div class="entete">
+      <div>
+        <h1>Publications</h1>
+        <p>Publier maintenant ou programmer. Toutes les heures sont exprimées en heure de Paris. Une publication partie ne se rejoue jamais toute seule.</p>
+      </div>
+      <div class="actions">
+        <button class="bouton primaire">Nouvelle publication</button>
+      </div>
+    </div>
+
+    <div class="pile">
+
+      <div class="grille-2" style="grid-template-columns: 1fr 1.25fr">
+
+        <div class="carte">
+          <header>
+            <h2>Nouvelle publication</h2>
+            <span class="sous">Pré-remplie depuis la vidéo</span>
+          </header>
+          <div class="corps">
+            <div class="champ">
+              <label for="video">Vidéo</label>
+              <select id="video">
+                <option>Relevés entre services — prête</option>
+                <option>Chaîne du froid — prête</option>
+              </select>
+              <span class="aide">Seules les vidéos prêtes apparaissent : les bornes de chaque réseau ont été vérifiées à l'entrée en librairie.</span>
+            </div>
+
+            <div class="champ">
+              <label>Réseau</label>
+              <div class="filtres">
+                <button class="puce" aria-pressed="true">Instagram</button>
+                <button class="puce" aria-pressed="false">Facebook Page</button>
+                <button class="puce" aria-pressed="false" disabled>TikTok — fin de V1</button>
+                <button class="puce" aria-pressed="false" disabled>LinkedIn — agrément requis</button>
+              </div>
+            </div>
+
+            <div class="champ">
+              <label for="leg">Légende</label>
+              <textarea id="leg">Trois relevés par service, et le registre se remplit tout seul. Le contrôle sanitaire n'a plus rien à chercher.</textarea>
+              <span class="aide">Pré-remplie depuis la vidéo, modifiable pour cette publication seulement.</span>
+            </div>
+
+            <div class="champ">
+              <label for="tags">Hashtags (5 au maximum)</label>
+              <input id="tags" value="#haccp #hygienealimentaire #restauration #restaurateur #controlesanitaire">
+              <span class="aide">5 sur 5. Instagram accepte 2 200 caractères au total, légende comprise : 168 utilisés.</span>
+            </div>
+
+            <div class="champ">
+              <label>Quand</label>
+              <div class="filtres">
+                <button class="puce" aria-pressed="false">Maintenant</button>
+                <button class="puce" aria-pressed="true">Programmer</button>
+              </div>
+            </div>
+
+            <div class="grille-2" style="gap: 12px">
+              <div class="champ">
+                <label for="date">Date</label>
+                <input id="date" value="10/09/2026">
+              </div>
+              <div class="champ">
+                <label for="heure">Heure (Paris)</label>
+                <input id="heure" value="12:30">
+              </div>
+            </div>
+
+            <div class="encart info">
+              <b>Confidentialité TikTok</b>
+              Tant que l'application TikTok n'est pas auditée, toute publication part en privé. Le choix apparaîtra ici en fin de V1.
+            </div>
+
+            <button class="bouton primaire" style="margin-top: 14px">Programmer</button>
+          </div>
+        </div>
+
+        <div class="pile">
+          <div class="carte">
+            <header>
+              <h2>À venir</h2>
+              <span class="sous">3 publications programmées</span>
+            </header>
+            <table>
+              <thead>
+                <tr><th>Quand (Paris)</th><th>Vidéo et réseau</th><th>État</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>09/09 · 12:30</b><div class="meta">dans 1 jour</div></td>
+                  <td><b>Chaîne du froid</b><div class="meta">Instagram · compte @etablia</div></td>
+                  <td><span class="etat programmee">Programmée</span></td>
+                  <td class="actions-cel"><button class="bouton">Déplacer</button><button class="bouton">Annuler</button></td>
+                </tr>
+                <tr>
+                  <td><b>11/09 · 09:00</b><div class="meta">dans 3 jours</div></td>
+                  <td><b>Relevés entre services</b><div class="meta">Instagram · compte @etablia</div></td>
+                  <td><span class="etat programmee">Programmée</span></td>
+                  <td class="actions-cel"><button class="bouton">Déplacer</button><button class="bouton">Annuler</button></td>
+                </tr>
+                <tr>
+                  <td><b>13/09 · 18:00</b><div class="meta">dans 5 jours</div></td>
+                  <td><b>Traçabilité amont</b><div class="meta">Facebook Page · Établia</div></td>
+                  <td><span class="etat programmee">Programmée</span></td>
+                  <td class="actions-cel"><button class="bouton">Déplacer</button><button class="bouton">Annuler</button></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="corps" style="border-top: 1px solid var(--bord)">
+              <div class="encart">
+                <b>Annulable et déplaçable tant que rien n'est parti</b>
+                Une fois l'envoi engagé, la publication n'est plus modifiable dans regie : elle se supprime chez le réseau.
+              </div>
+            </div>
+          </div>
+
+          <div class="carte">
+            <header>
+              <h2>Historique</h2>
+              <span class="sous">Départs et échecs</span>
+            </header>
+            <table>
+              <thead>
+                <tr><th>Quand</th><th>Vidéo et réseau</th><th>Résultat</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>05/09 · 10:20</b></td>
+                  <td><b>Traçabilité amont</b><div class="meta">Instagram</div></td>
+                  <td><span class="etat publiee">Publiée</span><div class="meta">identifiant 178…4021</div></td>
+                  <td class="actions-cel"><button class="bouton discret">Voir chez le réseau</button></td>
+                </tr>
+                <tr>
+                  <td><b>04/09 · 16:45</b></td>
+                  <td><b>Contrôle surprise</b><div class="meta">Instagram</div></td>
+                  <td>
+                    <span class="etat echec">Échec</span>
+                    <div class="meta">Jeton expiré (code 190). Aucune nouvelle tentative automatique.</div>
+                  </td>
+                  <td class="actions-cel"><a class="bouton" href="/parametres.html">Reconnecter</a><button class="bouton primaire">Rejouer</button></td>
+                </tr>
+                <tr>
+                  <td><b>02/09 · 12:00</b></td>
+                  <td><b>Plan de nettoyage</b><div class="meta">Instagram</div></td>
+                  <td>
+                    <span class="etat echec">Échec</span>
+                    <div class="meta">Quota du compte atteint (25 publications sur 24 h).</div>
+                  </td>
+                  <td class="actions-cel"><button class="bouton primaire">Rejouer</button></td>
+                </tr>
+                <tr>
+                  <td><b>01/09 · 08:00</b></td>
+                  <td><b>Réception HACCP</b><div class="meta">Instagram</div></td>
+                  <td><span class="etat archivee">Annulée</span><div class="meta">Annulée avant l'envoi, depuis MCP <span class="origine mcp">MCP</span></div></td>
+                  <td class="actions-cel"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="grille-3">
+        <div class="carte">
+          <header><h2>Jamais deux fois</h2></header>
+          <div class="corps">
+            <p class="aide" style="margin-top:0">Une publication programmée ne part qu'une fois, même si regie redémarre au moment de l'envoi. La marque de départ est posée avant l'appel au réseau.</p>
+          </div>
+        </div>
+        <div class="carte">
+          <header><h2>Rattrapage au démarrage</h2></header>
+          <div class="corps">
+            <p class="aide" style="margin-top:0">Une publication dont l'heure est passée pendant un arrêt part au démarrage si le retard reste dans la fenêtre de rattrapage (2 h par défaut, réglable). Au-delà, elle passe en échec avec sa raison.</p>
+          </div>
+        </div>
+        <div class="carte">
+          <header><h2>Échec visible ici, nulle part ailleurs</h2></header>
+          <div class="corps">
+            <p class="aide" style="margin-top:0">Aucune notification par courriel ni Telegram en V1, et aucune nouvelle tentative automatique. L'échec porte sa cause et le bouton « Rejouer ».</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
