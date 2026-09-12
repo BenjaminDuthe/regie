@@ -1,5 +1,5 @@
 ---
-stepsCompleted: ['step-01-init', 'step-02-context', 'step-03-starter']
+stepsCompleted: ['step-01-init', 'step-02-context', 'step-03-starter', 'step-04-decisions']
 inputDocuments:
   - 'docs/planning/prd.md'
   - 'docs/planning/prd-validation-report.md'
@@ -229,3 +229,216 @@ le portage du moteur vidéo existant.
 
 **Note :** l'initialisation du projet par cette commande doit être la **première story
 d'implémentation**.
+
+## Décisions d'architecture structurantes
+
+_Versions relevées au registre npm le 2026-09-13. Aucune estimation de durée : le rythme de mise
+en œuvre ne se déduit pas de ces choix._
+
+### Hiérarchie des décisions
+
+**Décisions bloquantes (rien ne se code avant) :** topologie des processus · persistance · origine
+du binaire `ffmpeg` · portage du moteur vidéo existant.
+
+**Décisions structurantes (elles façonnent l'architecture sans la bloquer) :** hachage du mot de
+passe et forme de la session · forme des migrations · origine du navigateur de capture · mécanique
+du planificateur · journalisation.
+
+**Décisions repoussées (assumées, avec leur raison) :** cache applicatif (une seule marque, un seul
+utilisateur — SQLite suffit) · limitation de débit sur les routes internes (un seul appelant) ·
+second facteur (hors V1, MANDAT) · publication multi-comptes (hors V1) · observabilité distante (le
+journal local et la table d'audit couvrent la V1).
+
+### Architecture des données
+
+**Décision — SQLite, dans le dossier de données, via `better-sqlite3` et `drizzle-orm`.**
+Versions : `better-sqlite3` 13.0.3 (2026-08-05, `engines.node >= 22`) · `drizzle-orm` 0.45.2.
+_Motif._ NFR13 (survie au redémarrage) et la sauvegarde « un dossier à copier » (étape 10 du PRD)
+exigent que l'état vive sur le disque, à côté des vidéos rendues. Un serveur de base séparé
+contredirait l'installation en quatre étapes (NFR34). L'accès synchrone de `better-sqlite3` convient
+à un processus unique servant un seul utilisateur.
+_Porte sur._ Librairie, scénarios, programmation, journal d'audit, jetons chiffrés, file de tâches.
+_Apporté par le socle._ Non.
+_Coût assumé._ Compilation native au premier `pnpm install` ; `engines.node >= 22` s'aligne sur le
+plancher déjà fixé par Astro 7.
+
+**Décision — migrations en fichiers SQL numérotés, appliquées au démarrage.**
+`0001_x.sql`, `0002_y.sql`… exécutés en ordre par un exécuteur maison tenant une table
+`schema_migrations` (nom du fichier + empreinte SHA-256 + horodatage).
+_Motif._ NFR35 exige des migrations versionnées appliquées au démarrage. Le SQL appliqué est celui
+qu'on a écrit et relu — pas un SQL généré qu'on relit après coup ; sur SQLite, la réécriture de
+table produit des migrations qu'il vaut mieux avoir écrites soi-même.
+_Porte sur._ Démarrage du processus, toute évolution de schéma. _Apporté par le socle._ Non.
+_Coût assumé._ Le schéma Drizzle (TypeScript) et le SQL se tiennent à jour à la main ; un test de
+dérive schéma ⇔ base ferme cet écart.
+
+**Décision — bornes de validation vérifiées à l'entrée, avec `zod` 4.5.4.**
+_Motif._ FR12 exige des gardes bloquantes sans échappatoire, et le SDK MCP impose déjà `zod` en
+dépendance de pair (NFR33) : un seul vocabulaire de validation pour les outils MCP, les formulaires
+de l'interface et les bornes du moteur vidéo. _Porte sur._ Tous les points d'entrée.
+_Apporté par le socle._ Non.
+
+### Authentification et sécurité
+
+**Décision — mot de passe unique haché par `scrypt` (`node:crypto`), session en cookie signé.**
+Cookie `HttpOnly`, `SameSite=Lax`, `Secure` hors développement, signé par une clé dérivée de
+`REGIE_MASTER_KEY` par HKDF.
+_Motif._ Aucune dépendance native supplémentaire après `better-sqlite3` — c'est ce qui protège
+l'installation en quatre étapes chez un tiers (NFR34). `scrypt` est un algorithme de dérivation de
+mot de passe approuvé, disponible dans le runtime. Mot de passe unique, poste du fondateur, pas de
+second facteur en V1 (MANDAT) : Argon2id (`@node-rs/argon2` 2.2.1) ne rachèterait pas sa dépendance
+native. Sessions en base écartées : la révocation ligne par ligne est sans objet à un seul
+utilisateur.
+_Porte sur._ Première mise en route, toutes les routes de l'interface. _Apporté par le socle._ Non.
+_Coût assumé._ Environ trente lignes écrites à la main plutôt qu'une bibliothèque.
+
+**Décision — `REGIE_MASTER_KEY` est la racine unique des secrets ; AES-256-GCM pour les jetons.**
+Les jetons OAuth des réseaux sont chiffrés au repos (NFR16). La clé vient de l'environnement, jamais
+d'un fichier versionné. Absente au démarrage : refus de démarrer, message explicite.
+_Motif._ NFR16 et la contrainte permanente « aucun secret hors du coffre ».
+_Porte sur._ Connecteurs, écran Paramètres, sauvegarde. _Apporté par le socle._ Non.
+
+**Décision — aucun outil MCP ne lit ni n'écrit un secret ; le jeton MCP est distinct de la session.**
+Le serveur MCP n'est joignable qu'avec un jeton porteur, comparé en temps constant, stocké haché.
+Les clés API et le parcours OAuth restent exclusivement dans l'interface (FR39, NFR15).
+_Motif._ La vision « Claude pilote tout » s'arrête à la frontière des secrets, et c'est une décision
+produit déjà prise. _Porte sur._ Route MCP, contrat des outils, écran Paramètres.
+
+**Décision — les routes sans session sont énumérées dans le code (NFR18).**
+Une liste explicite (pages CGU et confidentialité, rappels OAuth, santé) ; tout le reste passe par
+la garde. La liste est un fait testable, pas une convention de nommage.
+
+### Modèles d'API et de communication
+
+**Décision — un seul processus Fastify 5.12.3 ; Astro monté en middleware ; MCP en route à part.**
+Fastify est le serveur ; l'adaptateur `@astrojs/node` 11.1.5 est en mode `middleware` et son
+`handler` est monté sur Fastify ; la route MCP (transport Streamable HTTP du SDK officiel
+`@modelcontextprotocol/sdk` 1.30.0) vit dans le même processus, derrière le jeton ; la file de
+génération et le planificateur tournent dans ce même processus.
+_Motif._ NFR5 (une seule génération à la fois), NFR13 (survie au redémarrage), FR7/FR40 (opérations
+longues qui rendent un identifiant puis un état) exigent un processus de longue durée qui détient la
+file. Un second processus imposerait un protocole entre les deux, pour un seul utilisateur.
+_Porte sur._ Tout. _Apporté par le socle._ Non — le socle fournit l'adaptateur, pas le choix du mode.
+_Coût assumé._ En mode middleware, l'adaptateur ne sert pas les fichiers statiques : c'est à notre
+serveur de servir `dist/client`.
+
+**Décision — la logique vit dans des services ; les outils MCP et les routes HTTP sont deux façades
+sur le même service.** Aucune règle métier dans une route ni dans un outil.
+_Motif._ FR38 impose la parité outil ⇔ interface et NFR32 la teste : la parité n'est tenable que si
+les deux appellent le même code.
+_Porte sur._ `src/services/`, les routes, les outils MCP, le test de parité.
+
+**Décision — les erreurs sont typées et nommées ; aucun échec silencieux.**
+Un échec de publication, de génération ou de capture produit une entrée d'audit et un état lisible
+dans l'interface (critère de succès du PRD : « aucun échec silencieux »).
+_Porte sur._ File, connecteurs, moteur vidéo.
+
+**Décision — journal applicatif structuré avec `pino` 10.3.1 ; journal d'audit en base.**
+`pino` écrit du JSON sur la sortie standard (rotation par redirection). Le journal d'audit des
+publications reste une table en ajout seul (NFR21) — ce sont deux journaux distincts, l'un pour
+diagnostiquer, l'autre pour prouver. Aucun secret n'entre dans l'un ni dans l'autre.
+
+### Architecture de l'interface
+
+**Décision — pages rendues côté serveur, îlots interactifs, rafraîchissement périodique.**
+Astro 7.3.1, îlots **client** (`client:load`), rafraîchissement périodique des écrans qui suivent
+une tâche longue (proposition : 5 s, à confirmer à la mise au point).
+_Motif._ Décision de l'étape 7 du PRD (pages serveur + îlots). Les îlots serveur (`server:defer`)
+sont écartés en V1 : le ticket withastro/astro#15753 signale un défaut avec l'adaptateur Node en
+bêta v6, non requalifié sur la v7 stable — on ne fonde pas l'interface dessus.
+_Porte sur._ Tous les écrans. _Apporté par le socle._ Oui, pour Astro et les directives d'îlot.
+
+**Décision — pas de bibliothèque d'état global ; l'état vit sur le serveur.**
+Chaque îlot lit son état par une route qui interroge le service.
+_Motif._ L'interface est un miroir de ce que le MCP peut faire : dupliquer l'état côté navigateur
+créerait une seconde vérité. _Porte sur._ Librairie, éditeur, publication.
+
+**Décision — CSS scopé Astro + une feuille commune, reprise de `maquette/public/style.css`.**
+La maquette validée le 2026-09-08 est la référence visuelle ; sa feuille est le point de départ, pas
+une réécriture. Disposition ordinateur ≥ 1 280 px, bandeau en dessous (NFR27).
+_Porte sur._ Tous les écrans. _Apporté par le socle._ Partiellement — Astro n'impose pas de style.
+
+**Décision — cibles de navigateur : Chromium et Firefox récents, testé sur Chromium seul.**
+Décision de l'étape 7 du PRD. Socle d'accessibilité : contraste, ordre de tabulation, libellés.
+
+### Infrastructure et déploiement
+
+**Décision — `ffmpeg-static` 5.3.0 embarqué, repli sur un binaire système par variable
+d'environnement.**
+_Motif._ Version épinglée donc rendu reproductible (critère de succès du PRD), installation en
+quatre étapes préservée (NFR34). _Porte sur._ Moteur vidéo, intégration continue, README.
+_Coût assumé._ Environ 80 Mo à l'installation, et **la construction distribuée est sous licence
+GPL : le README du dépôt public doit le mentionner.**
+
+**Décision — `playwright` 1.63.0, Chromium téléchargé à l'installation.**
+_Motif._ La version du navigateur est épinglée avec celle du paquet : deux postes rendent la même
+vidéo. Un Chrome système se met à jour tout seul et ferait bouger le rendu sans qu'on ait rien
+changé ; `playwright-core` + Chromium installé à part imposerait une cinquième étape d'installation,
+à répéter en intégration continue.
+_Porte sur._ Capture des pages de l'application, intégration continue (NFR36).
+_Apporté par le socle._ Non. _Coût assumé._ Environ 150 Mo téléchargés, en plus des 80 Mo de ffmpeg.
+
+**Décision — planificateur à réveil calculé sur la prochaine échéance.**
+Le processus lit en base la plus proche échéance à venir et programme un réveil dessus ; recalcul
+après chaque départ, chaque ajout et chaque modification. Au démarrage, rattrapage des échéances
+dépassées dans une fenêtre bornée (2 h par défaut, réglable — étape 10 du PRD). Heure de Paris
+(NFR37), changements d'heure compris : les échéances sont stockées en instant absolu, l'affichage
+seul est localisé.
+_Motif._ Nos échéances sont des dates uniques en base, pas des règles récurrentes : une bibliothèque
+de planification `cron` (`croner` 10.0.1) paierait pour la moitié de ce qu'elle sait faire. Une
+vérification toutes les minutes interrogerait la base à vide toute la journée, pour un retard
+pouvant aller jusqu'à une minute. _Porte sur._ Publication programmée, redémarrage.
+_Apporté par le socle._ Non.
+_Coût assumé._ Le recalcul à chaque écriture est à notre charge ; un oubli et une publication part
+en retard — un test le couvre.
+
+**Décision — moteur vidéo recopié tel quel en `.mjs`, typé par ses `.d.mts` existants.**
+Les sept fichiers (`format`, `scenes`, `montage`, `rendu`, `ffmpeg`, `images`, `generer` —
+1 952 lignes) passent dans `regie` sans réécriture, avec leurs `.d.mts` et leurs tests unitaires.
+_Motif._ Ce code est éprouvé et produit déjà des vidéos publiées ; le réécrire en TypeScript
+mélangerait un portage et une refonte. `astro check` le voit à travers ses déclarations.
+_Porte sur._ Génération, éditeur, tests.
+_Coût assumé._ Deux styles cohabitent dans le dépôt ; le README dit lequel s'applique où.
+
+**Décision — un seul runtime Node/TypeScript, ESM, TypeScript `strict`.**
+Node 24 cible, Node 22 plancher (Astro 7 : `engines.node >= 22.12.0` ; `better-sqlite3` 13 : `>= 22`).
+_Note de calendrier :_ à partir d'octobre 2026, Node passe à une majeure par an, toutes LTS — la
+formulation de NFR34 devra en tenir compte.
+
+**Décision — intégration continue GitHub Actions avec Chromium et ffmpeg (NFR36) ; tests avec
+`vitest` 5.0.0.** Deux tests sont nommés par le PRD et ne se négocient pas : la **parité** outil MCP
+⇔ service (NFR32) et la **dérive** entre le schéma déclaré et la base.
+
+**Décision — installation en quatre étapes : clonage, `pnpm install`, `.env`, démarrage.**
+Le premier démarrage applique les migrations, crée le dossier de données et demande le mot de passe.
+_Porte sur._ README, référence des outils MCP générée depuis le code (FR42).
+
+### Effets croisés et ordre de mise en œuvre
+
+**Ordre imposé par les dépendances :**
+
+1. Initialisation du socle (`create-astro` minimal + `@astrojs/node`) — première story.
+2. Serveur Fastify, Astro en middleware, fichiers statiques servis, routes sans session énumérées.
+3. Dossier de données, SQLite, exécuteur de migrations, `0001` de schéma initial.
+4. Première mise en route : mot de passe `scrypt`, cookie signé, garde de session.
+5. Coffre : `REGIE_MASTER_KEY`, AES-256-GCM, écran Paramètres.
+6. Services + file de tâches (une à la fois) + états des opérations longues.
+7. Route MCP derrière jeton, premiers outils, test de parité et référence générée.
+8. Portage du moteur vidéo, `ffmpeg-static`, `playwright`, capture des pages.
+9. Éditeur, librairie.
+10. Connecteurs — Instagram d'abord (MVP), puis Facebook Page, TikTok, LinkedIn.
+11. Planificateur et rattrapage au démarrage.
+
+**Effets croisés à ne pas perdre de vue :**
+
+- Le **processus unique** rend la file, le planificateur et le MCP solidaires : ce qui tue le
+  processus arrête les trois. D'où le rattrapage borné au démarrage, qui n'est pas un confort.
+- `scrypt` et le cookie signé **dépendent de `REGIE_MASTER_KEY`** : sans elle, ni session ni jeton
+  déchiffrable. La clé est donc dans l'installation en quatre étapes, pas dans un écran.
+- **Deux dépendances natives ou téléchargées** (`better-sqlite3`, Chromium de Playwright) plus un
+  binaire embarqué (`ffmpeg`) : l'installation tierce (V1.1) se jugera sur ces trois points, et
+  c'est ce qui justifie d'avoir refusé une troisième dépendance native pour le hachage.
+- Le **mode middleware** nous rend responsables des fichiers statiques : un oubli ici se voit comme
+  une page sans style, pas comme une erreur.
+- Le **moteur en `.mjs`** impose que la frontière entre code typé et code déclaré soit nette : les
+  `.d.mts` sont la seule interface, et un test de dérive les surveille.
