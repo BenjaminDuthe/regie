@@ -1,5 +1,5 @@
 ---
-stepsCompleted: ['step-01-init', 'step-02-context']
+stepsCompleted: ['step-01-init', 'step-02-context', 'step-03-starter']
 inputDocuments:
   - 'docs/planning/prd.md'
   - 'docs/planning/prd-validation-report.md'
@@ -124,3 +124,108 @@ valeurs mesurées, jamais complétées.
   vérifie, à l'origine près dans l'audit (FR38, NFR32).
 - **Bornes des réseaux** — vérifiées deux fois, à l'entrée en librairie et avant l'acceptation
   d'une publication, contre un fichier de bornes versionné par réseau (FR17, FR20, NFR29).
+
+## Évaluation d'un socle de départ
+
+_Toutes les versions citées ci-dessous ont été relevées au registre npm le 2026-09-08, et non
+dans un résumé de recherche : sur ce point précis, les résumés se contredisaient._
+
+### Domaine technologique principal
+
+**Application web rendue côté serveur avec îlots interactifs, doublée d'un outil pour
+développeur.** Le PRD impose un seul runtime Node/TypeScript, des pages serveur avec îlots, un
+serveur MCP en Streamable HTTP, et un **processus de longue durée** qui porte la file de
+génération, le planificateur et le pilotage de sous-processus lourds (Chromium par
+`playwright-core`, `ffmpeg`). Ce dernier point est décisif : ce n'est pas un site, c'est un
+serveur applicatif qui rend aussi des pages.
+
+### Socles envisagés
+
+**1. `create-astro`, gabarit `minimal`, avec `@astrojs/node`.** Astro `7.3.1` (2026-09-03) ;
+adaptateur `@astrojs/node` `11.1.5` (2026-08-31), épinglé sur `astro ^7.2.1` ; `create-astro`
+`5.2.4`. C'est exactement le modèle « pages serveur et îlots » demandé, sans avoir à le
+construire. L'adaptateur offre deux modes : *standalone* (Astro démarre son propre serveur et
+sert les fichiers) et *middleware* (Astro exporte un `handler` monté dans notre propre serveur
+Node, mais n'assure **pas** le service des fichiers statiques). Le mode middleware est celui qui
+permet de faire cohabiter, dans un seul processus, les pages, le point d'entrée MCP et les
+tâches longues. Réserve consignée : le ticket ouvert
+[withastro/astro#15753](https://github.com/withastro/astro/issues/15753) signalait des îlots
+**serveur** cassés avec l'adaptateur Node en bêta v6 ; sa clôture sur la v7 stable n'a pas été
+vérifiée. Repli documenté si le cas se présente : n'utiliser que des îlots **client**
+(`client:load`), qui suffisent à l'éditeur et à la librairie.
+
+**2. Un gabarit full-stack — Next.js, SvelteKit, Remix.** Écarté. Ces socles supposent un
+déploiement sans état et poussent la logique dans les routes, ce que FR38 interdit : la parité
+outil MCP ⇔ interface exige une couche de services appelée par les deux, et un test la vérifie.
+Ils apportent en outre un modèle de rendu bien plus lourd que ce que sept écrans réclament.
+
+**3. Fastify `5.12.3` seul, avec un moteur de gabarits.** Techniquement valable — un vrai
+processus long, un contrôle total des routes accessibles sans session (NFR18) — mais il faut
+réécrire à la main le routage de pages, la construction des fichiers d'interface et
+l'hydratation des îlots, c'est-à-dire tout ce qu'Astro fournit. Fastify reste pertinent **sous**
+Astro en mode middleware : c'est une décision d'architecture, pas un socle de départ.
+
+**4. Aucun socle, squelette pnpm/TypeScript écrit à la main.** C'est la maquette actuelle :
+serveur Node sans dépendance, sept pages HTML, navigation recopiée dans chaque fichier. Elle a
+rempli son rôle de validation UX et ne tient pas comme socle — aucune factorisation, aucune
+interactivité, aucun typage.
+
+### Socle retenu : `create-astro` (gabarit `minimal`) avec `@astrojs/node`
+
+**Justification.** C'est le seul socle qui donne le modèle de rendu exigé sans imposer une
+architecture de routes qui contredirait la parité MCP. Il est minimal par construction : le
+gabarit `minimal` ne pose ni style, ni tests, ni lint, donc il ne préempte aucune décision
+d'architecture. Il est activement maintenu — deux publications dans les dix jours précédant le
+relevé. Et son mode middleware laisse le processus long — file, planificateur, serveur MCP —
+sous notre contrôle, au lieu de nous enfermer dans le serveur d'un framework.
+
+**Commande d'initialisation.** La racine du dépôt porte déjà `.gitignore`, `README.md`,
+`MANDAT.md`, `docs/` et `maquette/` : `create-astro` ne s'exécute pas proprement sur un dossier
+non vide. On génère donc à côté, puis on fusionne en préservant les fichiers existants.
+
+```bash
+pnpm create astro@latest socle-astro -- --template minimal --typescript strict --no-install --no-git --skip-houston
+```
+
+```bash
+pnpm add astro@7.3.1 @astrojs/node@11.1.5 && pnpm add -D vitest@5.0.0
+```
+
+**Décisions d'architecture apportées par le socle :**
+
+**Langage et exécution** — TypeScript en mode `strict` (option `--typescript strict`), modules
+ES, `astro check` pour le contrôle de types. Astro `7.3.1` exige **Node ≥ 22.12.0** ;
+`better-sqlite3` `13.0.3` exige ≥ 22 ; Vitest `5.0.0` exige `^22.12 || ^24 || >=26`. La cible
+documentée pour NFR34 est donc **Node 24**, Active LTS au moment du relevé, avec Node 22
+(Maintenance LTS) comme plancher toléré. Note de calendrier : à partir d'octobre 2026, Node
+passe à une majeure par an et toutes les versions deviennent LTS — la distinction pair/impair
+disparaît, et la formulation de NFR34 devra en tenir compte.
+
+**Solution de style** — aucune imposée : CSS scopé par composant `.astro`, plus une feuille
+commune. Le socle laisse ouverte la reprise directe de `maquette/public/style.css`.
+
+**Outillage de construction** — Vite, fourni par Astro : rechargement à chaud en développement,
+empaquetage et empreintes de contenu en production. Entrée serveur construite par défaut dans
+`dist/server/entry.mjs`.
+
+**Cadre de tests** — **aucun**. Le gabarit `minimal` n'en pose pas ; Vitest est un ajout
+explicite, requis par NFR32 (test de parité outil ⇔ service) et NFR18 (liste close des routes
+accessibles sans session).
+
+**Organisation du code** — routage par fichier sous `src/pages/`, composants sous
+`src/components/`, configuration dans `astro.config.mjs`, variables d'environnement typées par
+`import.meta.env`. Les îlots se déclarent par directive : `client:load` pour l'hydratation
+navigateur, `server:defer` pour le rendu serveur différé avec contenu de repli. Le socle
+n'impose **rien** sur une couche `src/services/` : celle qu'exige FR38 s'y ajoute librement,
+appelée par les pages comme par les outils MCP.
+
+**Expérience de développement** — serveur de développement avec rechargement à chaud, contrôle
+de types par `astro check`. Ni lint ni formatage : ce sont des ajouts.
+
+**Ce que le socle ne décide pas** — et qui reste entier pour les décisions d'architecture : le
+mode d'adaptateur (*standalone* ou *middleware*), la persistance (fichier ou serveur), la
+cohabitation du serveur MCP dans le même processus ou dans un second, l'origine de `ffmpeg`, et
+le portage du moteur vidéo existant.
+
+**Note :** l'initialisation du projet par cette commande doit être la **première story
+d'implémentation**.
