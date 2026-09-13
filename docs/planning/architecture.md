@@ -1,5 +1,5 @@
 ---
-stepsCompleted: ['step-01-init', 'step-02-context', 'step-03-starter', 'step-04-decisions', 'step-05-patterns']
+stepsCompleted: ['step-01-init', 'step-02-context', 'step-03-starter', 'step-04-decisions', 'step-05-patterns', 'step-06-structure']
 inputDocuments:
   - 'docs/planning/prd.md'
   - 'docs/planning/prd-validation-report.md'
@@ -691,3 +691,259 @@ Deux valeurs proposées attendent encore la confirmation du fondateur, et le PRD
 l'architecture : l'intervalle de rafraîchissement des îlots (proposition 5 s) et la largeur minimale
 de l'interface (proposition 1 280 px). Elles seront tranchées avec la structure du projet ou le cadre
 de validation.
+
+## Structure du projet et frontières
+
+Cette section fixe où vit chaque chose et ce qui a le droit d'appeler quoi. Elle n'est pas
+cosmétique : sans elle, deux agents qui codent deux stories différentes inventent chacun leur
+emplacement, et la troisième story hérite de deux arborescences incompatibles.
+
+Trois arbitrages du fondateur commandent la structure qui suit :
+
+1. **Envoi de la vidéo aux réseaux → téléversement direct partout, hébergement externe pour
+   Instagram.** L'option d'une adresse temporaire signée servie par regie a été écartée en
+   connaissance de cause. Conséquences assumées : une dépendance externe de plus, un compte à
+   gérer, un secret de plus dans le coffre, et la vidéo quitte la machine du fondateur pour
+   Instagram. Conséquence structurelle directe : **regie ne sert aucune route signée et n'expose
+   aucun répertoire de rendus** — en échange, une couche `src/hebergement/` apparaît, isolée comme
+   un connecteur, avec sa clé propre dans Paramètres.
+2. **Dossier de données → `./donnees/` à la racine du projet, surchargeable.** Le dossier vit à
+   côté du code cloné, il est ignoré par le dépôt, et la variable `REGIE_DONNEES` le déplace
+   (disque externe, NAS). Sauvegarder, c'est copier un dossier visible. Cela n'ajoute aucune étape
+   à l'installation en quatre étapes (NFR34). Contrepartie à écrire noir sur blanc dans le
+   LISEZ-MOI : **un `rm -rf` du dossier cloné emporte les données avec lui**.
+3. **Aperçu de l'éditeur → le HTML du moteur, affiché dans un cadre.** Une route rend le HTML
+   d'une scène avec les mêmes fonctions que le rendu final, et l'affiche dans un `iframe` aux
+   dimensions de la zone sûre. Un seul générateur de HTML : l'aperçu ne peut pas diverger du
+   résultat. Le moteur expose déjà sa composition de scène sans passer par ffmpeg
+   (`htmlZones`, `variablesCss`, `poserCadrage`, `placerVue`), donc rien n'est à inventer.
+
+### Arborescence complète du projet
+
+```
+regie/
+├── .env.exemple                    ← modèle commenté : REGIE_MASTER_KEY, REGIE_DONNEES, REGIE_JETON_MCP
+├── .gitignore                      ← donnees/ , .env , dist/ , node_modules/
+├── .github/workflows/ci.yml        ← Node 24 + Chromium + ffmpeg (NFR36)
+├── .claude/launch.json
+├── astro.config.mjs                ← @astrojs/node en mode « middleware »
+├── drizzle.config.ts
+├── package.json  ·  pnpm-lock.yaml  ·  tsconfig.json  ·  vitest.config.ts
+├── LICENCE  ·  LISEZ-MOI.md  ·  MANDAT.md
+├── docs/
+│   ├── planning/{prd.md, prd-validation-report.md, architecture.md}
+│   ├── outils-mcp.md               ← GÉNÉRÉ depuis le code (FR42), jamais édité à la main
+│   └── exemples-de-prompts.md
+├── maquette/                       ← référence UX figée du 2026-09-08, hors production
+│   ├── serveur.mjs
+│   └── public/{index,generateur,editeur,publication,parametres,audit,mise-en-route}.html + style.css
+├── migrations/
+│   ├── 0001_socle.sql              ← videos, scenarios, taches, journal_audit, migrations_appliquees
+│   ├── 0002_reseaux.sql            ← comptes_reseau, publications
+│   └── LISEZ-MOI.md                ← règle de numérotation et d'irréversibilité
+├── donnees/                        ← HORS DÉPÔT ; déplaçable par REGIE_DONNEES ; c'est LA sauvegarde
+│   ├── regie.db                    ← SQLite (+ .db-wal, .db-shm)
+│   ├── captures/<video_id>/001.png…
+│   ├── rendus/<video_id>.mp4
+│   └── journal/regie-AAAA-MM-JJ.log
+├── scripts/
+│   ├── generer-reference-mcp.ts    ← écrit docs/outils-mcp.md depuis le registre d'outils
+│   ├── verifier-parite.ts          ← contrôle outil ⇔ service ⇔ route (NFR32)
+│   └── essai-connecteur.ts         ← script jetable d'exploration d'API
+├── src/
+│   ├── serveur.ts                  ← POINT D'ENTRÉE UNIQUE : Fastify + Astro + MCP + planificateur
+│   ├── env.ts                      ← lecture et validation zod des variables, une seule fois
+│   ├── pages/
+│   │   ├── index.astro             ← librairie
+│   │   ├── generateur.astro  ·  editeur.astro  ·  publication.astro
+│   │   ├── parametres.astro  ·  audit.astro
+│   │   ├── mise-en-route.astro     ← mot de passe initial, première visite seulement
+│   │   └── connexion.astro
+│   ├── composants/
+│   │   ├── Mise.astro  ·  Entete.astro  ·  GardeLargeur.astro   ← bandeau sous la largeur minimale (NFR27)
+│   │   ├── CarteVideo.astro  ·  EtatConnecteur.astro            ← rendu serveur
+│   │   ├── FileTaches.astro        ← ÎLOT client:load, rafraîchissement périodique
+│   │   ├── EditeurScenes.astro     ← ÎLOT client:load
+│   │   ├── ApercuScene.astro       ← ÎLOT : iframe vers /apercu/:scenarioId/:index
+│   │   └── FormulaireProgrammation.astro ← ÎLOT client:load
+│   ├── services/                   ← TOUTE la logique ; un fichier par domaine ; pas d'index.ts
+│   │   ├── videos.ts  ·  videos.test.ts
+│   │   ├── scenarios.ts  ·  scenarios.test.ts
+│   │   ├── publications.ts  ·  publications.test.ts
+│   │   ├── comptes.ts  ·  comptes.test.ts
+│   │   ├── taches.ts  ·  taches.test.ts
+│   │   ├── audit.ts  ·  audit.test.ts
+│   │   └── parametres.ts  ·  parametres.test.ts
+│   ├── routes/                     ← façade HTTP ; miroir de mcp/outils/
+│   │   ├── videos.ts  ·  scenarios.ts  ·  publications.ts
+│   │   ├── comptes.ts  ·  taches.ts  ·  audit.ts
+│   │   ├── session.ts              ← connexion, déconnexion, mot de passe initial
+│   │   ├── oauth.ts                ← départs et retours OAuth ; JAMAIS exposé au MCP
+│   │   ├── apercu.ts               ← HTML d'une scène, produit par le moteur
+│   │   └── legales.ts              ← CGU et confidentialité servies par regie
+│   ├── mcp/
+│   │   ├── serveur.ts              ← SDK 1.30.0, transport Streamable HTTP, monté sur /mcp
+│   │   ├── jeton.ts                ← porteur, comparaison en temps constant
+│   │   └── outils/                 ← miroir de routes/ ; aucun accès aux secrets (FR39)
+│   │       ├── videos.ts  ·  scenarios.ts  ·  publications.ts
+│   │       ├── taches.ts  ·  audit.ts
+│   │       └── registre.ts         ← liste unique lue par le serveur ET par la génération de doc
+│   ├── connecteurs/                ← NFR28 : AUCUN import d'un connecteur vers un autre
+│   │   ├── contrat.ts              ← interface commune : publier, rafraichirJeton, etatCompte
+│   │   ├── instagram/{oauth.ts, publier.ts, instagram.test.ts}
+│   │   ├── facebook_page/{oauth.ts, publier.ts, facebook_page.test.ts}
+│   │   ├── tiktok/{oauth.ts, publier.ts, tiktok.test.ts}
+│   │   └── linkedin/{oauth.ts, publier.ts, linkedin.test.ts}   ← clé et connecteur, publication après agrément
+│   ├── hebergement/                ← exigé par le choix « hébergement externe pour Instagram »
+│   │   ├── contrat.ts              ← deposer(fichier) → URL publique ; retirer(URL)
+│   │   ├── depot-s3.ts             ← implémentation compatible S3, clé au coffre
+│   │   └── hebergement.test.ts
+│   ├── capture/                    ← Playwright isolé, comme les connecteurs
+│   │   ├── navigateur.ts           ← lancement, fermeture, Chromium épinglé
+│   │   ├── session-app.ts          ← connexion enregistrée à l'application cible
+│   │   ├── parcours.ts             ← URL ordonnées → fichiers dans donnees/captures/
+│   │   └── capture.test.ts
+│   ├── moteur/                     ← RECOPIÉ TEL QUEL depuis saas-souverain ; typé par ses .d.mts
+│   │   ├── format.mjs + format.d.mts        ·  scenes.mjs + scenes.d.mts
+│   │   ├── images.mjs + images.d.mts        ·  montage.mjs
+│   │   ├── rendu.mjs  ·  ffmpeg.mjs
+│   │   └── generer.mjs + generer.d.mts
+│   ├── base/
+│   │   ├── schema.ts               ← SEUL point de traduction snake_case ⇔ camelCase
+│   │   ├── connexion.ts  ·  migrer.ts  ·  schema.test.ts
+│   ├── planificateur/
+│   │   ├── file.ts                 ← une génération à la fois (NFR5)
+│   │   ├── reveil.ts               ← réveil calculé sur la prochaine échéance
+│   │   ├── rattrapage.ts           ← fenêtre bornée au démarrage (NFR13)
+│   │   └── planificateur.test.ts
+│   └── noyau/
+│       ├── coffre.ts               ← AES-256-GCM sous REGIE_MASTER_KEY (NFR16)
+│       ├── session.ts              ← scrypt + cookie signé
+│       ├── routes-publiques.ts     ← constante ROUTES_PUBLIQUES (NFR18)
+│       ├── erreur.ts               ← ErreurRegie
+│       ├── journal.ts              ← pino + audit en ajout seul (NFR21)
+│       ├── horaire.ts              ← UTC en base, Paris à l'affichage (NFR37)
+│       └── chemins.ts              ← résolution de donnees/ ; unique endroit qui lit REGIE_DONNEES
+└── tests/
+    ├── parite-mcp.test.ts          ← NFR32 : tout outil a son service et sa route
+    └── derive-moteur.test.ts       ← NFR32 : les exports du moteur n'ont pas bougé
+```
+
+### Frontières d'architecture
+
+**Frontière d'API.** Deux façades, une seule logique. `src/routes/` et `src/mcp/outils/` sont des
+traducteurs : ils lisent une requête, appellent un service, emballent le résultat dans
+`{ok, donnees, erreur}`. Aucune règle métier n'y vit. Un service ne connaît ni Fastify, ni le SDK
+MCP, ni l'objet `Request` — c'est ce qui rend la parité de FR38 vérifiable mécaniquement plutôt que
+promise.
+
+**Frontière de composants.** Une page Astro lit par service et rend du HTML. Un îlot ne parle qu'à
+`/api/*`, jamais à un service directement. Aucun composant n'importe `src/base/`,
+`src/connecteurs/`, `src/hebergement/` ou `src/noyau/coffre.ts`.
+
+**Frontière de services.** `src/services/` est le seul consommateur de `src/base/`,
+`src/connecteurs/`, `src/hebergement/`, `src/capture/`, `src/moteur/` et `src/planificateur/`. Les
+services ne s'importent pas entre eux, à deux exceptions déclarées : `taches.ts` et `audit.ts`, que
+tout le monde utilise.
+
+**Frontière de données.** Le dépôt ne contient aucune donnée ; `donnees/` les contient toutes. Un
+seul fichier lit `REGIE_DONNEES` — `noyau/chemins.ts` — et tout chemin de fichier passe par lui.
+Aucun répertoire de `donnees/` n'est servi en statique : c'est la conséquence directe du choix
+d'hébergement externe.
+
+**Frontière des secrets.** Un secret n'existe en clair qu'entre `noyau/coffre.ts` et le connecteur
+qui l'utilise. Ni les pages, ni les îlots, ni les outils MCP, ni le journal ne le voient
+(FR39, NFR16). La clé de l'hébergeur externe suit exactement le même chemin que les jetons de
+réseaux — elle n'est pas un cas à part.
+
+### Cartographie des exigences vers la structure
+
+| Domaine | Service | Route | Outil MCP | Écran | Table |
+|---|---|---|---|---|---|
+| Librairie, archivage, suppression | `services/videos.ts` | `routes/videos.ts` | `videos_lister`, `videos_obtenir` | `index.astro` | `videos` |
+| Génération (URL ordonnées → rendu) | `services/videos.ts` + `capture/` + `moteur/` | `POST /api/videos/generer` | `videos_generer` | `generateur.astro` | `taches` |
+| Éditeur textes et animations | `services/scenarios.ts` | `routes/scenarios.ts` + `routes/apercu.ts` | `scenarios_obtenir`, `scenarios_modifier` | `editeur.astro` | `scenarios` |
+| Programmation et publication | `services/publications.ts` + `planificateur/` + `hebergement/` | `routes/publications.ts` | `publications_programmer`, `publications_annuler` | `publication.astro` | `publications` |
+| Comptes réseaux et OAuth | `services/comptes.ts` + `connecteurs/` | `routes/comptes.ts`, `routes/oauth.ts` | *aucun* (FR39) | `parametres.astro` | `comptes_reseau` |
+| Suivi des tâches longues | `services/taches.ts` | `routes/taches.ts` | `taches_etat` | îlot `FileTaches` | `taches` |
+| Audit | `services/audit.ts` | `routes/audit.ts` | `audit_lister` | `audit.astro` | `journal_audit` |
+| Première mise en route | `noyau/session.ts` | `routes/session.ts` | *aucun* | `mise-en-route.astro` | `parametres_app` |
+
+**Préoccupations transverses.** Authentification : `noyau/session.ts` en garde Fastify globale,
+l'exception étant la constante `ROUTES_PUBLIQUES` (NFR18). Journalisation et audit :
+`noyau/journal.ts`, appelé par les services, jamais par les façades — sinon un même événement se
+journalise deux fois ou pas du tout selon le chemin d'entrée. Erreurs : les services lèvent
+`ErreurRegie`, les deux façades la traduisent. Temps : `noyau/horaire.ts`, seul endroit qui connaît
+l'Europe/Paris (NFR37). Validation : `zod` à l'entrée de chaque service.
+
+### Points d'intégration
+
+**Communication interne.** Tout est en mémoire dans un seul processus : appel de fonction, pas de
+bus, pas d'événement maison. `serveur.ts` compose dans l'ordre — variables, base, migrations,
+coffre, services, routes, MCP, Astro, planificateur — et c'est le seul fichier qui connaît cet
+ordre.
+
+**Intégrations externes.** Quatre réseaux, un dépôt de fichiers, un navigateur, deux binaires.
+Instagram publie depuis une URL déposée par `hebergement/`, puis retirée ; Facebook Page, TikTok et
+LinkedIn reçoivent le fichier en téléversement direct depuis `donnees/rendus/`. Chromium sert à
+deux usages distincts — capturer les pages sources, et photographier les scènes du moteur.
+`ffmpeg` et `ffprobe` restent internes au moteur, jamais appelés ailleurs.
+
+**Flux de génération.** `videos_generer` ou `POST /api/videos/generer` → `services/videos.ts`
+inscrit une tâche et rend `{tacheId, etat:'en_attente'}` (FR7, FR40) → `planificateur/file.ts` la
+prend, seule à la fois (NFR5) → `capture/parcours.ts` visite les URL ordonnées et écrit dans
+`donnees/captures/` → `moteur/` compose, photographie, monte → `donnees/rendus/<id>.mp4` → la vidéo
+entre en librairie après vérification des bornes de cadrage et de lisibilité (FR12) → journal et
+audit.
+
+**Flux de publication.** Échéance atteinte → `services/publications.ts` → si Instagram,
+`hebergement/` dépose le fichier et rend une URL, sinon le connecteur téléverse directement →
+publication → retrait du fichier chez l'hébergeur → état `reussi` ou `echoue`, visible dans regie
+seulement.
+
+**Flux d'aperçu.** L'éditeur enregistre une scène → l'îlot recharge
+`/apercu/:scenarioId/:index` → `routes/apercu.ts` appelle les fonctions de composition du moteur et
+rend le HTML brut → l'`iframe` l'affiche aux dimensions de la zone sûre. Aucun rendu parallèle :
+l'aperçu et la vidéo finale sortent du même code, ce qui interdit par construction l'anti-motif
+« reconstituer la mise en page côté interface ».
+
+### Motifs d'organisation des fichiers
+
+**Configuration** : à la racine, jamais dispersée ; un seul `.env`, décrit par `.env.exemple`.
+
+**Sources** : organisées par couche, pas par fonctionnalité — décision de l'étape 5, appliquée ici
+sans exception.
+
+**Tests** : unitaires colocalisés (`videos.ts` ⇒ `videos.test.ts`) ; `tests/` n'accueille que ce qui
+traverse les couches, c'est-à-dire la parité et la dérive.
+
+**Fichiers produits** : captures, rendus, journaux et base vivent tous sous `donnees/` et nulle part
+ailleurs. `maquette/` est une pièce de référence, jamais importée par `src/`.
+
+### Intégration au flux de développement
+
+**Serveur de développement.** `pnpm dev` lance `src/serveur.ts` : Astro en mode développement à
+l'intérieur de Fastify, MCP et planificateur compris. Un seul port, un seul processus — ce qui
+tourne en développement est ce qui tourne en production.
+
+**Construction.** `pnpm build` produit l'entrée Astro `dist/server/entry.mjs` ; `src/moteur/*.mjs`
+est copié tel quel ; `pnpm start` démarre le tout. Les migrations en attente s'appliquent au
+démarrage (NFR35).
+
+**Installation.** Cloner, `pnpm install`, remplir `.env`, `pnpm start` — les quatre étapes de
+NFR34, inchangées. Le dossier `donnees/` se crée au premier démarrage. Sauvegarder, c'est copier ce
+dossier.
+
+**Intégration continue.** `.github/workflows/ci.yml` installe Chromium et ffmpeg, puis enchaîne
+types, linter, `vitest`, parité MCP et dérive du moteur (NFR36, NFR32).
+
+### Reste ouvert après cette étape
+
+Quatre valeurs attendent encore d'être fixées, et elles le seront au cadre de validation :
+
+- l'intervalle de rafraîchissement des îlots (proposition 5 s) ;
+- la largeur minimale de l'interface (proposition 1 280 px) ;
+- le fournisseur du dépôt compatible S3 pour l'hébergement externe ;
+- la durée de vie du fichier déposé chez cet hébergeur — le PRD renvoyait à l'architecture un
+  « délai d'expiration de l'adresse temporaire » qui n'a plus de sens côté regie depuis le choix
+  d'hébergement externe, et qui se reformule ainsi.
