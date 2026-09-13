@@ -1,5 +1,5 @@
 ---
-stepsCompleted: ['step-01-init', 'step-02-context', 'step-03-starter', 'step-04-decisions']
+stepsCompleted: ['step-01-init', 'step-02-context', 'step-03-starter', 'step-04-decisions', 'step-05-patterns']
 inputDocuments:
   - 'docs/planning/prd.md'
   - 'docs/planning/prd-validation-report.md'
@@ -442,3 +442,252 @@ _Porte sur._ README, référence des outils MCP générée depuis le code (FR42)
   une page sans style, pas comme une erreur.
 - Le **moteur en `.mjs`** impose que la frontière entre code typé et code déclaré soit nette : les
   `.d.mts` sont la seule interface, et un test de dérive les surveille.
+
+## Motifs d'implémentation et règles de cohérence
+
+> **Objet.** Ces règles n'existent pas pour le style : elles existent parce que deux agents qui
+> codent deux stories différentes, sans elles, produisent du code qui ne s'assemble pas. Chaque
+> motif ci-dessous répond à un point où deux décisions raisonnables mènent à deux codes
+> incompatibles.
+
+### Points de conflit couverts
+
+Vingt-deux points de décision, répartis en cinq familles : nommage (6), structure (4), format (5),
+communication (3), processus (4).
+
+Les points de conflit déjà fermés par les étapes 2 à 4 ne sont pas rouverts ici : la logique vit
+dans les services, les entrées sont validées par `zod`, les erreurs sont typées et nommées, le
+journal est du JSON `pino`, il n'y a aucune bibliothèque d'état global, le style reprend la feuille
+commune de la maquette, et les migrations sont des fichiers SQL numérotés.
+
+### Motifs de nommage
+
+**Langue.** Le français, partout et sans frontière : fonctions, variables, colonnes, états, codes
+d'erreur, noms d'outils MCP, noms de fichiers. Le moteur vidéo porté est déjà intégralement en
+français (34 exports relevés) ; un dépôt à deux vocabulaires oblige à traduire à chaque appel, et la
+frontière passerait précisément par la génération vidéo, là où le code neuf appelle le moteur le
+plus souvent. Restent en anglais, par contrainte externe seulement : les mots-clés du langage, les
+API de bibliothèques (`select`, `where`, `default`), et les acronymes établis (API, MCP, HTTP, JSON,
+SQL, OAuth, URL, UTC).
+
+**Base de données.** Tables au pluriel, `snake_case` : `videos`, `publications`, `comptes_reseau`,
+`taches`, `scenarios`, `journal_audit`, `migrations_appliquees`. Colonnes `snake_case` : `cree_le`,
+`publie_le`, `programme_pour`, `etat`, `video_id`. Clé primaire toujours `id`. Clé étrangère toujours
+`<table_au_singulier>_id`.
+
+> *Ajustement de l'étape 4* : la table de suivi des migrations y était nommée `schema_migrations`.
+> Elle devient `migrations_appliquees` — aucune migration n'existe encore, le renommage ne coûte
+> rien aujourd'hui et coûterait une migration de plus demain.
+
+**TypeScript.** `camelCase` sur les mêmes mots : `creeLe`, `publieLe`, `programmePour`, `videoId`. La
+traduction `snake_case` ⇔ `camelCase` a **un seul point** dans tout le dépôt : la déclaration du
+schéma Drizzle. Aucun autre fichier ne fait de conversion de casse.
+
+**Conventions de suffixe** — elles suppriment les questions à répétition :
+
+| Forme | Sens | Exemple |
+|---|---|---|
+| `est…` / `a…` | booléen | `estArchivee`, `aUneSession` |
+| `…Le` | instant passé | `creeLe`, `publieLe` |
+| `…Pour` | échéance future | `programmePour`, `expirePour` |
+| `…Ms` / `…Secondes` | durée, unité dans le nom | `dureeMs`, `delaiGardeSecondes` |
+| `…Id` | identifiant d'une autre entité | `videoId`, `tacheId` |
+| `TOUT_EN_MAJUSCULES` | constante de module | `ROUTES_PUBLIQUES`, `ETATS_TACHE` |
+
+**Points d'entrée HTTP.** `/api/<ressource-au-pluriel>` pour les lectures, `/api/<ressource>/<verbe>`
+pour les mutations, en français, en `kebab-case`. Le paramètre de route est **toujours** `:id`,
+jamais `:videoId` :
+
+```
+GET  /api/videos                     GET  /api/videos/:id
+POST /api/videos/generer             POST /api/publications/programmer
+POST /api/publications/:id/annuler
+```
+
+**Outils MCP.** `<domaine>_<verbe>` en `snake_case` français, sans préfixe `regie_` (le client
+préfixe déjà par le nom du serveur) : `videos_lister`, `videos_generer`, `videos_obtenir`,
+`publications_programmer`, `publications_annuler`, `taches_etat`. **La règle de parité est
+nominative** : à `videos_generer` correspondent exactement `services/videos.ts → genererVideo()` et
+`POST /api/videos/generer`. Le test de parité (NFR32) lit cette correspondance, il ne la devine pas.
+
+### Motifs de structure
+
+**Organisation par couche.**
+
+```
+src/
+  pages/          pages Astro servies par le serveur
+  composants/     .astro partagés + îlots client:load
+  services/       LA logique métier — source unique
+  routes/         façade HTTP (Fastify) : valide, appelle un service, enveloppe
+  mcp/            façade MCP : serveur + outils/
+  connecteurs/    un dossier par réseau, aucun import croisé (NFR28)
+  base/           schéma Drizzle, accès, migrations/
+  moteur/         moteur vidéo porté (.mjs + .d.mts), non réécrit
+  noyau/          erreurs, journal, configuration, coffre, horloge
+tests/            parite.test.ts, derive-schema.test.ts (transverses uniquement)
+donnees/          hors dépôt : base SQLite, médias, rendus
+```
+
+`src/routes/` et `src/mcp/outils/` se regardent en miroir : voir les deux dossiers côte à côte rend
+visible une parité rompue.
+
+**Un fichier de service par domaine**, nommé comme la ressource : `services/videos.ts`,
+`services/publications.ts`, `services/scenarios.ts`, `services/parametres.ts`. Pas de
+`services/index.ts` qui ré-exporte tout — l'import nomme toujours son domaine.
+
+**Tests colocalisés.** `videos.ts` a `videos.test.ts` à côté de lui, comme le moteur porté a déjà ses
+`*.unit.test.ts`. Un fichier de service sans test voisin se voit en ouvrant le dossier. Deux
+exceptions, et deux seulement, dans `tests/` : le test de parité outil ⇔ service et le test de dérive
+schéma ⇔ base — ils portent sur le système entier, les ranger sous un domaine mentirait sur leur
+portée.
+
+**Fichiers.** `kebab-case.ts` pour le code, `PascalCase.astro` pour les composants
+(`CarteVideo.astro`, `FileTaches.astro`), `NNNN_description.sql` pour les migrations
+(`0001_socle.sql`).
+
+### Motifs de format
+
+**Toute réponse HTTP interne porte la même enveloppe**, succès comme échec :
+
+```ts
+{ ok: true,  donnees: T }
+{ ok: false, erreur: { code: 'VIDEO_INTROUVABLE', message: 'Aucune vidéo…', champ?: 'id' } }
+```
+
+Le code HTTP reste juste et sert les intermédiaires (200 succès, 400 validation, 401 sans session,
+404 introuvable, 409 conflit d'état, 422 garde du moteur, 500 imprévu) — mais **la décision
+d'affichage d'un îlot se prend sur `ok`**, jamais sur le statut. C'est ce qui rend « aucun échec
+silencieux » vérifiable plutôt qu'espéré.
+
+**Codes d'erreur** : `TOUT_EN_MAJUSCULES` français, forme `<DOMAINE>_<CAUSE>` : `VIDEO_INTROUVABLE`,
+`PUBLICATION_DEJA_PARTIE`, `MOTEUR_CADRE_INVALIDE`, `RESEAU_JETON_EXPIRE`. Le `message` est en
+français et destiné à l'écran : il n'est jamais une trace technique.
+
+**Opérations longues.** Toute opération qui dépasse la requête rend un identifiant, jamais son
+résultat : `{ ok: true, donnees: { tacheId, etat: 'en_attente' } }` (FR7, FR40). L'appelant,
+interface ou MCP, interroge ensuite `taches_etat`.
+
+**États.** Un vocabulaire fermé, minuscules, `snake_case`, **le même pour les tâches et pour les
+publications** : `brouillon`, `en_attente`, `en_cours`, `reussi`, `echoue`, `annule`, `archive`. Deux
+vocabulaires parallèles obligeraient chaque écran à savoir lequel il regarde.
+
+**Dates.** ISO 8601 en UTC avec le `Z`, en base (`TEXT`) comme en JSON :
+`2026-09-13T08:30:00.000Z`. La localisation en heure de Paris (NFR37) se fait **au rendu seulement**.
+Aucune date locale ne traverse une frontière de module.
+
+### Motifs de communication
+
+**L'état vit sur le serveur.** Les îlots ne se parlent pas : pas d'événement navigateur maison, pas
+de bus, pas de magasin global. Un îlot interroge un point d'entrée (rafraîchissement périodique,
+proposition 5 s) et rend ce qu'il reçoit. Deux îlots qui montrent la même chose interrogent le même
+point d'entrée.
+
+**Journal structuré.** `pino`, un objet par ligne. Champs obligatoires : `evenement` en `snake_case`
+français au passé (`video_generation_demarree`, `publication_programmee`, `reseau_jeton_rafraichi`),
+`tacheId` dès qu'il en existe une, `dureeMs` sur l'événement de fin. Niveaux : `debug` diagnostic,
+`info` fait métier, `warn` dégradation rattrapée, `error` échec rendu à l'utilisateur. **Aucun
+secret, aucun jeton, aucune URL signée** — ni dans le journal, ni dans l'audit.
+
+**Journal d'audit.** Une ligne par acte publiable, en ajout seul : jamais de `UPDATE`, jamais de
+`DELETE` (NFR21).
+
+### Motifs de processus
+
+**Chargement.** Chaque îlot expose trois états explicites : `chargement`, `pret`, `erreur`. Un écran
+vide n'est jamais un état par défaut — c'est un défaut déguisé.
+
+**Erreurs.** Une seule classe, `ErreurRegie`, portant `code`, `message` (français, pour l'écran) et
+`cause`. **Les services lèvent, les façades traduisent** : une route et un outil MCP attrapent
+`ErreurRegie` et l'enveloppent ; ils ne construisent pas d'erreur eux-mêmes. Jamais de `catch` vide,
+jamais de valeur de repli substituée en silence.
+
+**Nouvelles tentatives.** Aucune en V1 : une publication qui échoue reste visible, en état `echoue`,
+avec une action « rejouer » déclenchée par un humain. La reprise automatique est explicitement hors
+périmètre (MANDAT, 2026-09-06).
+
+**Validation.** `zod` à l'entrée du **service**, une seule fois, avec un schéma nommé
+`<verbe><Ressource>Schema` (`genererVideoSchema`). Les façades ne valident pas une deuxième fois :
+elles passent la charge utile brute au service. Un seul lieu de validation, donc un seul endroit à
+lire pour savoir ce qui est accepté.
+
+**Session.** Toute route exige une session, sauf celles énumérées dans la constante unique
+`ROUTES_PUBLIQUES` de `src/noyau/` (NFR18). Le MCP n'a pas de session : il porte un jeton comparé en
+temps constant. Aucune route ne décide seule d'être publique.
+
+### Règles d'application
+
+**Tout agent qui code sur ce dépôt DOIT :**
+
+1. lire cette section avant d'écrire une ligne ;
+2. réutiliser un nom existant plutôt qu'en inventer un voisin — chercher avant de nommer ;
+3. écrire le test colocalisé dans le même changement que le code ;
+4. faire passer toute logique par un service, jamais dans une route ou un outil ;
+5. répondre par l'enveloppe, toujours, y compris sur le chemin heureux.
+
+**Vérification.** Trois contrôles automatiques portent ces règles, le reste tient à la relecture : le
+test de parité (chaque outil MCP a son service et son point d'entrée), le test de dérive (le schéma
+Drizzle correspond à la base migrée), et le linter sur la casse des identifiants.
+
+**Écart assumé.** Un écart à ces motifs s'écrit dans le fichier concerné, en une ligne commençant par
+`// Écart :` suivie de la raison. Un écart non déclaré est un défaut, pas un choix.
+
+**Mise à jour.** Ces motifs se modifient dans cette section d'abord, dans le code ensuite — jamais
+l'inverse.
+
+### Exemples
+
+**Bon** — un service, une validation, une erreur nommée :
+
+```ts
+// src/services/publications.ts
+export const programmerPublicationSchema = z.object({
+  videoId: z.string().uuid(),
+  reseau: z.enum(['instagram', 'facebook_page', 'tiktok']),
+  programmePour: z.string().datetime(),
+});
+
+export async function programmerPublication(entree: unknown) {
+  const { videoId, reseau, programmePour } = programmerPublicationSchema.parse(entree);
+  const video = await base.videoParId(videoId);
+  if (!video) throw new ErreurRegie('VIDEO_INTROUVABLE', "Cette vidéo n'existe plus.");
+  if (video.etat === 'archive') {
+    throw new ErreurRegie('VIDEO_ARCHIVEE', 'Une vidéo archivée ne se publie pas.');
+  }
+  return base.creerPublication({ videoId, reseau, programmePour, etat: 'en_attente' });
+}
+```
+
+**Bon** — la façade n'ajoute que l'enveloppe :
+
+```ts
+// src/routes/api/publications.ts
+serveur.post('/api/publications/programmer', async (requete, reponse) => {
+  try {
+    const donnees = await programmerPublication(requete.body);
+    return { ok: true, donnees };
+  } catch (cause) {
+    return reponse.code(statutPour(cause)).send({ ok: false, erreur: enErreurPublique(cause) });
+  }
+});
+```
+
+**Anti-motifs** — chacun a été vu ailleurs et coûte cher ici :
+
+| Anti-motif | Pourquoi il est refusé |
+|---|---|
+| `if (!video) return null` dans un service | L'appelant ne sait pas *pourquoi* c'est nul ; l'écran affiche du vide. Lever `ErreurRegie`. |
+| Requête Drizzle dans une route ou un outil MCP | La parité outil ⇔ service devient invérifiable, et les deux façades divergent. |
+| Valider dans la route **et** dans le service | Deux vérités sur ce qui est accepté ; l'une des deux finit périmée. |
+| `reponse.send(video)` sans enveloppe | L'îlot doit deviner l'échec au statut HTTP ; un oubli devient un écran blanc. |
+| `catch (e) { console.error(e) }` | Échec silencieux, exactement ce que le PRD proscrit. |
+| `new Date().toLocaleString('fr-FR')` stocké en base | Une heure locale en base est une donnée qu'on ne peut plus comparer. |
+| Un état `pending` à côté de `en_attente` | Deux vocabulaires pour une même notion ; chaque écran doit savoir lequel il lit. |
+| Un `videos.ts` sans `videos.test.ts` | Le manque est invisible et personne ne le rattrape. |
+
+### Reste ouvert après cette étape
+
+Deux valeurs proposées attendent encore la confirmation du fondateur, et le PRD les renvoyait déjà à
+l'architecture : l'intervalle de rafraîchissement des îlots (proposition 5 s) et la largeur minimale
+de l'interface (proposition 1 280 px). Elles seront tranchées avec la structure du projet ou le cadre
+de validation.
