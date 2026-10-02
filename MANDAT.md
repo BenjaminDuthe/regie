@@ -62,7 +62,7 @@ Conséquences : le PRD (familles « scénarios et capture » et « génération 
 
 | # | Lot | Preuve de complétude | État |
 |---|-----|----------------------|------|
-| 8 | Révision du PRD pour la capture vidéo multi-sources et l'éditeur timeline | `prd.md` amendé, nouvelles FR tracées | à faire |
+| 8 | Révision du PRD pour la capture vidéo multi-sources et l'éditeur timeline | `prd.md` amendé, nouvelles FR tracées | fait (2026-10-02) — nouveau PRD `docs/planning/prds/prd-regie-2026-10-02/prd.md` (71 FR, 39 NFR), finalisé avec bmad-prd |
 | 9 | Révision de l'architecture (modèle de timeline, moteur de rendu vidéo, capture web/mobile, IA locale) puis clôture des étapes 7-8 | `architecture.md` arrivé à sa dernière étape | à faire |
 | 10 | Maquette de l'éditeur timeline et de l'écran de capture | Écrans servis par `maquette/serveur.mjs`, validés par le fondateur | à faire |
 
@@ -78,3 +78,17 @@ Conséquences : le PRD (familles « scénarios et capture » et « génération 
 - **Parcours des démos d'apps** : enregistré à la main par Benjamin ou écrit par Claude, toujours converti en un script d'actions modifiable et rejouable. Le journal des clics alimente l'auto-zoom.
 - **Gabarit de marque** : identité visuelle seulement (logo, couleurs, polices, style des sous-titres). Le récit reste libre, décidé vidéo par vidéo.
 - **Voix** : synthèse vocale locale (type Piper), avec une voix sous licence réellement libre, à valider sur deux vidéos test.
+
+### Arbitrages du design thinking et de la révision du PRD (2026-10-02)
+
+Ces arbitrages remplacent les points contraires de la section « Réorientation » ci-dessus.
+
+- **Découpage V1 / V2** : V1 = montage automatique en brouillons, relecture au téléphone sans timeline, capture web par script d'actions, publication sur les comptes de Benjamin (Instagram, Facebook Page, TikTok, YouTube Shorts). **V2** = timeline complète, capture des simulateurs iOS et Android, publication pour des tiers une fois les agréments Meta et TikTok obtenus.
+- **TikTok** revient en V1 pour les comptes de Benjamin.
+- **Espace de marque partagé** avec circuit de validation dès la V1 (Fanny filme pour MGA et valide ce que Benjamin prépare).
+- **Relecture mobile** : page web responsive en V1, sans PWA ; l'app native reste pour plus tard.
+- **Licence AGPL-3.0** ; service hébergé par Benjamin ; modèle économique décidé après la bêta.
+- **Second facteur** toujours hors V1.
+- Le PRD de référence devient `docs/planning/prds/prd-regie-2026-10-02/prd.md` ; l'ancien `docs/planning/prd.md` reste comme source.
+- **Inscription ouverte** dès la V1, avec quota par compte (2 h de rushes par mois, 20 Go) ; séance de 30 min max, 5 brouillons par séance, 3 gabarits par espace.
+- **Échecs de publication** notifiés aussi par courriel (remplace « visible dans regie seulement »), toujours sans nouvelle tentative automatique.
