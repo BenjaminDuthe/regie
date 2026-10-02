@@ -538,7 +538,7 @@ Fastify sert `dist/client` d'Astro par `@fastify/static` ; un test vérifie qu'u
 - **Observabilité distante, réseau de diffusion, montée à plusieurs nœuds** : non requis à 20 utilisateurs actifs.
 - **Timeline complète et capture des simulateurs** : V2 (PRD).
 - **Modèle économique et facturation** : question ouverte du PRD ; seules les limites de AD-18 sont tenues en V1.
-- **Amendements à reporter dans le PRD** :
+- **Amendements reportés dans le PRD le 2026-10-02** (le glossaire nomme « à confirmer » l'état `en_attente_confirmation`) :
   - NFR-18 : adresses signées liées à une publication **ou à la session** ;
   - glossaire : état de publication `en_attente_confirmation` ;
   - FR-32 : les courriels ont jusqu'à 3 essais (outbox) ;

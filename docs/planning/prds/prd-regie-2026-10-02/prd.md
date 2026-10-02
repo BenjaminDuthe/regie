@@ -108,7 +108,7 @@ Termes à employer tels quels dans ce PRD et les documents qui en découlent ; a
 - **Fil de relecture** — écran mobile où les brouillons défilent en plein écran pour être triés et corrigés.
 - **Vidéo** — tout objet issu d'un montage. Statuts : **brouillon** → **gardée** → **à valider** (seulement si l'espace a activé la validation) → **prête** ; ou **jetée** ; ou **archivée** ; ou **en échec de traitement**. Sans validation, une vidéo gardée devient prête immédiatement. Une vidéo peut porter plusieurs publications ; leur statut ne change pas celui de la vidéo.
 - **Validation** — réglage d'un espace de marque d'au moins deux membres, activé par le propriétaire : toute vidéo gardée doit être approuvée par un membre autre que son auteur avant d'être prête.
-- **Publication** — envoi d'une vidéo prête vers un compte réseau, immédiat ou programmé, avec légende et hashtags. Statuts : **programmée** → **publiée** ; ou **en échec** ; ou **annulée** ; pour TikTok, **envoyée en brouillon** (FR-63). Une publication immédiate part sans passer par « programmée ». Une clé unique (clé d'idempotence) empêche tout double envoi.
+- **Publication** — envoi d'une vidéo prête vers un compte réseau, immédiat ou programmé, avec légende et hashtags. Statuts : **programmée** → **publiée** ; ou **en échec** ; ou **annulée** ; pour TikTok, **envoyée en brouillon** (FR-63). Une publication programmée dont la vidéo a été modifiée passe **à confirmer** : elle ne part qu'après confirmation, sinon elle passe en échec. Une publication immédiate part sans passer par « programmée ». Une clé unique (clé d'idempotence) empêche tout double envoi.
 - **Export** — téléchargement du rendu pour publication manuelle dans l'app d'un réseau.
 - **Compte réseau** — compte Instagram Reels, Page Facebook, TikTok ou YouTube Shorts connecté à un espace de marque.
 - **Bibliothèque musicale** — catalogue de morceaux à licence libre vérifiée, dans lequel le montage automatique puise ; les utilisateurs peuvent y proposer des morceaux.
@@ -221,10 +221,12 @@ Un utilisateur peut enregistrer un script d'actions en réalisant une fois le pa
 
 #### FR-16 : Script depuis un test de bout en bout
 Un utilisateur peut importer un test de bout en bout existant de son application comme script d'actions. Réalise UJ-2.
+- Le test est converti en script d'actions à l'import ; il n'est jamais exécuté tel quel.
 - Une étape que regie ne sait pas convertir est signalée avec son numéro ; le script n'est pas créé tant qu'elle n'est pas retirée ou réécrite. En V1, regie accepte les tests écrits pour Playwright et pour Cypress.
 
 #### FR-17 : Lire et modifier un script
 Un utilisateur peut lire les étapes d'un script d'actions, en ajouter, en retirer et les réordonner, par l'interface comme par le MCP.
+- Un hôte n'entre dans la liste autorisée d'une application qu'après preuve que l'utilisateur contrôle son domaine (enregistrement DNS ou fichier publié sur le site).
 
 #### FR-18 : Jouer un script
 regie joue un script d'actions dans un navigateur piloté, l'enregistre en vidéo verticale et produit le journal horodaté des clics, qui guide le zoom automatique. Réalise UJ-2.
@@ -302,7 +304,7 @@ Un utilisateur peut demander une nouvelle série de brouillons pour une séance,
 - « Refaire » n'est plus possible après la purge des rushes de la séance (FR-52).
 
 #### FR-30 : Reproductibilité
-regie produit le même montage à partir des mêmes rushes, de la même intention, du même gabarit, de la même recette et des mêmes versions de modèles, tant que les rushes sont conservés (FR-52).
+regie produit le même montage à partir des mêmes rushes, de la même intention, du même gabarit, de la même recette et des mêmes versions de modèles, sur le même matériel, avec les mêmes pilote et moteur d'exécution, tant que les rushes sont conservés (FR-52). Si l'une de ces versions a changé, « refaire » le signale.
 
 ### 4.6 File de traitement et notifications
 
@@ -314,7 +316,7 @@ Un utilisateur voit, pour chacune de ses séances et captures, l'étape en cours
 #### FR-32 : Notifications
 regie prévient l'utilisateur dans l'interface et par courriel quand une série de brouillons est prête, quand une étape de traitement échoue et quand une publication échoue. Il n'y a pas de notification push en V1, faute de PWA et d'app native.
 - La notification d'échec nomme l'étape, la cause et l'action possible (renvoyer un rush, corriger un script, relancer, rejouer une publication).
-- regie ne fait jamais de nouvelle tentative automatique après un échec ; seul l'utilisateur relance (FR-33) ou rejoue (FR-44).
+- regie ne fait jamais de nouvelle tentative automatique après un échec ; seul l'utilisateur relance (FR-33) ou rejoue (FR-44). Seul l'envoi d'un courriel fait exception : jusqu'à 3 essais.
 
 #### FR-33 : Relancer
 Un utilisateur peut relancer une étape en échec sans renvoyer ses rushes, tant qu'ils ne sont pas purgés (FR-52) ; l'historique des tentatives est conservé.
@@ -409,13 +411,13 @@ Un utilisateur liste ses vidéos et publications par espace, statut de vidéo, s
 **Description :** tout ce que fait l'interface, Claude le fait par le MCP et une future app native par l'API privée, avec le même résultat, sans jamais toucher un secret. Réalise UJ-2.
 
 #### FR-46 : Jetons
-Un utilisateur crée des jetons d'accès depuis l'interface ; chaque jeton est affiché une seule fois et révocable. Aucune requête au MCP ni à l'API privée n'aboutit sans jeton valide.
+Un utilisateur connecte son Claude à regie par une autorisation OAuth donnée dans l'interface (espace et droits choisis à l'écran), ou crée des jetons d'accès depuis l'interface pour l'API, le rejeu et Claude Code ; chaque jeton est affiché une seule fois, expire et est révocable, comme chaque autorisation. Aucune requête au MCP ni à l'API privée n'aboutit sans autorisation ou jeton valide.
 - Un jeton n'ouvre que les espaces dont son utilisateur est membre, avec les droits de cet utilisateur.
 - Un jeton peut être limité à un espace et à une action (par exemple le rejeu de scripts, FR-19).
 
 #### FR-47 : Parité à trois
 Toute action métier de l'interface existe au MCP et à l'API privée avec le même résultat.
-- Exceptions déclarées : la saisie et la lecture des secrets (identifiants de démo, clés d'application), la connexion des comptes réseau, les réglages de l'administrateur de l'instance, qui restent dans l'interface ; le script depuis une phrase (FR-14), qui n'existe que par le MCP.
+- Exceptions déclarées : la saisie et la lecture des secrets (identifiants de démo, clés d'application), la connexion des comptes réseau, les réglages de l'administrateur de l'instance, la création et la révocation des jetons, la gestion des membres et de leurs droits, la désactivation de la validation, la suppression d'un compte ou d'un espace, qui restent dans l'interface ; le script depuis une phrase (FR-14), qui n'existe que par le MCP.
 - Aucun outil MCP ni point de l'API ne lit, n'écrit ni ne renvoie un secret.
 
 #### FR-48 : Erreurs structurées
@@ -516,9 +518,9 @@ Chaque exigence porte une valeur mesurable et sa vérification. Aucune ne nomme 
 | NFR-9 | Zéro double envoi d'une même publication, même en cas de coupure pendant l'envoi. | Test d'injection de coupure entre l'envoi et la réponse du réseau. |
 | NFR-10 | 100 % des échecs (traitement, capture, publication) sont visibles avec leur cause et une action ; aucun échec silencieux. | Test automatisé qui injecte un échec à chaque étape de traitement et dans chaque connecteur, puis vérifie la cause, l'action proposée et la notification. |
 | NFR-11 | Chaque type de tâche longue a un délai de garde ; une tâche qui le dépasse passe en échec avec sa cause. Délais [ASSUMPTION] : contrôle à réception 5 min ; transcription 3 × la durée des rushes, au moins 10 min ; montage d'une séance 30 min ; rendu d'un brouillon 15 min ; capture 15 min ; voix de synthèse 10 min ; appel à un réseau 10 min. | Test avec une tâche bloquée par type. |
-| NFR-12 | Deux rendus des mêmes entrées (FR-30) produisent des montages identiques : mêmes segments, mêmes textes, même durée à 40 ms près. | Test de reproductibilité automatisé à chaque version. |
+| NFR-12 | Deux rendus des mêmes entrées (FR-30), sur le même matériel avec les mêmes pilote, moteur d'exécution et versions, produisent des montages identiques : mêmes segments, mêmes textes, même durée à 40 ms près. | Test de reproductibilité automatisé à chaque version. |
 | NFR-13 | Les données sont sauvegardées chaque jour ; perte maximale de 24 h, restauration complète en moins de 4 h [ASSUMPTION] ; une restauration complète est testée chaque mois. | Rapport de restauration daté et chronométré dans le journal d'exploitation. |
-| NFR-34 | Le service est disponible 99 % du temps sur chaque mois, hors maintenance annoncée dans l'interface. | Sonde externe toutes les minutes sur la page d'accueil et un point de l'API ; rapport mensuel. |
+| NFR-34 | Le service est disponible 99 % du temps sur chaque mois, hors maintenance annoncée dans l'interface. | Sonde toutes les minutes sur la page d'accueil et un point de l'API ; rapport mensuel. En bêta, la sonde tourne sur le serveur lui-même et ne voit pas les coupures de la box ou du courant : NFR-34 n'y est tenue qu'en partie. |
 
 ### 5.3 Sécurité et confidentialité
 
@@ -527,8 +529,8 @@ Chaque exigence porte une valeur mesurable et sa vérification. Aucune ne nomme 
 | NFR-14 | Zéro secret en clair : base, journaux, dépôt, réponses de l'interface, du MCP et de l'API. | Scan de secrets bloquant à chaque commit ; test qui cherche les valeurs connues des secrets de test dans la base, les journaux et les réponses. |
 | NFR-15 | Les secrets sont chiffrés avec un chiffrement authentifié ; sans clé maîtresse valide, regie refuse de démarrer en nommant la cause (clé absente, clé invalide) sans en afficher la valeur ; le format chiffré est versionné ; la clé maîtresse peut être remplacée, tous les secrets étant rechiffrés sans perte. | Test de démarrage sans clé et avec une clé fausse ; test de remplacement de la clé maîtresse. |
 | NFR-16 | Aucune donnée d'un utilisateur ni d'un espace n'est lisible par un autre, par l'interface, le MCP ou l'API. | Suite de tests de cloisonnement sur chaque point d'entrée, avec deux comptes. |
-| NFR-17 | Toute route est sous session ou jeton, sauf une liste publique énumérée : connexion, inscription, mot de passe oublié, pages légales, point de contact, lien vers le code source, adresses signées de NFR-18. | Test qui compare les routes servies à la liste. |
-| NFR-18 | Une vidéo n'est jamais servie publiquement, sauf par une adresse signée, liée à une publication et expirant en moins de 1 h. | Test d'accès sans signature et après expiration. |
+| NFR-17 | Toute route est sous session ou jeton, sauf une liste publique énumérée : connexion, inscription, mot de passe oublié, pages légales, point de contact, lien vers le code source, adresses signées de NFR-18, points publics de l'autorisation OAuth (FR-46). | Test qui compare les routes servies à la liste. |
+| NFR-18 | Une vidéo n'est jamais servie publiquement, sauf par une adresse signée, liée à une publication ou à la session de l'utilisateur, et expirant en moins de 1 h. | Test d'accès sans signature et après expiration. |
 | NFR-19 | Une capture s'exécute isolée : aucun accès au réseau interne, aux fichiers d'un autre utilisateur ni aux secrets hors ceux de son application ; navigation hors des hôtes autorisés refusée et tracée. | Test avec un script qui tente chacun de ces accès. |
 | NFR-20 | Mots de passe stockés en hachage salé dont le coût dépasse 100 ms par tentative sur le serveur ; au-delà de 5 échecs en 15 min, le compte est freiné puis bloqué temporairement, et l'échec tracé. | Test de connexion et mesure du coût du hachage. |
 | NFR-21 | Toute action qui modifie l'état et toute tentative de publication est consignée dans un journal en ajout seul, avec l'utilisateur, l'origine (interface, MCP, API) et l'identifiant du jeton, sans secret. | Test : une action par point d'entrée, puis lecture du journal ; tentative de modification refusée. |
