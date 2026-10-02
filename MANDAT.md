@@ -66,6 +66,7 @@ Conséquences : le PRD (familles « scénarios et capture » et « génération 
 | 9 | Révision de l'architecture (modèle de timeline, moteur de rendu vidéo, capture web/mobile, IA locale) puis clôture des étapes 7-8 | `architecture.md` arrivé à sa dernière étape | fait (2026-10-02) — socle `docs/planning/architecture/architecture-regie-2026-10-02/ARCHITECTURE-SPINE.md` (21 décisions), relu par quatre revues ; `architecture.md` marqué remplacé |
 | 10 | Maquette de l'éditeur timeline et de l'écran de capture | Écrans servis par `maquette/serveur.mjs`, validés par le fondateur | fait (2026-10-02) — écran « Relire » validé (`maquette/public/relire.html`) ; écran de capture validé (`maquette/public/capture.html` : sites autorisés avec preuve DNS, compte de démo au coffre, scripts depuis Claude, un parcours enregistré ou un test importé, étapes modifiables, capture filmée avec journal, refus hors site, échec au rejeu à corriger, voix, jeton de rejeu) |
 | 11 | Épopées et histoires (bmad-create-epics-and-stories) | `docs/planning/epics.md` complet, toutes les exigences couvertes | fait (2026-10-02) — 8 épopées, 62 histoires ; 71 FR, 39 NFR, 25 exigences d'architecture et 25 exigences UX couvertes, validation finale passée |
+| 12 | Contrôle de préparation (bmad-sprint-planning, readiness) | Verdict sur `docs/planning/epics.md`, constats corrigés | fait (2026-10-02) — CONCERNS corrigés : 67 histoires (bancs du modèle de langage, échéances et planificateur, capture isolée, scission de 1.1), purge recalée sur la livraison, second facteur pour l'administrateur seul ; rapport `docs/planning/implementation-readiness.md` |
 
 ### Décisions de la session de design thinking et du party mode BMAD (2026-10-02)
 
@@ -89,7 +90,7 @@ Ces arbitrages remplacent les points contraires de la section « Réorientation 
 - **Espace de marque partagé** avec circuit de validation dès la V1 (Fanny filme pour MGA et valide ce que Benjamin prépare).
 - **Relecture mobile** : page web responsive en V1, sans PWA ; l'app native reste pour plus tard.
 - **Licence AGPL-3.0** ; service hébergé par Benjamin ; modèle économique décidé après la bêta.
-- **Second facteur** toujours hors V1.
+- **Second facteur** toujours hors V1, sauf pour l'administrateur de l'instance, pour qui il est obligatoire (2026-10-02, aligné sur AD-15).
 - Le PRD de référence devient `docs/planning/prds/prd-regie-2026-10-02/prd.md` ; l'ancien `docs/planning/prd.md` reste comme source.
 - **Inscription ouverte** dès la V1, avec quota par compte (2 h de rushes par mois, 20 Go) ; séance de 30 min max, 5 brouillons par séance, 3 gabarits par espace.
 - **Échecs de publication** notifiés aussi par courriel (remplace « visible dans regie seulement »), toujours sans nouvelle tentative automatique.

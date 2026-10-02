@@ -118,7 +118,7 @@ Termes : ceux du glossaire du PRD, sans synonyme.
 **Données personnelles et obligations légales (§4.12)**
 
 - FR-51 : Conditions d'utilisation et politique de confidentialité publiques dès la bêta, acceptées à l'inscription ; l'utilisateur garde la propriété de ses rushes et vidéos.
-- FR-52 : Purge des rushes 30 jours après le tri complet d'une séance (60 jours sans tri complet, rappel à 30 jours) ; date de purge affichée ; après purge : plus de refaire, corriger, variante, régénération, relance lisant les rushes, récupération de jeté ; export, publication, programmation et archivage restent possibles ; pour une capture, le script reste.
+- FR-52 : Purge des rushes 30 jours après le tri complet d'une séance (sans tri complet : 60 jours après la livraison de la série, rappel à 30 jours) ; date de purge affichée ; après purge : plus de refaire, corriger, variante, régénération, relance lisant les rushes, récupération de jeté ; export, publication, programmation et archivage restent possibles ; pour une capture, le script reste.
 - FR-53 : Suppression du compte : rushes, brouillons, vidéos, scripts et secrets effacés, sauf audit légal ; espace partagé rendu au propriétaire, ou supprimé après avertissement des membres s'il part.
 - FR-67 : Lien vers le code source de la version en service sur chaque page (AGPL-3.0).
 - FR-68 : Télécharger une archive de ses données (compte, vidéos prêtes, montages, scripts, légendes), sans secret.
@@ -212,7 +212,7 @@ Tirées du socle d'architecture (AD-1 à AD-21). Pas de gabarit de projet tiers 
 - AR-10 (AD-8) : `Acteur` recalculé à chaque requête ; `Acteur.systeme(motif, objet)` ; espace suspendu refusé sur les trois façades ; courriel non confirmé → ni espace ni séance ; RLS `ENABLE` + `FORCE` sur toute table d'espace ou d'utilisateur, échec fermé sans variable ; rôles `regie_coeur`, `regie_admin` (aucun SELECT sur les contenus), `regie_migrations`, un rôle par service (EXECUTE sur les fonctions de file seulement) ; un pool par rôle ; suite de cloisonnement (deux comptes, deux services).
 - AR-11 (AD-9) : Clé maîtresse sur l'hôte PVE, montée en lecture seule dans le seul `coeur`, exclue des sauvegardes, copie sous séquestre ; sous-clés HKDF `coffre`, `hmac-adresses`, `liens` ; AES-256-GCM versionné, AAD `secret_id ‖ espace_id ‖ type` ; `POST /interne/secrets/lire` et `/deposer` liés à l'identité du service, au bail et à une matrice (type de tâche, type de secret) ; masquage par nom et par valeur dans les journaux.
 - AR-12 (AD-7) : Arborescence fixe sous `RACINE_DONNEES` construite par le seul module `chemins` ; services confinés à `taches/<id>/{entrees,sortie}` (liens physiques, relecture `O_NOFOLLOW`) ; signature magique puis `analyse_media` en conteneur sans réseau, jamais ffprobe dans le cœur ; SVG rastérisés ; adresses signées HMAC juste à temps (< 1 h, usage `publication` ou `session`), jamais écrites ; domaine `fichiers.<domaine>` sans cookie, CSP sandbox ; purge conditionnée au rendu complet du montage en vigueur ; `export_donnees` ; suppression base puis dossiers, table `suppressions`.
-- AR-13 (AD-15) : scrypt (≥ 100 ms) ; freinage (compte, IP) bloqué après 5 échecs en 15 min, compte seul en freinage progressif ; inscription toujours « vérifie ta boîte » ; sessions en base, cookie `__Host-`, révoquées au changement de mot de passe ; second facteur **obligatoire pour l'administrateur** (TOTP ou WebAuthn), proposé aux propriétaires publiant ; réauthentification < 10 min pour les actions sensibles ; serveur d'autorisation OAuth 2.1 (PKCE S256, CIMD et DCR bornée, consentement sous session, RFC 9207, jetons d'accès courts, rafraîchissement tournant) ; jetons `regie_pat_` hachés, expiration obligatoire (90 j, 1 an pour le rejeu), portées énumérées ; liens uniques hachés ; liste des routes publiques testée ; audit en INSERT seul, identifiants opaques, chaînage sha256 exporté chaque nuit.
+- AR-13 (AD-15) : scrypt (≥ 100 ms) ; freinage (compte, IP) bloqué après 5 échecs en 15 min, compte seul en freinage progressif ; inscription toujours « vérifie ta boîte » ; sessions en base, cookie `__Host-`, révoquées au changement de mot de passe ; second facteur **obligatoire pour l'administrateur seul** (TOTP ou WebAuthn), hors V1 pour les autres comptes ; réauthentification < 10 min pour les actions sensibles ; serveur d'autorisation OAuth 2.1 (PKCE S256, CIMD et DCR bornée, consentement sous session, RFC 9207, jetons d'accès courts, rafraîchissement tournant) ; jetons `regie_pat_` hachés, expiration obligatoire (90 j, 1 an pour le rejeu), portées énumérées ; liens uniques hachés ; liste des routes publiques testée ; audit en INSERT seul, identifiants opaques, chaînage sha256 exporté chaque nuit.
 - AR-14 (AD-18) : Limites dans `coeur/src/domaine/limites`, réglables (2 h/mois de Paris, 20 Go, 30 min par séance, 5 brouillons, 3 gabarits) ; réservation à la création de l'envoi sous `FOR UPDATE`, convertie à l'analyse, libérée à l'expiration ; quota imputé à l'auteur ; « refaire » gratuit ; unicités en contraintes de base.
 
 **File, pipeline et IA**
@@ -345,12 +345,12 @@ Tirées des maquettes validées `maquette/public/relire.html` et `maquette/publi
 - FR-68 : Épopée 8 — Données et exploitation
 - FR-69 : Épopée 8 — Données et exploitation
 - FR-70 : Épopée 1 — Compte, espace et Claude
-- FR-71 : Épopée 1 — Compte, espace et Claude
+- FR-71 : Épopée 1 — Compte, espace et Claude (courriels) ; Épopée 7 — Publier sur les réseaux (clés des réseaux)
 
 ## Epic List
 
 ### Epic 1 : Compte, espace de marque et connexion de Claude
-Une créatrice crée son compte, se connecte, crée un espace de marque, invite des membres, branche son Claude par OAuth et crée des jetons ; l'administrateur désigné à l'installation (second facteur obligatoire) saisit les paramètres d'envoi des courriels ; chacun consulte son journal d'audit. Pose le dépôt (CI Forgejo, contrats, migrations, RLS, coffre), le registre de parité à trois portes et les pages légales.
+Une créatrice crée son compte, se connecte, crée un espace de marque, invite des membres, branche son Claude par OAuth et crée des jetons ; l'administrateur désigné à l'installation (second facteur obligatoire, pour lui seul) saisit les paramètres d'envoi des courriels ; chacun consulte son journal d'audit. Pose le dépôt (CI Forgejo, contrats, migrations, RLS, coffre), le registre de parité à trois portes et les pages légales.
 **FRs covered:** FR-1, FR-54, FR-2, FR-3, FR-5, FR-46, FR-47, FR-48, FR-51, FR-65, FR-66, FR-67, FR-70, FR-71
 
 ### Epic 2 : Des rushes au premier brouillon sous-titré
@@ -375,7 +375,7 @@ Le propriétaire d'un espace à plusieurs active la validation ; un autre membre
 
 ### Epic 7 : Publier sur les réseaux
 Le propriétaire autorisé connecte Instagram, Facebook, TikTok et YouTube, publie tout de suite ou à l'heure de Paris choisie, jamais deux fois, suit le résultat, rejoue un échec, annule ou déplace une publication programmée.
-**FRs covered:** FR-41, FR-42, FR-63, FR-43, FR-44
+**FRs covered:** FR-41, FR-42, FR-63, FR-43, FR-44, FR-71
 
 ### Epic 8 : Données personnelles et exploitation
 L'inscrite exporte ses données ou supprime son compte ; tout le monde peut signaler un contenu illicite, que l'administrateur traite ; l'instance est sauvegardée, restaurable et surveillée.
@@ -396,17 +396,11 @@ So that chaque histoire suivante s'ajoute sur une base testée, libre et sans se
 **Given** un clone vierge du dépôt
 **When** je lance `npm ci --ignore-scripts` puis la commande de développement (compose, profil `cpu`)
 **Then** `paquets/contrats`, `coeur/src/{env.ts,facades,services,domaine,infra}`, `migrations`, `services/`, `deploiement/` et `docs/rgpd/registre.md` existent (AR-1)
-**And** le cœur fastify sert Astro en middleware et la page d'accueil s'affiche sans aucune ressource tierce (CSP `default-src 'self'`, NFR-35, AR-23)
-
-**Given** la page d'accueil et l'en-tête commun (UX-DR4)
-**When** je l'ouvre à 360, 768 et 1 280 px
-**Then** les jetons de thème de UX-DR1 sont définis sur `:root`, aucun défilement horizontal n'apparaît (NFR-22, UX-DR2) et `prefers-reduced-motion` est respecté (UX-DR3)
-**And** chaque page porte un lien vers le code source de la version en service (FR-67, AGPL-3.0)
+**And** le cœur fastify sert Astro en middleware et la page d'accueil s'affiche
 
 **Given** un commit poussé sur Forgejo
 **When** Forgejo Actions s'exécute
-**Then** les suites bloquantes tournent : types (`astro check`, TS strict), vitest, scan de secrets, licences (npm, pip, polices), appels sortants, mots interdits sur le fichier de chaînes unique (NFR-14, NFR-26, NFR-36, UX-DR23)
-**And** sur `main`, l'image est étiquetée par empreinte avec son SBOM
+**Then** les suites bloquantes de base tournent : types (`astro check`, TS strict), vitest et scan de secrets (NFR-14)
 
 **Given** une variable d'environnement lue ailleurs que dans `coeur/src/env.ts`
 **When** la CI tourne
@@ -416,7 +410,41 @@ So that chaque histoire suivante s'ajoute sur une base testée, libre et sans se
 **When** la CI vérifie les dépendances
 **Then** elles sont épinglées aux versions stables de la stack du socle (Node 26, fastify 5, Astro 7, Svelte 5, zod 4, PostgreSQL 18, Python 3.14…), sans aucune RC, et `pip` installe avec `--require-hashes` (AR-2, AR-23)
 
-### Story 1.2: Migrations contrôlées, coffre et démarrage sûr
+### Story 1.2: Une première page sûre, lisible et accessible
+
+As a visiteuse,
+I want une page qui ne charge rien d'un tiers, s'affiche bien sur mon téléphone et respecte mes réglages d'accessibilité,
+So that regie est sûr et agréable dès la première page.
+
+**Acceptance Criteria:**
+
+**Given** la page d'accueil
+**When** je l'ouvre
+**Then** elle s'affiche sans aucune ressource tierce, sous une CSP `default-src 'self'` posée par `security.csp` d'Astro (NFR-35, AR-23)
+
+**Given** la page d'accueil et l'en-tête commun (UX-DR4)
+**When** je l'ouvre à 360, 768 et 1 280 px
+**Then** les jetons de thème de UX-DR1 sont définis sur `:root`, aucun défilement horizontal n'apparaît (NFR-22, UX-DR2) et `prefers-reduced-motion` est respecté (UX-DR3)
+**And** chaque page porte un lien vers le code source de la version en service (FR-67, AGPL-3.0)
+
+### Story 1.3: Des suites de conformité qui bloquent chaque commit
+
+As a mainteneur de regie,
+I want que la CI refuse toute dépendance non libre, tout appel sortant non déclaré et tout mot interdit,
+So that regie reste 100 % libre, local et fidèle à son vocabulaire sans relecture manuelle.
+
+**Acceptance Criteria:**
+
+**Given** un commit poussé sur Forgejo
+**When** Forgejo Actions s'exécute
+**Then** les suites bloquantes « licences » (npm, pip, polices, modèles, musique), « appels sortants » et « mots interdits » sur le fichier de chaînes unique tournent (NFR-26, NFR-36, AR-23, UX-DR23)
+**And** une dépendance sans licence libre compatible, une sortie Internet hors de la liste du socle ou un mot interdit fait échouer la CI en nommant la cause
+
+**Given** un commit sur `main`
+**When** l'image est construite
+**Then** elle est étiquetée par empreinte avec son SBOM, et `LICENCES-TIERS` est à jour (AR-1, AR-23)
+
+### Story 1.4: Migrations contrôlées, coffre et démarrage sûr
 
 As a administrateur de l'instance,
 I want que regie refuse de démarrer si la clé maîtresse, la base ou un prérequis manque, et applique ses migrations sans perte,
@@ -448,10 +476,18 @@ So that aucun secret n'est jamais stocké en clair et qu'une mise à jour ne cas
 
 **Given** l'image du cœur et celle de PostgreSQL déployées dans le LXC `regie` (Debian 13, Podman 5.4, Quadlet, réseaux `--internal`)
 **When** le LXC démarre
-**Then** les unités démarrent dans l'ordre du socle : environnement, clé et coffre, base, migrations, services, façades, Astro, puis application des résultats, file et planificateur (AR-3)
+**Then** les unités démarrent dans l'ordre du socle : environnement, clé et coffre, base, migrations, services, façades, Astro (AR-3) ; l'application des résultats, la file et le planificateur prennent la fin de cet ordre dans les histoires qui les créent (2.1 et 2.2)
 **And** seuls les ports 443 et 80 de Caddy sont exposés (AR-24)
 
-### Story 1.3: L'administrateur se connecte avec un second facteur
+**Given** la carte Intel Arc B570 partagée avec Tdarr
+**When** la première tâche d'installation vérifie l'accès au GPU dans le LXC (pilote `xe`, intel-media-driver, Resizable BAR, `gid` du groupe `render`, idmap élargi, linger, cgroups v2)
+**Then** le rapport est inscrit dans `deploiement/` ; si l'accès échoue, l'instance est configurée en repli processeur et `/sante` l'indique (AR-20, socle « différés »)
+
+**Given** la commande de recette
+**When** je la lance
+**Then** un LXC `regie-recette` est créé à la demande depuis les mêmes images épinglées, avec des données de démonstration et sans aucun secret réel, puis détruit après usage (AR-1)
+
+### Story 1.5: L'administrateur se connecte avec un second facteur
 
 As a administrateur désigné à l'installation,
 I want me connecter avec mon mot de passe et un second facteur, puis me déconnecter,
@@ -480,7 +516,7 @@ So that le compte le plus puissant de l'instance est protégé dès le premier j
 **When** l'action se termine
 **Then** une ligne est ajoutée au journal d'audit en ajout seul, chaînée par sha256, sans secret (NFR-21, AR-13)
 
-### Story 1.4: L'administrateur règle l'envoi des courriels
+### Story 1.6: L'administrateur règle l'envoi des courriels
 
 As a administrateur,
 I want saisir, remplacer et tester les paramètres d'envoi des courriels dans l'interface,
@@ -500,7 +536,7 @@ So that regie peut envoyer les confirmations et les notifications sans qu'aucun 
 **When** il tente de lire ou modifier ces paramètres
 **Then** l'accès est refusé : cette action est déclarée dans `exceptions-parite` comme réservée à l'interface (FR-47, AR-6)
 
-### Story 1.5: S'inscrire et confirmer son courriel
+### Story 1.7: S'inscrire et confirmer son courriel
 
 As a visiteuse,
 I want créer un compte avec mon courriel et un mot de passe, en acceptant les conditions,
@@ -525,11 +561,16 @@ So that je peux commencer à utiliser regie.
 **When** une visiteuse ouvre la page d'inscription
 **Then** la page annonce que les inscriptions sont fermées et aucun compte ne peut être créé (FR-1)
 
+**Given** une instance de production dont les inscriptions sont fermées
+**When** l'administrateur veut les ouvrir
+**Then** regie exige deux vérifications saisies et datées dans l'écran d'administration (l'examen des brevets H.264 pour un service hébergé, la mesure du débit montant et des coupures de la connexion du foyer), et lit le dernier chronométrage de recette réussi inscrit automatiquement par l'histoire 2.12 (NFR-2, NFR-34, socle « différés »)
+**And** s'il en manque une, l'ouverture est refusée en nommant ce qui manque
+
 **Given** la liste des routes publiques
 **When** la suite « routes publiques » tourne
 **Then** toute route hors de cette liste répond 401 sans session ni jeton (NFR-17)
 
-### Story 1.6: Se connecter, se déconnecter et retrouver son mot de passe
+### Story 1.8: Se connecter, se déconnecter et retrouver son mot de passe
 
 As a créatrice inscrite,
 I want me connecter, me déconnecter et réinitialiser mon mot de passe oublié,
@@ -558,7 +599,7 @@ So that j'accède à mon compte en sécurité depuis mon téléphone ou mon ordi
 **When** je les parcours au clavier seul
 **Then** chaque champ a un libellé, le focus est visible et les erreurs sont annoncées en texte (NFR-24, UX-DR24)
 
-### Story 1.7: Mon espace personnel et mes espaces de marque
+### Story 1.9: Mon espace personnel et mes espaces de marque
 
 As a créatrice,
 I want un espace personnel dès ma première connexion, créer des espaces de marque et passer de l'un à l'autre d'un geste,
@@ -582,7 +623,7 @@ So that les contenus de chaque marque restent séparés.
 **When** la suite de cloisonnement tente, en tant que B, chaque lecture et écriture sur l'espace de A
 **Then** chaque tentative est refusée, sans révéler l'existence de l'objet (FR-5, NFR-16)
 
-### Story 1.8: Inviter et retirer des membres
+### Story 1.10: Inviter et retirer des membres
 
 As a propriétaire d'un espace de marque,
 I want inviter un membre par un lien, lui accorder ou retirer le droit de publier, et le retirer de l'espace,
@@ -611,7 +652,7 @@ So that je travaille à plusieurs sur une marque sans partager mon compte.
 **When** il arrive
 **Then** il est refusé : action déclarée « interface seule » (FR-47)
 
-### Story 1.9: Une API privée à jetons, en parité avec l'interface
+### Story 1.11: Une API privée à jetons, en parité avec l'interface
 
 As a créatrice qui automatise,
 I want créer dans l'interface des jetons d'API limités et appeler `/api/v1` avec les mêmes règles que l'interface,
@@ -637,7 +678,7 @@ So that mes scripts font exactement ce que je fais à la main, sans jamais voir 
 **Then** la référence de l'API et du MCP est générée depuis le registre et un test de dérive bloque toute différence (FR-65, NFR-28)
 **And** `CHANGELOG-API` annonce tout changement incompatible une version à l'avance (NFR-29)
 
-### Story 1.10: Brancher son Claude sur regie
+### Story 1.12: Brancher son Claude sur regie
 
 As a créatrice,
 I want connecter mon Claude à regie par un bouton « Se connecter », en choisissant l'espace et ce qu'il a le droit de faire,
@@ -666,7 +707,7 @@ So that je pilote regie en conversation sans jamais lui confier un mot de passe.
 **When** il est rendu à Claude
 **Then** il est placé dans un champ marqué `non_fiable` (AR-25)
 
-### Story 1.11: Consulter le journal d'audit
+### Story 1.13: Consulter le journal d'audit
 
 As a créatrice, propriétaire ou administrateur,
 I want consulter le journal d'audit de ce que je peux voir, avec des filtres,
@@ -688,7 +729,7 @@ So that je sais qui a fait quoi, depuis quelle porte et avec quel jeton.
 
 **Given** le chaînage sha256 du journal
 **When** une ligne est modifiée après coup
-**Then** la vérification nocturne le détecte (AR-13)
+**Then** la commande de vérification du chaînage le détecte (AR-13) ; sa programmation nocturne arrive avec le planificateur (histoire 2.2)
 
 ## Epic 2: Des rushes au premier brouillon sous-titré
 
@@ -723,7 +764,37 @@ So that je n'attends jamais à cause d'un autre utilisateur ni d'une panne.
 **Then** son résultat est appliqué au démarrage, sur `NOTIFY` ou au balayage de 30 s, une seule fois (AR-7)
 **And** la suite commune TS/Python de la file, avec coupures simulées, passe en CI
 
-### Story 2.2: Envoyer ses rushes, même si le réseau coupe
+### Story 2.2: Des échéances qui ne se perdent pas
+
+As a créatrice,
+I want que tout ce que regie doit faire à une date donnée se fasse, même après un arrêt du serveur,
+So that aucun rappel, aucune purge ni aucune expiration ne se perd.
+
+**Acceptance Criteria:**
+
+**Given** la table `echeances` livrée par migration (type, objet, instant UTC, état)
+**When** une fonction de `coeur/src/services` programme une échéance
+**Then** elle l'inscrit dans la même transaction que l'action métier (AR-6, AR-22)
+**And** les types du socle sont déclarés : publication, rendu différé, purge et rappel, expirations, rappels de connexion, suppression annoncée (AR-22)
+
+**Given** le planificateur
+**When** le cœur démarre
+**Then** il prend place à la fin de l'ordre de démarrage, après l'application des résultats et la file (AR-3)
+**And** chaque échéance due déclenche une tâche interne dans `travaux_internes`, une seule fois (AR-16)
+
+**Given** un arrêt du serveur
+**When** il redémarre
+**Then** les échéances en retard de moins de 2 h sont rattrapées ; une plus ancienne est traitée selon la règle de son type, qui la rattrape ou la passe en échec avec la cause (AR-22, NFR-8)
+
+**Given** le journal d'audit chaîné
+**When** la nuit arrive
+**Then** sa vérification et l'export du chaînage sha256 tournent, et un écart alerte l'administrateur (AR-13)
+
+**Given** les changements d'heure d'été et d'hiver
+**When** la suite de tests du planificateur tourne
+**Then** les instants restent justes en UTC et en heure de Paris (NFR-25)
+
+### Story 2.3: Envoyer ses rushes, même si le réseau coupe
 
 As a créatrice,
 I want ouvrir une séance avec mon intention et envoyer mes rushes depuis mon téléphone ou mon ordinateur, en reprenant là où l'envoi s'est arrêté,
@@ -752,7 +823,7 @@ So that je ne renvoie jamais ce qui est déjà parti.
 **When** elle tente d'écrire dans l'envoi d'une autre
 **Then** le crochet d'appartenance tus refuse (AR-8, NFR-16)
 
-### Story 2.3: Contrôle de mes rushes à réception
+### Story 2.4: Contrôle de mes rushes à réception
 
 As a créatrice,
 I want savoir tout de suite si un rush est horizontal, illisible ou sans voix,
@@ -777,7 +848,7 @@ So that je le retire ou le garde avant de perdre du temps de traitement.
 **When** il est traité
 **Then** les services restent confinés à `taches/<id>/{entrees,sortie}` avec relecture `O_NOFOLLOW` (AR-12)
 
-### Story 2.4: Suivre ma séance dans la file
+### Story 2.5: Suivre ma séance dans la file
 
 As a créatrice,
 I want voir dès la fin de l'envoi l'heure estimée de mes brouillons, ma position dans la file et l'étape en cours,
@@ -801,7 +872,7 @@ So that je sais quand revenir.
 **When** il charge, réussit ou échoue
 **Then** il montre un état chargement, prêt ou erreur qui nomme la cause et l'action possible (UX-DR25)
 
-### Story 2.5: Être prévenue et relancer une étape en échec
+### Story 2.6: Être prévenue et relancer une étape en échec
 
 As a créatrice,
 I want être prévenue dans l'interface et par courriel quand ma série est prête ou qu'une étape échoue, et relancer cette étape,
@@ -809,7 +880,7 @@ So that aucun échec ne passe inaperçu et que je ne renvoie jamais mes rushes.
 
 **Acceptance Criteria:**
 
-**Given** un événement de la liste des notifications (ici une étape en échec ; « série prête » l'emprunte dès l'histoire 2.10)
+**Given** un événement de la liste des notifications (ici une étape en échec ; « série prête » l'emprunte dès l'histoire 2.12)
 **When** l'événement survient
 **Then** une notification d'interface et une ligne `courriels_sortants` sont créées dans la même transaction (FR-32, AR-25)
 **And** un échec nomme l'étape, la cause et l'action possible (NFR-10)
@@ -826,7 +897,7 @@ So that aucun échec ne passe inaperçu et que je ne renvoie jamais mes rushes.
 **When** elle arrive
 **Then** elle suit le même service et les mêmes règles (FR-47)
 
-### Story 2.6: Un gabarit de départ, des gardes et une mise en page communes
+### Story 2.7: Un gabarit de départ, des gardes et une mise en page communes
 
 As a créatrice,
 I want un gabarit prêt dès la création de mon espace, que je personnalise au téléphone en trois choix,
@@ -840,7 +911,7 @@ So that mes premiers brouillons ont déjà l'air de ma marque et restent lisible
 
 **Given** le module pur `mise-en-page`
 **When** il place textes et sous-titres
-**Then** il est partagé par le lecteur du navigateur et le générateur ASS, et le test image rendu ⇔ lecteur passe (AR-19)
+**Then** il est un module pur, sans dépendance au navigateur ni à FFmpeg, couvert par ses tests unitaires ; le test image rendu ⇔ lecteur arrive avec le lecteur (histoire 3.1) (AR-19)
 
 **Given** le module pur de gardes `(montage, mesures, bornes) → violations[]` et `deploiement/bornes.json`
 **When** un élément a un contraste sous 4,5:1, des capitales sous 48 px sur 1 920 ou sort de la zone sûre 880×1220 placée à (0, 220)
@@ -851,7 +922,7 @@ So that mes premiers brouillons ont déjà l'air de ma marque et restent lisible
 **When** une police est ajoutée
 **Then** elle porte une licence libre vérifiée par la suite « licences » (FR-6, AR-17)
 
-### Story 2.7: Définir mon gabarit complet et le prévisualiser
+### Story 2.8: Définir mon gabarit complet et le prévisualiser
 
 As a créatrice,
 I want définir logo, couleurs, polices, style des sous-titres, carte de fin, légende et hashtags par défaut, et les voir sur un brouillon d'exemple avant d'enregistrer,
@@ -875,13 +946,18 @@ So that chaque brouillon sort à l'image de ma marque.
 **When** j'en crée un quatrième
 **Then** regie refuse ; avec plusieurs gabarits, je choisis lequel utiliser à l'envoi d'une séance (FR-6, AR-14)
 
-### Story 2.8: Transcrire mes rushes sur le serveur, mot à mot
+### Story 2.9: Transcrire mes rushes sur le serveur, mot à mot
 
 As a créatrice,
 I want que mes rushes soient transcrits mot à mot sur le serveur de regie, sans IA en nuage,
 So that les sous-titres et les coupes s'appuient sur ce que je dis vraiment.
 
 **Acceptance Criteria:**
+
+**Given** des rushes français fournis par Benjamin avec son consentement écrit (face caméra, lifestyle, voix off, environ 30 min au total)
+**When** le jeu de référence est constitué
+**Then** il est rangé hors du dépôt public, dans `RACINE_DONNEES/reference/` sur l'hôte et dans le LXC `regie-recette`, avec sa transcription exacte et les coupes attendues annotées par Benjamin (préalable de 2.10)
+**And** ce même jeu sert au banc de transcription, au banc du modèle de langage, à l'estimation de 2.5, au chronométrage de 2.12 et au test image rendu ⇔ lecteur de 3.1
 
 **Given** un rush avec voix
 **When** la tâche `transcription` s'exécute
@@ -895,12 +971,42 @@ So that les sous-titres et les coupes s'appuient sur ce que je dis vraiment.
 **Given** le jeu de rushes français de référence
 **When** le banc de transcription tourne
 **Then** le taux d'erreur de mots est d'au plus 10 % (NFR-38)
+**And** le banc mesure les horodatages au mot sur la B570 et l'indice de confiance par mot calculé par regie (probabilités des jetons si la version épinglée les expose, sinon heuristique : durée anormale, désaccord entre deux passes) ; il inscrit dans `deploiement/` si l'indice est validé (AR-17)
+
+**Given** un indice de confiance non validé par le banc
+**When** une transcription est produite
+**Then** le champ de confiance reste absent du montage, aucun mot n'est marqué « peu sûr », et les écrans qui affichent les doutes montrent zéro zone douteuse sans erreur (AR-17)
 
 **Given** les contrats de la tâche
 **When** la CI tourne
 **Then** les modèles pydantic générés depuis les schémas zod sont identiques à ceux du dépôt (test de dérive, AR-9)
 
-### Story 2.9: Un premier brouillon coupé et sous-titré
+### Story 2.10: Choisir le modèle de langage au banc
+
+As a créatrice,
+I want que regie utilise le modèle de langage local qui coupe le mieux mes rushes français dans le temps promis,
+So that mes brouillons sont bons et arrivent à l'heure.
+
+**Acceptance Criteria:**
+
+**Given** les quatre candidats du socle (Ministral-3-8B-Instruct, granite-4.2-8b, Qwen3-8B, EuroLLM-9B, tous Apache-2.0) et les backends de llama.cpp (Vulkan, SYCL, OpenVINO)
+**When** le banc tourne sur le jeu de rushes français de référence, dont les coupes attendues ont été annotées par Benjamin
+**Then** il mesure pour chaque couple : sorties valides au schéma « compatible grammaire », accord des coupes avec l'annotation, durée de la tâche `langage` et tenue dans la VRAM à tour de rôle avec la transcription (AR-9, AR-20)
+
+**Given** les mesures du banc
+**When** le choix est fait
+**Then** sont éliminés les couples qui ne tiennent pas dans la VRAM ou qui empêchent de tenir NFR-2 ; parmi les autres, le couple qui a le meilleur accord avec l'annotation est retenu (NFR-2)
+**And** le modèle, sa quantification, le backend et le build épinglé sont inscrits dans `modeles.lock` (licence, SHA-256), avec le rapport du banc dans `deploiement/` (AR-20)
+
+**Given** aucun couple qui tient NFR-2 sur le GPU
+**When** le banc se termine
+**Then** le meilleur couple est retenu en repli processeur, la version reste utilisable, et le rapport déclenche la décision « second hôte » du socle (NFS et WireGuard), à prendre par l'administrateur (socle « différés »)
+
+**Given** le service `langage`
+**When** il démarre
+**Then** il ne charge que le modèle inscrit dans `modeles.lock` et refuse de démarrer en nommant le manquant (NFR-30)
+
+### Story 2.11: Un premier brouillon coupé et sous-titré
 
 As a créatrice,
 I want que regie coupe mes silences, hésitations et faux départs et pose des sous-titres mot à mot à mon style,
@@ -910,12 +1016,13 @@ So that j'obtiens un brouillon propre sans toucher à une timeline.
 
 **Given** une transcription terminée
 **When** la tâche `langage` s'exécute
-**Then** le modèle local (llama.cpp, sortie contrainte par la variante « compatible grammaire » du schéma, température 0, graine fixe, `--parallel 1`) propose les coupes d'hésitations et de faux départs (FR-21, AR-9, AR-20)
+**Then** le modèle retenu au banc (histoire 2.10 ; llama.cpp, sortie contrainte par la variante « compatible grammaire » du schéma, température 0, graine fixe, `--parallel 1`) propose les coupes d'hésitations et de faux départs (FR-21, AR-9, AR-20)
+**And** la même sortie propose trois accroches pour les deux premières secondes, que le montage range en variantes (FR-23)
 
 **Given** la proposition et la transcription
 **When** le cœur crée le montage
 **Then** les silences de plus de 0,7 s sont coupés et le montage est une ligne JSON versionnée et immuable, créée par le cœur seul (FR-21, AR-17)
-**And** les sous-titres sont mot à mot, animés au style du gabarit, et les mots peu sûrs sont marqués (FR-22)
+**And** les sous-titres sont mot à mot, animés au style du gabarit, et les mots peu sûrs sont marqués quand l'indice de confiance est validé (histoire 2.9) (FR-22)
 
 **Given** un brouillon ou une vidéo
 **When** je lis sa structure par l'interface, le MCP ou l'API
@@ -925,7 +1032,7 @@ So that j'obtiens un brouillon propre sans toucher à une timeline.
 **When** il dépasserait 5
 **Then** regie s'arrête à 5 (AR-14)
 
-### Story 2.10: Voir mon brouillon dans une page d'aperçu
+### Story 2.12: Voir mon brouillon dans une page d'aperçu
 
 As a créatrice,
 I want regarder mon brouillon dans une version allégée qui démarre vite, et voir clairement s'il est bloqué par une garde,
@@ -935,7 +1042,7 @@ So that je juge le résultat avant de le relire en détail.
 
 **Given** un montage créé
 **When** la tâche `rendu_allege` s'exécute
-**Then** FFmpeg en `h264_vaapi` produit une version allégée de moins de 15 Mo pour 60 s, servie par une adresse signée HMAC de moins de 1 h, usage `session`, sur `fichiers.<domaine>` (NFR-33, NFR-18, AR-12)
+**Then** FFmpeg en `h264_vaapi` (ou en `libx264`, dans son conteneur, si l'instance est en repli processeur, histoire 1.4) produit une version allégée de moins de 15 Mo pour 60 s, servie par une adresse signée HMAC de moins de 1 h, usage `session`, sur `fichiers.<domaine>` (NFR-33, NFR-18, AR-12)
 
 **Given** la page d'aperçu en 4G (10 Mbit/s)
 **When** je l'ouvre
@@ -952,8 +1059,9 @@ So that je juge le résultat avant de le relire en détail.
 **Given** 10 min de rushes 1080p et une file vide sur la recette
 **When** le chronométrage de la version tourne
 **Then** la série est prête en moins de 15 min, sinon la version est refusée (NFR-2, AR-1)
+**And** le résultat daté est inscrit comme dernier chronométrage de recette, que l'ouverture des inscriptions exige (histoire 1.7)
 
-### Story 2.11: Changer de gabarit sans toucher au passé
+### Story 2.13: Changer de gabarit sans toucher au passé
 
 As a créatrice,
 I want qu'un nouveau gabarit s'applique aux brouillons suivants, et régénérer au besoin un brouillon en cours avec lui,
@@ -973,7 +1081,7 @@ So that mes vidéos déjà prêtes ou publiées ne changent pas sans moi.
 **When** je demande la régénération
 **Then** regie refuse avec `SEANCE_PURGEE` et la date de purge (FR-52, AR-7)
 
-### Story 2.12: Purge de mes rushes à date annoncée
+### Story 2.14: Purge de mes rushes à date annoncée
 
 As a créatrice,
 I want connaître la date de purge de mes rushes, être prévenue avant, et savoir ce qui reste possible ensuite,
@@ -981,13 +1089,13 @@ So that le disque du serveur ne se remplit pas et que je ne suis jamais surprise
 
 **Acceptance Criteria:**
 
-**Given** une séance jamais triée en entier
-**When** 30 jours passent depuis sa création
-**Then** je reçois un rappel, et les rushes sont purgés à 60 jours ; la date de purge est affichée sur la séance (FR-52)
+**Given** une séance dont la série a été livrée
+**When** la série est livrée
+**Then** des échéances de rappel à 30 jours et de purge à 60 jours après la livraison sont créées (histoire 2.2), et la date de purge est affichée sur la séance (FR-52, AR-22)
 
-**Given** la table `echeances`
-**When** le planificateur tourne après un arrêt
-**Then** il rattrape les échéances de purge et de rappel (AR-22)
+**Given** une séance jamais triée en entier
+**When** 30 jours passent depuis la livraison de sa série
+**Then** je reçois un rappel par courriel, et les rushes sont purgés 60 jours après la livraison ; les brouillons déjà rendus restent téléchargeables jusqu'à la purge (FR-52)
 
 **Given** une purge à exécuter
 **When** le rendu complet du montage en vigueur n'existe pas encore
@@ -1021,6 +1129,10 @@ So that je relis vite, au téléphone, comme je regarde mes réseaux.
 **Given** la suite visuelle à 360, 768 et 1 280 px et la suite de contraste
 **When** la CI tourne
 **Then** les captures de référence et le contraste de 4,5:1 passent (NFR-22, NFR-23)
+
+**Given** le lecteur du navigateur et le générateur ASS qui partagent le module `mise-en-page`
+**When** le test image rendu ⇔ lecteur compare une image du rendu et la même image dessinée par le lecteur sur les montages du jeu de recette
+**Then** textes et sous-titres tombent à la même place, et le test bloque la CI en cas d'écart (AR-19)
 
 ### Story 3.2: Garder ou jeter d'un geste
 
@@ -1153,6 +1265,11 @@ So that ma vidéo a du rythme sans risque de droits et sans couvrir ma voix.
 **When** il est soumis
 **Then** il reste invisible jusqu'à vérification par l'administrateur (FR-49, FR-70)
 
+**Given** une instance neuve dont le catalogue est vide
+**When** l'administrateur ajoute les premiers morceaux par l'écran d'administration du catalogue (fichier, source, licence, attribution, ambiance)
+**Then** ils entrent sous les mêmes règles de licence (FR-49, FR-70)
+**And** tant qu'une ambiance compte moins de trois morceaux, regie propose ceux qui existent plus « sans musique », sans erreur (FR-24)
+
 **Given** les ambiances préférées du gabarit (énergique, calme, sans musique par défaut)
 **When** regie propose des musiques
 **Then** il en propose trois selon ces ambiances, plus « sans musique », dans l'onglet Musique (FR-24, FR-50, UX-DR12)
@@ -1204,14 +1321,14 @@ So that je la publie moi-même où je veux.
 ### Story 3.9: Ma bibliothèque de vidéos
 
 As a créatrice,
-I want lister mes vidéos par espace, statut, réseau et période, puis supprimer ou archiver,
+I want lister mes vidéos par espace, statut et période, puis supprimer ou archiver,
 So that je retrouve tout et je fais le ménage.
 
 **Acceptance Criteria:**
 
 **Given** la bibliothèque de l'espace actif
-**When** je filtre par statut, réseau et période
-**Then** la liste se restreint, en heure de Paris (FR-45, NFR-25)
+**When** je filtre par statut et période
+**Then** la liste se restreint, en heure de Paris (FR-45, NFR-25) ; le filtre par réseau arrive avec la publication (histoire 7.5)
 
 **Given** une vidéo sans publication publiée
 **When** je la supprime
@@ -1249,7 +1366,27 @@ So that regie ne filme que des sites qui sont à moi.
 **When** je l'affiche
 **Then** il s'organise en 1, 2 ou 3 colonnes avec un en-tête collant (UX-DR2)
 
-### Story 4.2: Un compte de démo au coffre et un test de connexion isolé
+### Story 4.2: Une capture enfermée, loin du reste de regie
+
+As a administrateur de l'instance,
+I want que chaque capture tourne dans un navigateur jetable, sur une machine isolée, qui ne joint que les hôtes prouvés,
+So that une page hostile ne peut atteindre ni le réseau du foyer, ni les fichiers, ni les secrets d'autrui.
+
+**Acceptance Criteria:**
+
+**Given** le LXC `regie-capture` sur un VLAN isolé, avec Podman rootless d'un utilisateur dédié
+**When** une tâche de capture démarre
+**Then** un conteneur Chromium jetable (`cap-drop=ALL`, lecture seule, bac à sable actif) ne joint que `proxy-capture` par un réseau interne (AR-3, AR-21)
+
+**Given** `proxy-capture`
+**When** une requête vise une plage privée, l'IP du foyer, un hôte non prouvé ou un nom qui se résout autrement entre deux requêtes
+**Then** elle est refusée, et chaque destination est tracée et conservée 1 an (AR-21, AR-24, NFR-19)
+
+**Given** la suite d'évasion (script hostile : réseau interne, fichiers d'autrui, secrets étrangers, rebinding DNS)
+**When** la CI tourne
+**Then** chaque accès interdit est refusé (NFR-19, AR-21)
+
+### Story 4.3: Un compte de démo au coffre et un test de connexion
 
 As a propriétaire d'un espace,
 I want déposer les identifiants d'un compte de démo et tester la connexion à mon application,
@@ -1262,20 +1399,15 @@ So that regie peut filmer les écrans connectés sans jamais voir ni montrer mon
 **Then** ils vont au coffre, ne sont jamais réaffichés, et je ne peux que les remplacer (FR-13, UX-DR16)
 **And** aucun outil MCP ni point d'API ne peut les lire ou les déposer (FR-47)
 
-**Given** le LXC `regie-capture` sur un VLAN isolé
-**When** un test de connexion est lancé
-**Then** un conteneur Chromium jetable (Podman rootless, `cap-drop=ALL`, lecture seule, bac à sable actif) ne joint que `proxy-capture`, qui refuse les plages privées et l'IP du foyer, et trace les destinations (AR-21, NFR-19)
-**And** le service lit le secret par `/interne/secrets/lire` sous son identité et son bail, selon la matrice déclarée (AR-11)
+**Given** un test de connexion lancé dans la capture isolée (histoire 4.2)
+**When** il s'exécute
+**Then** le service lit le secret par `/interne/secrets/lire` sous son identité et son bail, selon la matrice déclarée (AR-11)
 
 **Given** un test réussi ou échoué
 **When** il se termine
 **Then** je vois une mini capture de la page d'accueil, ou l'étape fautive (FR-13, UX-DR16)
 
-**Given** la suite d'évasion (script hostile : réseau interne, fichiers d'autrui, secrets étrangers, rebinding DNS)
-**When** la CI tourne
-**Then** chaque accès interdit est refusé (NFR-19, AR-21)
-
-### Story 4.3: Lire et corriger les étapes d'un script
+### Story 4.4: Lire et corriger les étapes d'un script
 
 As a propriétaire d'un espace,
 I want voir mes scripts et corriger leurs étapes une à une,
@@ -1300,7 +1432,7 @@ So that une démo cassée se répare sans tout refaire.
 **When** j'ouvre le script
 **Then** elle est mise en avant avec sa capture d'écran et les actions « Viser le … » et « Retirer l'étape » (FR-19, UX-DR18)
 
-### Story 4.4: Jouer et filmer mon script
+### Story 4.5: Jouer et filmer mon script
 
 As a propriétaire d'un espace,
 I want jouer mon script dans un navigateur piloté et le filmer en vertical,
@@ -1311,7 +1443,7 @@ So that j'obtiens les images de ma démo sans manipuler moi-même.
 **Given** un script valide
 **When** je clique « Jouer et filmer »
 **Then** une tâche de capture joue les étapes, filme en vertical et produit un journal horodaté des saisies, choix et clics (FR-18)
-**And** le panneau montre l'aperçu vertical avec curseur, onde de clic, zoom, la pastille « Capture » et le journal en direct (UX-DR21)
+**And** le panneau montre l'aperçu vertical avec curseur, onde de clic, zoom, la pastille « Capture » et le journal en direct, reçu par le flux SSE de la séance (AR-8, UX-DR21)
 
 **Given** une navigation vers un hôte hors liste
 **When** elle se produit pendant le jeu
@@ -1321,7 +1453,7 @@ So that j'obtiens les images de ma démo sans manipuler moi-même.
 **When** elle devient une séance
 **Then** la séance suit la file avec son heure estimée, et la fin du jeu l'annonce (« brouillon prêt vers 18 h 52 dans Relire ») (UX-DR21, FR-12)
 
-### Story 4.5: Une démo recadrée et zoomée sur chaque clic
+### Story 4.6: Une démo recadrée et zoomée sur chaque clic
 
 As a propriétaire d'un espace,
 I want que ma capture soit recadrée en 9:16 et zoomée sur chaque clic, avec le curseur visible,
@@ -1334,7 +1466,7 @@ So that on suit ma démo sur un téléphone.
 **Then** le cadre suit chaque clic avec un zoom, d'après le journal horodaté, et le curseur reste visible (FR-26)
 **And** le brouillon passe les gardes et arrive dans le fil « Relire » (FR-28)
 
-### Story 4.6: Une voix de synthèse locale qui commente ma démo
+### Story 4.7: Une voix de synthèse locale qui commente ma démo
 
 As a propriétaire d'un espace,
 I want une voix qui commente ma démo, avec un texte que je peux modifier avant le rendu,
@@ -1349,9 +1481,13 @@ So that ma démo s'explique sans que j'enregistre ma voix.
 **Given** le texte validé
 **When** la tâche `voix` s'exécute
 **Then** une voix de synthèse locale sous licence libre commerciale le dit, sans IA en nuage (FR-27, NFR-26)
-**And** la voix retenue a été validée sur deux vidéos test avant la bêta, et figure dans `modeles.lock`
+**And** la voix retenue figure dans `modeles.lock` (licence, SHA-256)
 
-### Story 4.7: Demander un script à Claude
+**Given** les voix candidates du socle : fr siwis ou mls (CC-BY, attribution ajoutée aux mentions), gilles (CC0) ; tom (AGPL) et upmc (CC-BY-SA) exclues
+**When** Benjamin écoute deux vidéos test dites par chaque candidate avant la bêta
+**Then** il retient une voix, consignée avec le rapport dans `deploiement/` ; à défaut de choix, gilles (CC0) est retenue (socle « différés »)
+
+### Story 4.8: Demander un script à Claude
 
 As a propriétaire d'un espace,
 I want décrire ma démo en une phrase à Claude et obtenir un script,
@@ -1371,7 +1507,7 @@ So that je n'écris aucune étape à la main.
 **When** elle est demandée par l'interface ou l'API
 **Then** elle n'existe que par le MCP, comme déclaré dans `exceptions-parite` (FR-47)
 
-### Story 4.8: Faire le parcours une fois pour l'enregistrer
+### Story 4.9: Faire le parcours une fois pour l'enregistrer
 
 As a propriétaire d'un espace,
 I want faire mon parcours une fois et que chaque clic, saisie et navigation devienne une étape,
@@ -1387,7 +1523,7 @@ So that je crée un script en montrant plutôt qu'en décrivant.
 **When** elle est enregistrée
 **Then** elle est remplacée par l'étape `connexion`, et la valeur n'est jamais stockée (UX-DR22)
 
-### Story 4.9: Importer un test existant
+### Story 4.10: Importer un test existant
 
 As a propriétaire d'un espace,
 I want importer un test Playwright ou Cypress et le convertir en script,
@@ -1403,7 +1539,7 @@ So that je réutilise les parcours que mon équipe a déjà écrits.
 **When** la conversion se termine
 **Then** elle est signalée par son numéro, et « Créer le script » reste bloqué tant qu'elle reste (FR-16, UX-DR22)
 
-### Story 4.10: Rejouer ma démo à chaque mise en production
+### Story 4.11: Rejouer ma démo à chaque mise en production
 
 As a propriétaire d'un espace,
 I want que ma chaîne de déploiement rejoue mon script avec un jeton limité,
@@ -1460,9 +1596,9 @@ So that une séance de tournage me donne plusieurs vidéos.
 **When** le montage se termine
 **Then** regie l'annonce avec la raison et un conseil de tournage (FR-20)
 
-**Given** le banc du modèle de langage sur de vrais rushes français
-**When** il est mené
-**Then** le modèle et le backend retenus sont inscrits dans `modeles.lock` (AR-20)
+**Given** le modèle retenu au banc (histoire 2.10)
+**When** une prise parlée longue est découpée
+**Then** le découpage tient dans le budget de NFR-2, sinon la séance suit le repli décidé par le banc (AR-20, NFR-2)
 
 ### Story 5.3: La meilleure prise, les autres en variantes
 
@@ -1670,7 +1806,7 @@ So that mes vidéos sortent au bon moment, même si le serveur redémarre.
 
 **Given** le montage d'une vidéo programmée qui change
 **When** la correction arrive
-**Then** la publication passe `en_attente_confirmation` avec `MONTAGE_MODIFIE` et attend mon accord (AR-22)
+**Then** la publication passe « à confirmer » (`en_attente_confirmation` dans le code) avec `MONTAGE_MODIFIE` et attend mon accord ; sans confirmation à l'heure dite, elle passe en échec (AR-22)
 
 ### Story 7.5: Suivre le résultat et rejouer un échec
 
@@ -1692,6 +1828,10 @@ So that je sais toujours où en est chaque vidéo.
 **Given** chaque tentative de publication
 **When** elle a lieu
 **Then** elle est inscrite au journal d'audit avec l'utilisateur, l'origine et le jeton (NFR-21)
+
+**Given** la bibliothèque de l'espace actif
+**When** je filtre par réseau
+**Then** seules les vidéos qui ont une publication sur ce réseau s'affichent (FR-45)
 
 ### Story 7.6: Publier sur Instagram et Facebook
 

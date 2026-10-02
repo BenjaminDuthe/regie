@@ -572,7 +572,7 @@ Chaque exigence porte une valeur mesurable et sa vérification. Aucune ne nomme 
 - Publication sur les comptes de tiers : V2, après agréments Meta et TikTok.
 - X et LinkedIn : non prévus.
 - Application native, PWA, notifications push : plus tard.
-- Second facteur d'authentification : hors V1.
+- Second facteur d'authentification : hors V1, sauf pour l'administrateur de l'instance, pour qui il est obligatoire (décision du 2026-10-02, alignée sur AD-15).
 - Recettes paramétrables par l'utilisateur : hors V1.
 - Haute disponibilité par serveurs redondants : hors V1.
 - Interface dans une autre langue que le français : hors V1.
