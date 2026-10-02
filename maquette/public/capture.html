@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c0c0d">
+<title>Démos d'app — regie (maquette)</title>
+<style>
+/* regie — maquette de la capture par script d'actions (lot 10). Données d'exemple, aucun appel réseau. */
+:root {
+  --fond: #0c0c0d;
+  --surface: #17171a;
+  --surface-2: #222226;
+  --trait: #34343a;
+  --texte: #f4f3f0;
+  --doux: #b3b1aa;
+  --ok: #3ddc84;
+  --ok-fond: rgba(61, 220, 132, .14);
+  --echec: #ff6b5e;
+  --echec-fond: rgba(255, 107, 94, .14);
+  --attente: #ffc94d;
+  --attente-fond: rgba(255, 201, 77, .14);
+  --accent: #ff8fb1;
+  --focus: 0 0 0 3px #fff, 0 0 0 5px #3b82f6;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--fond); color: var(--texte); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 10px; }
+a { color: var(--accent); }
+code { font: 12.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--fond); border: 1px solid var(--trait); border-radius: 6px; padding: 1px 5px; word-break: break-all; }
+.visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- En-tête ---------- */
+.entete { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: rgba(12,12,13,.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--trait); }
+.entete .marque { font-weight: 850; letter-spacing: -.01em; }
+.espace { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--trait); font-weight: 650; font-size: 13.5px; }
+.espace i { width: 10px; height: 10px; border-radius: 3px; background: #4f7cff; }
+.entete nav { margin-left: auto; display: flex; gap: 4px; }
+.entete nav a { color: var(--doux); text-decoration: none; padding: 7px 11px; border-radius: 99px; font-weight: 650; font-size: 13.5px; }
+.entete nav a[aria-current] { color: var(--texte); background: var(--surface-2); }
+.badge-maquette { font-size: 11px; color: #d9d7d0; border: 1px solid rgba(255,255,255,.18); border-radius: 99px; padding: 3px 9px; white-space: nowrap; }
+
+/* ---------- Grille ---------- */
+.page { display: grid; gap: 16px; padding: 16px; max-width: 1440px; margin: 0 auto; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .page { grid-template-columns: 300px minmax(0, 1fr); } .colonne-apercu { grid-column: 1 / -1; } }
+@media (min-width: 1240px) { .page { grid-template-columns: 300px minmax(0, 1fr) 320px; } .colonne-apercu { grid-column: auto; position: sticky; top: 70px; align-self: start; } }
+.carte { background: var(--surface); border: 1px solid var(--trait); border-radius: 16px; padding: 14px; }
+.carte + .carte { margin-top: 16px; }
+.carte h2 { margin: 0 0 10px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.carte h2 .aide { margin-left: auto; font-weight: 500; font-size: 12px; color: var(--doux); }
+.note { font-size: 12.5px; color: var(--doux); margin: 6px 0 0; }
+.bouton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 14px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--trait); font-weight: 650; font-size: 13.5px; }
+.bouton.plein { background: var(--texte); color: #111; border-color: var(--texte); }
+.bouton.accent { background: var(--accent); color: #1a0a10; border-color: var(--accent); }
+.bouton svg { width: 16px; height: 16px; }
+.etiquette { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 750; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.etiquette.ok { color: var(--ok); background: var(--ok-fond); }
+.etiquette.echec { color: var(--echec); background: var(--echec-fond); }
+.etiquette.attente { color: var(--attente); background: var(--attente-fond); }
+.etiquette.neutre { color: var(--doux); background: var(--surface-2); }
+.etiquette::before { font-weight: 900; }
+.etiquette.ok::before { content: "✓"; }
+.etiquette.echec::before { content: "!"; }
+.etiquette.attente::before { content: "…"; }
+
+/* ---------- Application ---------- */
+.hote { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--trait); flex-wrap: wrap; }
+.hote:first-of-type { border-top: 0; }
+.hote .nom { font-weight: 650; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.preuve { width: 100%; margin-top: 4px; padding: 10px; border-radius: 10px; background: var(--fond); border: 1px dashed var(--trait); font-size: 13px; }
+.preuve p { margin: 0 0 6px; }
+.coffre { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border-radius: 12px; background: var(--fond); border: 1px solid var(--trait); margin-top: 8px; }
+.coffre svg { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--ok); }
+.coffre div { font-size: 13px; }
+.coffre b { display: block; font-size: 13.5px; }
+.formulaire-coffre { display: grid; gap: 8px; margin-top: 10px; }
+.formulaire-coffre label { font-size: 12.5px; color: var(--doux); display: grid; gap: 4px; }
+input[type="text"], input[type="password"], textarea, select { width: 100%; background: var(--fond); color: var(--texte); border: 1px solid var(--trait); border-radius: 10px; padding: 9px 11px; font: inherit; }
+textarea { resize: vertical; min-height: 96px; line-height: 1.45; }
+.test-connexion { margin-top: 10px; }
+.resultat { margin-top: 10px; padding: 10px; border-radius: 12px; font-size: 13px; display: flex; gap: 10px; align-items: center; }
+.resultat.ok { background: var(--ok-fond); border: 1px solid rgba(61,220,132,.45); }
+.mini-capture { flex: none; width: 54px; height: 40px; border-radius: 6px; background: linear-gradient(#4f7cff 0 18%, #f5f6fa 18%); position: relative; overflow: hidden; }
+.mini-capture::after { content: ""; position: absolute; left: 6px; top: 14px; width: 12px; height: 22px; background: #dfe3ee; border-radius: 2px; box-shadow: 18px 0 0 -2px #e9ecf4, 30px 4px 0 -4px #e9ecf4; }
+
+/* ---------- Liste des scripts ---------- */
+.scripts { display: grid; gap: 6px; }
+.script { text-align: left; width: 100%; padding: 10px 11px; border-radius: 12px; border: 1.5px solid transparent; background: var(--fond); display: grid; gap: 3px; }
+.script[aria-current="true"] { border-color: var(--accent); background: rgba(255,143,177,.07); }
+.script .titre { font-weight: 700; display: flex; gap: 8px; align-items: center; }
+.script .titre span:first-child { flex: 1; min-width: 0; }
+.script .meta { font-size: 12px; color: var(--doux); }
+.nouveau { display: grid; gap: 6px; margin-top: 10px; }
+.nouveau .bouton { justify-content: flex-start; border-radius: 12px; padding: 10px 12px; }
+.nouveau .bouton small { display: block; font-weight: 500; color: var(--doux); font-size: 12px; }
+.nouveau .bouton span { text-align: left; }
+
+/* ---------- Script : étapes ---------- */
+.titre-script { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 4px; }
+.titre-script h1 { margin: 0; font-size: 21px; flex: 1; min-width: 200px; }
+.sous-titre-script { color: var(--doux); font-size: 13px; margin: 0 0 12px; }
+.alerte { border-radius: 14px; padding: 12px; margin-bottom: 14px; font-size: 13.5px; }
+.alerte.echec { background: var(--echec-fond); border: 1px solid rgba(255,107,94,.55); }
+.alerte.ok { background: var(--ok-fond); border: 1px solid rgba(61,220,132,.45); }
+.alerte.attente { background: var(--attente-fond); border: 1px solid rgba(255,201,77,.45); }
+.alerte b { display: block; margin-bottom: 2px; }
+.etapes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.etape { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px; border-radius: 12px; background: var(--fond); border: 1px solid var(--trait); }
+.etape.en-cours { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.etape.echec { border-color: rgba(255,107,94,.7); background: linear-gradient(var(--echec-fond), var(--echec-fond)), var(--fond); }
+.etape .num { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); font-weight: 800; font-size: 13px; }
+.etape.echec .num { background: var(--echec); color: #2a0703; }
+.etape.joue .num { background: var(--ok); color: #06240f; }
+.etape .action { font-weight: 650; overflow-wrap: anywhere; }
+.etape .action .verbe { color: var(--doux); font-weight: 600; }
+.etape .detail { font-size: 12.5px; color: var(--doux); margin-top: 2px; overflow-wrap: anywhere; }
+.outils-etape { display: flex; gap: 2px; }
+.outils-etape button { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--doux); }
+.outils-etape button:hover:not(:disabled) { background: var(--surface-2); color: var(--texte); }
+.outils-etape svg { width: 16px; height: 16px; }
+.panne { grid-column: 2 / -1; display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; margin-top: 4px; }
+@media (max-width: 520px) { .panne { grid-column: 1 / -1; grid-template-columns: 1fr; } .panne .capture-panne { max-width: 160px; } }
+.capture-panne { aspect-ratio: 9 / 16; border-radius: 10px; overflow: hidden; border: 1px solid var(--trait); position: relative; background: #f5f6fa; }
+.panne p { margin: 0 0 8px; font-size: 13px; }
+.panne .actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.ajout { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 8px; margin-top: 10px; }
+@media (max-width: 520px) { .ajout { grid-template-columns: 1fr; } }
+.barre-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
+.interrupteur { display: inline-flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; }
+.interrupteur [role="switch"] { width: 42px; height: 24px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--trait); position: relative; flex: none; }
+.interrupteur [role="switch"]::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--doux); transition: transform .15s; }
+.interrupteur [role="switch"][aria-checked="true"] { background: var(--ok); border-color: var(--ok); }
+.interrupteur [role="switch"][aria-checked="true"]::after { transform: translateX(18px); background: #06240f; }
+.jeton { margin-top: 10px; padding: 10px; border-radius: 12px; background: var(--fond); border: 1px solid var(--trait); font-size: 13px; }
+
+/* ---------- Aperçu de la capture ---------- */
+.cadre { position: relative; width: min(100%, 260px); margin: 0 auto; aspect-ratio: 9 / 16; border-radius: 18px; overflow: hidden; background: #000; border: 1px solid var(--trait); }
+.appli { position: absolute; inset: 0; transform-origin: 50% 50%; transition: transform .6s cubic-bezier(.3,.7,.2,1); background: #f5f6fa; color: #1b2133; font-size: 9px; }
+.appli .barre { height: 9%; background: #4f7cff; color: #fff; display: flex; align-items: center; padding: 0 8%; font-weight: 800; font-size: 10px; }
+.appli .menu { position: absolute; left: 0; top: 9%; bottom: 0; width: 30%; background: #fff; border-right: 1px solid #e3e6ef; padding: 8% 5%; display: grid; align-content: start; gap: 6px; }
+.appli .menu span { padding: 4px 5px; border-radius: 4px; }
+.appli .menu span.actif { background: #e8eeff; color: #2c55d6; font-weight: 700; }
+.appli .zone { position: absolute; left: 30%; right: 0; top: 9%; bottom: 0; padding: 7%; }
+.appli .zone h3 { margin: 0 0 8px; font-size: 11px; }
+.appli .champ { height: 16px; border: 1px solid #d6dbe7; border-radius: 4px; background: #fff; margin-bottom: 7px; padding: 0 5px; display: flex; align-items: center; color: #6a7186; overflow: hidden; white-space: nowrap; }
+.appli .champ.rempli { color: #1b2133; }
+.appli .btn { display: inline-block; padding: 4px 8px; border-radius: 4px; background: #4f7cff; color: #fff; font-weight: 700; margin-top: 4px; }
+.appli .btn.gris { background: #e3e6ef; color: #1b2133; }
+.appli .toast-appli { position: absolute; left: 36%; right: 6%; bottom: 6%; background: #1b2133; color: #fff; border-radius: 5px; padding: 5px 7px; opacity: 0; transition: opacity .3s; }
+.appli .toast-appli.visible { opacity: 1; }
+.curseur { position: absolute; width: 14px; height: 14px; margin: -2px 0 0 -2px; transition: left .5s cubic-bezier(.3,.7,.2,1), top .5s cubic-bezier(.3,.7,.2,1); z-index: 3; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+.onde-clic { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; z-index: 2; }
+.onde-clic.anime { animation: clic .55s ease-out; }
+@keyframes clic { from { opacity: 1; transform: scale(.4); } to { opacity: 0; transform: scale(1.6); } }
+@media (prefers-reduced-motion: reduce) { .appli, .curseur { transition: none; } .onde-clic.anime { animation: none; } }
+.enregistre { position: absolute; top: 8px; left: 8px; z-index: 4; display: none; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 99px; background: rgba(0,0,0,.7); color: #fff; font-size: 11px; font-weight: 750; }
+.enregistre.visible { display: inline-flex; }
+.enregistre i { width: 8px; height: 8px; border-radius: 50%; background: var(--echec); animation: clignote 1s steps(2) infinite; }
+@keyframes clignote { 50% { opacity: .2; } }
+.etat-jeu { text-align: center; margin-top: 10px; font-size: 13px; min-height: 2.8em; }
+.journal { list-style: none; margin: 10px 0 0; padding: 0; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--doux); max-height: 160px; overflow-y: auto; }
+.journal li.refus { color: var(--echec); }
+
+/* ---------- Fenêtres ---------- */
+dialog { background: var(--surface); color: var(--texte); border: 1px solid var(--trait); border-radius: 18px; padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); }
+dialog::backdrop { background: rgba(0,0,0,.6); }
+dialog header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--trait); }
+dialog header h2 { margin: 0; font-size: 16px; flex: 1; }
+dialog .corps { padding: 14px 16px; overflow-y: auto; }
+dialog .pied { padding: 12px 16px; border-top: 1px solid var(--trait); display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.fermer { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); }
+.fermer svg { width: 16px; height: 16px; }
+.phrase-claude { padding: 12px; border-radius: 12px; background: var(--fond); border: 1px solid var(--trait); font-size: 14px; }
+.phrase-claude q { font-weight: 650; }
+.liste-conversion { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.liste-conversion li { display: grid; grid-template-columns: 26px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; background: var(--fond); }
+.liste-conversion li.ko { background: var(--echec-fond); border: 1px solid rgba(255,107,94,.5); }
+.liste-conversion .n { font-weight: 800; color: var(--doux); }
+.enreg-etapes { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; min-height: 120px; }
+.enreg-etapes li { padding: 6px 8px; border-radius: 8px; background: var(--fond); animation: apparait .3s ease-out; }
+@keyframes apparait { from { opacity: 0; transform: translateY(4px); } }
+
+/* ---------- Toast ---------- */
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 20px); z-index: 60; background: #f4f3f0; color: #141414; border-radius: 12px; padding: 10px 10px 10px 14px; display: flex; gap: 14px; align-items: center; font-weight: 650; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100vw - 32px); }
+.toast.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast button { font-weight: 800; color: #b3123d; padding: 6px 8px; }
+@media (max-width: 600px) { .entete nav { display: none; } }
+</style>
+</head>
+<body>
+
+<header class="entete">
+  <span class="marque">regie</span>
+  <span class="espace"><i aria-hidden="true"></i>Établia</span>
+  <nav aria-label="Navigation">
+    <a href="/relire.html">Relire</a>
+    <a href="/capture.html" aria-current="page">Démos d'app</a>
+  </nav>
+  <span class="badge-maquette">Maquette · données d'exemple</span>
+</header>
+
+<main class="page">
+  <!-- Colonne gauche : application et scripts -->
+  <div class="colonne-gauche">
+    <section class="carte" aria-labelledby="t-appli">
+      <h2 id="t-appli">Application à filmer</h2>
+      <div style="font-weight:800;font-size:16px">Établia</div>
+      <div class="note" style="margin:2px 0 8px">Seuls ces sites peuvent être ouverts pendant une capture.</div>
+      <div id="hotes"></div>
+
+      <div class="coffre" id="coffre">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+        <div><b>Compte de démo rangé au coffre</b><span id="coffreDetail">Enregistré le 28 septembre. Claude ne le voit jamais.</span></div>
+      </div>
+      <div class="barre-actions" style="margin-top:8px">
+        <button class="bouton" id="btnRemplacer" aria-expanded="false" aria-controls="formCoffre">Remplacer le compte</button>
+        <button class="bouton" id="btnTester">Tester la connexion</button>
+      </div>
+      <form class="formulaire-coffre" id="formCoffre" hidden>
+        <label>Identifiant du compte de démo<input type="text" autocomplete="off" placeholder="compte sans second facteur"></label>
+        <label>Mot de passe<input type="password" autocomplete="new-password"></label>
+        <p class="note" style="margin:0">Ces champs n'existent qu'ici : ni Claude ni l'API ne peuvent les lire ou les changer.</p>
+        <div><button class="bouton plein" type="submit">Ranger au coffre</button></div>
+      </form>
+      <div id="resultatTest" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="carte" aria-labelledby="t-scripts">
+      <h2 id="t-scripts">Scripts de démo</h2>
+      <div class="scripts" id="listeScripts"></div>
+      <div class="nouveau" aria-label="Nouveau script">
+        <button class="bouton" data-nouveau="claude"><span>Demander à Claude<small>Une phrase, Claude écrit les étapes</small></span></button>
+        <button class="bouton" data-nouveau="enregistrer"><span>Faire le parcours une fois<small>Chaque clic devient une étape</small></span></button>
+        <button class="bouton" data-nouveau="importer"><span>Importer un test<small>Playwright ou Cypress</small></span></button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Colonne centrale : le script -->
+  <section class="carte colonne-script" aria-labelledby="titreScript" id="colonneScript"></section>
+
+  <!-- Colonne droite : aperçu de la capture -->
+  <section class="carte colonne-apercu" aria-labelledby="t-apercu">
+    <h2 id="t-apercu">Ce que filme regie <span class="aide">format vertical</span></h2>
+    <div class="cadre" id="cadre" aria-hidden="true">
+      <div class="enregistre" id="pastilleRec"><i></i>Capture</div>
+      <div class="appli" id="appli">
+        <div class="barre">Établia</div>
+        <div class="menu"><span data-m="accueil" class="actif">Accueil</span><span data-m="factures">Factures</span><span data-m="clients">Clients</span><span>Réglages</span></div>
+        <div class="zone" id="zoneAppli"></div>
+        <div class="toast-appli" id="toastAppli">Facture créée</div>
+      </div>
+      <div class="onde-clic" id="onde"></div>
+      <svg class="curseur" id="curseur" viewBox="0 0 24 24"><path d="M4 2l16 10-7 1.5L9.5 21z" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="etat-jeu" id="etatJeu" role="status" aria-live="polite">Lance « Jouer et filmer » pour voir la capture.</div>
+    <ol class="journal" id="journal" aria-label="Journal des clics"></ol>
+  </section>
+</main>
+
+<!-- Fenêtre : demander à Claude -->
+<dialog id="dlg-claude" aria-labelledby="t-dlg-claude">
+  <header><h2 id="t-dlg-claude">Demander à Claude</h2><button class="fermer" data-fermer aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <div class="corps">
+    <p style="margin-top:0">Ça se passe dans ta conversation avec Claude, une fois regie connecté. Dis-lui ce que la démo doit montrer :</p>
+    <div class="phrase-claude"><q>Montre comment créer une facture dans Établia</q></div>
+    <p class="note">regie montre à Claude les pages d'Établia, leurs boutons et des captures d'écran. Claude écrit les étapes ; regie refuse toute étape qui sort des sites autorisés. Le script apparaît ensuite ici, modifiable.</p>
+    <p class="note">Claude ne voit jamais le compte de démo.</p>
+  </div>
+  <div class="pied"><button class="bouton plein" data-fermer>Compris</button></div>
+</dialog>
+
+<!-- Fenêtre : enregistrer un parcours -->
+<dialog id="dlg-enregistrer" aria-labelledby="t-dlg-enreg">
+  <header><h2 id="t-dlg-enreg">Faire le parcours une fois</h2><button class="fermer" data-fermer aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <div class="corps">
+    <p style="margin-top:0" id="enregConsigne">Un navigateur s'ouvre sur <b>app.etablia.fr</b>, déjà connecté au compte de démo. Fais ton parcours ; chaque clic, saisie et changement de page devient une étape.</p>
+    <ol class="enreg-etapes" id="enregEtapes" aria-live="polite"></ol>
+  </div>
+  <div class="pied">
+    <button class="bouton" data-fermer>Annuler</button>
+    <button class="bouton accent" id="btnEnreg">Commencer</button>
+  </div>
+</dialog>
+
+<!-- Fenêtre : importer un test -->
+<dialog id="dlg-importer" aria-labelledby="t-dlg-imp">
+  <header><h2 id="t-dlg-imp">Importer un test</h2><button class="fermer" data-fermer aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <div class="corps">
+    <p style="margin-top:0">regie lit ton test Playwright ou Cypress et le traduit en étapes. Il ne l'exécute jamais tel quel.</p>
+    <button class="bouton" id="btnChoisirTest">Choisir le fichier <span class="note" style="margin:0">(exemple : relance-impaye.spec.ts)</span></button>
+    <div id="rapportImport" aria-live="polite"></div>
+  </div>
+  <div class="pied">
+    <button class="bouton" data-fermer>Annuler</button>
+    <button class="bouton plein" id="btnCreerImport" disabled>Créer le script</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status"><span id="toastTexte"></span><button id="toastAnnuler">Annuler</button></div>
+
+<script>
+/* ---------- Données d'exemple ---------- */
+const HOTES = [
+  { nom: 'app.etablia.fr', etat: 'verifie', preuve: 'enregistrement DNS' },
+  { nom: 'aide.etablia.fr', etat: 'attente', code: 'regie-verification=exemple-7f3a2c' },
+];
+// Cible dans l'aperçu : coordonnées en % du cadre ; ecran : ce que montre l'appli à ce moment.
+const SCRIPTS = [
+  {
+    id: 'facture', titre: 'Créer une facture', source: 'Claude', creeLe: '29 septembre', rejeu: true,
+    dernier: { etat: 'echec', quand: "aujourd'hui à 14 h 02", pourquoi: 'mise en production v2.8', etape: 7 },
+    voix: "Pour créer une facture, ouvre Factures, puis Nouvelle facture. Choisis ton client, ajoute ta ligne, et valide : c'est envoyé.",
+    etapes: [
+      { type: 'ouvrir', cible: 'app.etablia.fr/accueil', ecran: 'accueil', x: 50, y: 30 },
+      { type: 'cliquer', cible: 'menu « Factures »', ecran: 'factures', x: 15, y: 21, menu: 'factures' },
+      { type: 'cliquer', cible: 'bouton « Nouvelle facture »', ecran: 'nouvelle', x: 52, y: 27 },
+      { type: 'choisir', cible: 'client « Boulangerie Martin »', champ: 0, valeur: 'Boulangerie Martin', ecran: 'nouvelle', x: 64, y: 24 },
+      { type: 'saisir', cible: '« Pain de campagne × 40 » dans « Ligne »', champ: 1, valeur: 'Pain de campagne × 40', ecran: 'nouvelle', x: 64, y: 30 },
+      { type: 'saisir', cible: '« 15/10/2026 » dans « Échéance »', champ: 2, valeur: '15/10/2026', ecran: 'nouvelle', x: 64, y: 36 },
+      { type: 'cliquer', cible: 'bouton « Enregistrer »', ecran: 'nouvelle', x: 45, y: 43, casse: { proposition: 'bouton « Valider la facture »', raison: "Depuis la v2.8, ce bouton s'appelle « Valider la facture »." } },
+      { type: 'attendre', cible: 'le message « Facture créée »', ecran: 'creee', x: 60, y: 90 },
+    ],
+  },
+  {
+    id: 'client', titre: 'Ajouter un client', source: 'parcours enregistré', creeLe: '24 septembre', rejeu: true,
+    dernier: { etat: 'ok', quand: "aujourd'hui à 14 h 03", pourquoi: 'mise en production v2.8' },
+    voix: "Ajouter un client prend dix secondes : Clients, Nouveau, son nom, et c'est enregistré.",
+    etapes: [
+      { type: 'ouvrir', cible: 'app.etablia.fr/accueil', ecran: 'accueil', x: 50, y: 30 },
+      { type: 'cliquer', cible: 'menu « Clients »', ecran: 'clients', x: 15, y: 25, menu: 'clients' },
+      { type: 'cliquer', cible: 'bouton « Nouveau client »', ecran: 'nouveauClient', x: 52, y: 27 },
+      { type: 'saisir', cible: '« Fleurs de Lise » dans « Nom »', champ: 0, valeur: 'Fleurs de Lise', ecran: 'nouveauClient', x: 64, y: 24 },
+      { type: 'cliquer', cible: 'bouton « Enregistrer le client »', ecran: 'nouveauClient', x: 50, y: 37 },
+      { type: 'attendre', cible: 'le message « Client ajouté »', ecran: 'clientAjoute', x: 60, y: 90 },
+    ],
+  },
+  {
+    id: 'relance', titre: 'Relancer un impayé', source: 'test Playwright', creeLe: '20 septembre', rejeu: false,
+    dernier: { etat: 'refus', quand: 'le 30 septembre à 10 h 12', hote: 'paiement.exemple-banque.fr', etape: 4 },
+    voix: "Une facture en retard ? Ouvre-la et clique Relancer : ton client reçoit un rappel poli.",
+    etapes: [
+      { type: 'ouvrir', cible: 'app.etablia.fr/factures?filtre=retard', ecran: 'factures', x: 50, y: 30, menu: 'factures' },
+      { type: 'cliquer', cible: 'facture « F-2026-118 »', ecran: 'factures', x: 62, y: 24 },
+      { type: 'cliquer', cible: 'bouton « Relancer »', ecran: 'factures', x: 50, y: 40 },
+      { type: 'cliquer', cible: 'lien « Voir le paiement »', ecran: 'factures', x: 60, y: 48, sortie: 'paiement.exemple-banque.fr' },
+    ],
+  },
+];
+const VERBES = { ouvrir: 'Ouvrir', cliquer: 'Cliquer', choisir: 'Choisir', saisir: 'Saisir', attendre: 'Attendre' };
+
+/* ---------- État ---------- */
+const etat = { script: 'facture', jeu: null, hotes: HOTES.map(h => ({ ...h })), jetonVu: false };
+const $ = s => document.querySelector(s);
+const scriptCourant = () => SCRIPTS.find(s => s.id === etat.script);
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ---------- Toast ---------- */
+let minuteurToast, annulerToast;
+function toast(texte, annuler) {
+  $('#toastTexte').textContent = texte; annulerToast = annuler; $('#toastAnnuler').style.display = annuler ? '' : 'none';
+  $('#toast').classList.add('visible'); clearTimeout(minuteurToast); minuteurToast = setTimeout(() => $('#toast').classList.remove('visible'), 4500);
+}
+$('#toastAnnuler').onclick = () => { $('#toast').classList.remove('visible'); if (annulerToast) annulerToast(); annulerToast = null; };
+
+/* ---------- Application : hôtes, coffre, test ---------- */
+function dessinerHotes() {
+  $('#hotes').innerHTML = etat.hotes.map((h, i) => `
+    <div class="hote">
+      <span class="nom">${h.nom}</span>
+      ${h.etat === 'verifie' ? `<span class="etiquette ok">vérifié</span>` : `<span class="etiquette attente">preuve attendue</span>`}
+      ${h.etat === 'verifie' ? `<div class="note" style="width:100%;margin:0">Preuve : ${h.preuve}.</div>` : `
+      <div class="preuve">
+        <p>Prouve que ce domaine est à toi : ajoute cet enregistrement DNS de type TXT, puis vérifie.</p>
+        <code>${h.code}</code>
+        <div class="barre-actions" style="margin-top:8px"><button class="bouton" data-verifier="${i}">Vérifier maintenant</button></div>
+        <div class="note" data-msg="${i}" role="status"></div>
+      </div>`}
+    </div>`).join('');
+  $('#hotes').querySelectorAll('[data-verifier]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.verifier, h = etat.hotes[i]; b.disabled = true; b.textContent = 'Je regarde…';
+    setTimeout(() => {
+      h.essais = (h.essais || 0) + 1;
+      if (h.essais === 1) { b.disabled = false; b.textContent = 'Vérifier de nouveau'; document.querySelector(`[data-msg="${i}"]`).textContent = "Je ne vois pas encore l'enregistrement. Le DNS met parfois quelques minutes : réessaie."; }
+      else { h.etat = 'verifie'; h.preuve = 'enregistrement DNS'; dessinerHotes(); toast(`${h.nom} est autorisé`); }
+    }, 1100);
+  });
+}
+$('#btnRemplacer').onclick = () => { const f = $('#formCoffre'); f.hidden = !f.hidden; $('#btnRemplacer').setAttribute('aria-expanded', String(!f.hidden)); if (!f.hidden) f.querySelector('input').focus(); };
+$('#formCoffre').onsubmit = e => {
+  e.preventDefault(); e.target.reset(); e.target.hidden = true; $('#btnRemplacer').setAttribute('aria-expanded', 'false');
+  $('#coffreDetail').textContent = "Remplacé à l'instant. Claude ne le voit jamais."; toast('Compte de démo rangé au coffre');
+};
+$('#btnTester').onclick = () => {
+  const b = $('#btnTester'); b.disabled = true; b.textContent = 'Connexion en cours…'; $('#resultatTest').innerHTML = '';
+  setTimeout(() => {
+    b.disabled = false; b.textContent = 'Tester la connexion';
+    $('#resultatTest').innerHTML = `<div class="resultat ok"><span class="mini-capture" aria-hidden="true"></span><span><b>Connexion réussie.</b><br>Page d'accueil d'Établia capturée en 3 s.</span></div>`;
+  }, 1500);
+};
+
+/* ---------- Liste des scripts ---------- */
+function etiquetteDernier(s) {
+  const d = s.dernier;
+  if (!d) return `<span class="etiquette neutre">jamais joué</span>`;
+  if (d.etat === 'ok') return `<span class="etiquette ok">réussi</span>`;
+  if (d.etat === 'corrige') return `<span class="etiquette attente">à rejouer</span>`;
+  if (d.etat === 'refus') return `<span class="etiquette echec">arrêté</span>`;
+  return `<span class="etiquette echec">étape ${d.etape}</span>`;
+}
+function dessinerListe() {
+  $('#listeScripts').innerHTML = SCRIPTS.map(s => `
+    <button class="script" aria-current="${s.id === etat.script}" data-id="${s.id}">
+      <span class="titre"><span>${esc(s.titre)}</span>${etiquetteDernier(s)}</span>
+      <span class="meta">${s.etapes.length} étapes · ${s.source}${s.rejeu ? ' · rejoué à chaque mise en production' : ''}</span>
+    </button>`).join('');
+  $('#listeScripts').querySelectorAll('.script').forEach(b => b.onclick = () => {
+    if (etat.jeu) return toast('Attends la fin de la capture en cours');
+    etat.script = b.dataset.id; dessinerTout(); reinitialiserApercu();
+    if (matchMedia('(max-width: 899px)').matches) $('#colonneScript').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+/* ---------- Script ---------- */
+const ICONES = {
+  haut: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>',
+  bas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+  retirer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
+  jouer: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7z"/></svg>',
+};
+function alerteScript(s) {
+  const d = s.dernier; if (!d) return '';
+  if (d.etat === 'echec') return `<div class="alerte echec" role="alert"><b>Le rejeu a échoué à l'étape ${d.etape}, ${d.quand}</b>Après la ${d.pourquoi}, regie n'a pas trouvé l'élément visé. La démo publiée n'a pas été remplacée. Corrige l'étape puis rejoue.</div>`;
+  if (d.etat === 'refus') return `<div class="alerte echec" role="alert"><b>Capture arrêtée à l'étape ${d.etape}, ${d.quand}</b>L'étape voulait ouvrir <b style="display:inline">${d.hote}</b>, qui n'est pas dans tes sites autorisés. regie a refusé et l'a noté au journal. Retire l'étape ou fais vérifier ce domaine s'il est à toi.</div>`;
+  if (d.etat === 'corrige') return `<div class="alerte attente"><b>Étape corrigée</b>Rejoue le script pour régénérer la démo.</div>`;
+  if (d.etat === 'ok') return `<div class="alerte ok"><b>Dernier rejeu réussi, ${d.quand}</b>Démo régénérée après la ${d.pourquoi}. Le brouillon t'attend dans <a href="/relire.html">Relire</a>.</div>`;
+  return '';
+}
+function dessinerScript() {
+  const s = scriptCourant(); const jeu = etat.jeu;
+  $('#colonneScript').innerHTML = `
+    <div class="titre-script">
+      <h1 id="titreScript">${esc(s.titre)}</h1>
+      <button class="bouton accent" id="btnJouer" ${jeu ? 'disabled' : ''}>${ICONES.jouer}Jouer et filmer</button>
+    </div>
+    <p class="sous-titre-script">Créé le ${s.creeLe} · ${s.source} · ${s.etapes.length} étapes</p>
+    ${alerteScript(s)}
+    <ol class="etapes" id="etapes" aria-label="Étapes du script">
+      ${s.etapes.map((e, i) => {
+        const enPanne = e.casse && s.dernier && s.dernier.etat === 'echec' && s.dernier.etape === i + 1;
+        const sortie = e.sortie && s.dernier && s.dernier.etat === 'refus';
+        const enCours = jeu && jeu.i === i; const joue = jeu && jeu.i > i;
+        return `<li class="etape ${enPanne || sortie ? 'echec' : ''} ${enCours ? 'en-cours' : ''} ${joue ? 'joue' : ''}">
+          <span class="num" aria-hidden="true">${i + 1}</span>
+          <div>
+            <div class="action"><span class="verbe">${VERBES[e.type]}</span> ${esc(e.cible)}</div>
+            ${e.type === 'ouvrir' && i === 0 ? `<div class="detail">connecté avec le compte de démo</div>` : ''}
+            ${sortie ? `<div class="detail" style="color:var(--echec)">mène à ${e.sortie} : site non autorisé</div>` : ''}
+          </div>
+          <div class="outils-etape">
+            <button data-monter="${i}" aria-label="Monter l'étape ${i + 1}" ${i === 0 || jeu ? 'disabled' : ''}>${ICONES.haut}</button>
+            <button data-descendre="${i}" aria-label="Descendre l'étape ${i + 1}" ${i === s.etapes.length - 1 || jeu ? 'disabled' : ''}>${ICONES.bas}</button>
+            <button data-retirer="${i}" aria-label="Retirer l'étape ${i + 1}" ${jeu ? 'disabled' : ''}>${ICONES.retirer}</button>
+          </div>
+          ${enPanne ? `<div class="panne">
+            <div class="capture-panne" role="img" aria-label="Capture d'écran au moment de l'échec : le bouton s'appelle désormais « Valider la facture »"><div class="appli" style="font-size:8px">${ecranAppli('nouvelleV28', true)}</div></div>
+            <div>
+              <p><b>Élément introuvable :</b> ${esc(e.cible)}.</p>
+              <p>${esc(e.casse.raison)}</p>
+              <div class="actions">
+                <button class="bouton plein" data-corriger="${i}">Viser le ${esc(e.casse.proposition)}</button>
+                <button class="bouton" data-retirer="${i}">Retirer l'étape</button>
+              </div>
+            </div>
+          </div>` : ''}
+        </li>`;
+      }).join('')}
+    </ol>
+    <form class="ajout" id="formAjout">
+      <label class="visuellement-cache" for="typeAjout">Type d'étape</label>
+      <select id="typeAjout">${Object.entries(VERBES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+      <label class="visuellement-cache" for="cibleAjout">Ce que vise l'étape</label>
+      <input type="text" id="cibleAjout" placeholder="bouton « Envoyer par courriel »" autocomplete="off">
+      <button class="bouton" type="submit">Ajouter l'étape</button>
+    </form>
+
+    <div style="margin-top:18px">
+      <label for="voix" style="font-weight:700;font-size:14px">Voix de synthèse</label>
+      <p class="note" style="margin:2px 0 8px">Tirée des étapes ; modifie-la avant le rendu. Laisse vide pour une démo sans voix.</p>
+      <textarea id="voix">${esc(s.voix)}</textarea>
+    </div>
+
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--trait)">
+      <div class="interrupteur"><button role="switch" id="rejeu" aria-checked="${s.rejeu}" aria-labelledby="l-rejeu"></button><span id="l-rejeu">Rejouer à chaque mise en production d'Établia</span></div>
+      <p class="note">Ta chaîne de déploiement appelle regie avec un jeton qui ne sert qu'à rejouer les scripts de cet espace.</p>
+      <div class="jeton" id="zoneJeton">${etat.jetonVu
+        ? `Jeton créé. <b>Il ne s'affiche qu'une fois</b> : copie-le dans les secrets de ta chaîne de déploiement.<div style="margin-top:6px"><code>rgr_exemple-maquette-0000</code></div>`
+        : `<button class="bouton" id="btnJeton">Créer un jeton de rejeu</button> <span class="note">Se crée ici seulement, jamais par Claude.</span>`}</div>
+    </div>`;
+  lierScript();
+}
+function lierScript() {
+  const s = scriptCourant();
+  $('#btnJouer').onclick = jouer;
+  $('#colonneScript').querySelectorAll('[data-monter]').forEach(b => b.onclick = () => deplacer(+b.dataset.monter, -1));
+  $('#colonneScript').querySelectorAll('[data-descendre]').forEach(b => b.onclick = () => deplacer(+b.dataset.descendre, 1));
+  $('#colonneScript').querySelectorAll('[data-retirer]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.retirer; const [e] = s.etapes.splice(i, 1); const avant = s.dernier;
+    if (s.dernier && (s.dernier.etape === i + 1) && s.dernier.etat !== 'ok') s.dernier = { etat: 'corrige' };
+    dessinerTout(); toast(`Étape ${i + 1} retirée`, () => { s.etapes.splice(i, 0, e); s.dernier = avant; dessinerTout(); });
+  });
+  $('#colonneScript').querySelectorAll('[data-corriger]').forEach(b => b.onclick = () => {
+    const e = s.etapes[+b.dataset.corriger]; e.cible = e.casse.proposition; delete e.casse; s.dernier = { etat: 'corrige' };
+    dessinerTout(); toast('Étape corrigée : rejoue pour vérifier'); $('#btnJouer').focus();
+  });
+  $('#formAjout').onsubmit = ev => {
+    ev.preventDefault(); const c = $('#cibleAjout').value.trim(); if (!c) return $('#cibleAjout').focus();
+    s.etapes.push({ type: $('#typeAjout').value, cible: c, ecran: s.etapes[s.etapes.length - 1].ecran, x: 50, y: 50 });
+    if (s.dernier && s.dernier.etat === 'ok') s.dernier = { etat: 'corrige' };
+    dessinerTout(); toast(`Étape ${s.etapes.length} ajoutée`); $('#cibleAjout').focus();
+  };
+  $('#rejeu').onclick = () => { s.rejeu = !s.rejeu; dessinerTout(); $('#rejeu').focus(); };
+  $('#voix').oninput = e => { s.voix = e.target.value; };
+  const bj = $('#btnJeton'); if (bj) bj.onclick = () => { etat.jetonVu = true; dessinerScript(); };
+}
+function deplacer(i, d) {
+  const s = scriptCourant(); const [e] = s.etapes.splice(i, 1); s.etapes.splice(i + d, 0, e);
+  dessinerScript(); const b = document.querySelector(`[data-${d < 0 ? 'monter' : 'descendre'}="${i + d}"]`); (b && !b.disabled ? b : $('#btnJouer')).focus();
+}
+function dessinerTout() { dessinerListe(); dessinerScript(); }
+
+/* ---------- Aperçu : fausse appli ---------- */
+function ecranAppli(nom, valeurs) {
+  const champs = (libelles, remplis = []) => libelles.map((l, k) => `<div class="champ ${remplis[k] ? 'rempli' : ''}" data-champ="${k}">${remplis[k] || l}</div>`).join('');
+  const vs = valeurs === true ? ['Boulangerie Martin', 'Pain de campagne × 40', '15/10/2026'] : (valeurs || []);
+  switch (nom) {
+    case 'factures': return `<h3>Factures</h3><div class="btn">+ Nouvelle facture</div><div style="margin-top:10px;display:grid;gap:5px"><div class="champ rempli">F-2026-118 · en retard</div><div class="champ">F-2026-117 · payée</div><div class="champ">F-2026-116 · payée</div></div><div class="btn gris" style="margin-top:8px">Relancer</div>`;
+    case 'nouvelle': return `<h3>Nouvelle facture</h3>${champs(['Client', 'Ligne', 'Échéance'], vs)}<div class="btn">Enregistrer</div>`;
+    case 'nouvelleV28': return `<div class="barre" style="position:absolute;left:0;right:0;top:0">Établia</div><div style="position:absolute;inset:9% 0 0 0;padding:10% 8%"><h3 style="font-size:10px;margin:0 0 6px">Nouvelle facture</h3>${champs(['Client', 'Ligne', 'Échéance'], vs)}<div class="btn" style="background:#2c9b5a">Valider la facture</div></div>`;
+    case 'creee': return `<h3>Facture F-2026-119</h3>${champs(['Client', 'Ligne', 'Échéance'], ['Boulangerie Martin', 'Pain de campagne × 40', '15/10/2026'])}<div class="btn gris">Envoyer</div>`;
+    case 'clients': return `<h3>Clients</h3><div class="btn">+ Nouveau client</div><div style="margin-top:10px;display:grid;gap:5px"><div class="champ rempli">Boulangerie Martin</div><div class="champ rempli">Atelier Brun</div></div>`;
+    case 'nouveauClient': return `<h3>Nouveau client</h3>${champs(['Nom', 'Courriel'], vs)}<div class="btn">Enregistrer le client</div>`;
+    case 'clientAjoute': return `<h3>Fleurs de Lise</h3>${champs(['Nom', 'Courriel'], ['Fleurs de Lise'])}`;
+    default: return `<h3>Bonjour Benjamin</h3><div class="champ rempli">3 factures en attente</div><div class="champ">Chiffre du mois : 4 820 €</div><div class="btn gris">Voir les factures</div>`;
+  }
+}
+function reinitialiserApercu() {
+  $('#zoneAppli').innerHTML = ecranAppli('accueil'); $('#appli').style.transform = ''; marquerMenu('accueil');
+  placerCurseur(80, 80); $('#toastAppli').classList.remove('visible'); $('#journal').innerHTML = ''; $('#pastilleRec').classList.remove('visible');
+  $('#etatJeu').textContent = 'Lance « Jouer et filmer » pour voir la capture.';
+}
+function marquerMenu(m) { document.querySelectorAll('.appli .menu span').forEach(s => s.classList.toggle('actif', s.dataset.m === m)); }
+function placerCurseur(x, y) { const c = $('#curseur'); c.style.left = x + '%'; c.style.top = y + '%'; }
+function cliquerA(x, y) { const o = $('#onde'); o.style.left = x + '%'; o.style.top = y + '%'; o.classList.remove('anime'); void o.offsetWidth; o.classList.add('anime'); }
+function zoomer(x, y, z) { $('#appli').style.transform = z ? `scale(1.7) translate(${(50 - x) * .55}%, ${(50 - y) * .55}%)` : ''; }
+
+/* ---------- Jouer et filmer (faux) ---------- */
+function jouer() {
+  const s = scriptCourant(); const valeurs = [];
+  etat.jeu = { i: 0, debut: performance.now() }; dessinerTout(); reinitialiserApercu();
+  $('#pastilleRec').classList.add('visible'); $('#journal').innerHTML = '';
+  const log = (t, cls) => { const li = document.createElement('li'); if (cls) li.className = cls; li.textContent = t; $('#journal').appendChild(li); li.scrollIntoView({ block: 'nearest' }); };
+  const horo = () => { const t = (performance.now() - etat.jeu.debut) / 1000; return '00:' + String(Math.floor(t)).padStart(2, '0') + '.' + String(Math.floor((t % 1) * 10)); };
+  $('#etatJeu').textContent = 'Le navigateur se connecte au compte de démo…';
+  const pas = () => {
+    const i = etat.jeu.i; const e = s.etapes[i];
+    if (!e) return terminer(true);
+    $('#etatJeu').textContent = `Étape ${i + 1} sur ${s.etapes.length} : ${VERBES[e.type].toLowerCase()} ${e.cible}`;
+    dessinerScript();
+    if (e.menu) marquerMenu(e.menu);
+    if (e.champ !== undefined) valeurs[e.champ] = e.valeur;
+    placerCurseur(e.x, e.y);
+    setTimeout(() => {
+      if (e.casse) { log(`${horo()}  étape ${i + 1} : élément introuvable`, 'refus'); s.dernier = { etat: 'echec', quand: "à l'instant", pourquoi: 'version actuelle', etape: i + 1 }; return terminer(false, `Étape ${i + 1} : ${e.cible} introuvable. Capture d'écran gardée.`); }
+      if (e.sortie) { log(`${horo()}  refus : ${e.sortie} hors des sites autorisés`, 'refus'); s.dernier = { etat: 'refus', quand: "à l'instant", hote: e.sortie, etape: i + 1 }; return terminer(false, `Arrêtée à l'étape ${i + 1} : ${e.sortie} n'est pas autorisé.`); }
+      if (e.type !== 'attendre' && e.type !== 'ouvrir') { cliquerA(e.x, e.y); log(`${horo()}  ${e.type === 'saisir' ? 'saisie' : e.type === 'choisir' ? 'choix' : 'clic'} ${Math.round(e.x)},${Math.round(e.y)}  ${e.cible}`); zoomer(e.x, e.y, true); }
+      else { zoomer(0, 0, false); log(`${horo()}  ${VERBES[e.type].toLowerCase()} ${e.cible}`); }
+      $('#zoneAppli').innerHTML = ecranAppli(e.ecran, valeurs);
+      if (e.type === 'attendre') $('#toastAppli').textContent = e.cible.replace(/^le message « |»$/g, '').trim(), $('#toastAppli').classList.add('visible');
+      etat.jeu.i++; setTimeout(pas, 520);
+    }, 560);
+  };
+  setTimeout(pas, 700);
+}
+function terminer(reussi, message) {
+  const s = scriptCourant(); $('#pastilleRec').classList.remove('visible'); zoomer(0, 0, false);
+  if (reussi) {
+    s.dernier = { etat: 'ok', quand: "à l'instant", pourquoi: 'demande manuelle' };
+    $('#etatJeu').innerHTML = `<b>Capture terminée.</b> Le montage démarre : brouillon prêt vers 18&nbsp;h&nbsp;52 dans <a href="/relire.html">Relire</a>.`;
+  } else $('#etatJeu').innerHTML = `<b style="color:var(--echec)">${esc(message)}</b>`;
+  etat.jeu = null; dessinerTout();
+  toast(reussi ? 'Capture terminée' : 'Capture arrêtée');
+}
+
+/* ---------- Nouveaux scripts ---------- */
+document.querySelectorAll('[data-nouveau]').forEach(b => b.onclick = () => {
+  const d = document.getElementById('dlg-' + b.dataset.nouveau); d.showModal();
+  if (b.dataset.nouveau === 'enregistrer') { $('#enregEtapes').innerHTML = ''; $('#btnEnreg').textContent = 'Commencer'; $('#btnEnreg').disabled = false; }
+  if (b.dataset.nouveau === 'importer') { $('#rapportImport').innerHTML = ''; $('#btnCreerImport').disabled = true; }
+});
+document.querySelectorAll('dialog [data-fermer]').forEach(b => b.onclick = () => { clearInterval(minuteurEnreg); b.closest('dialog').close(); });
+document.querySelectorAll('dialog').forEach(d => d.addEventListener('close', () => clearInterval(minuteurEnreg)));
+
+let minuteurEnreg; const enregistrees = [];
+$('#btnEnreg').onclick = () => {
+  const b = $('#btnEnreg');
+  if (b.textContent === 'Commencer') {
+    const suite = ['Ouvrir app.etablia.fr/accueil', 'Cliquer menu « Factures »', 'Cliquer facture « F-2026-117 »', 'Cliquer bouton « Télécharger en PDF »'];
+    enregistrees.length = 0; b.textContent = 'Arrêter et garder'; let k = 0;
+    $('#enregConsigne').innerHTML = '<b style="color:var(--echec)">● Enregistrement en cours</b> dans un navigateur à part. Reviens ici quand tu as fini.';
+    minuteurEnreg = setInterval(() => {
+      if (k >= suite.length) return clearInterval(minuteurEnreg);
+      enregistrees.push(suite[k]); const li = document.createElement('li'); li.textContent = `${k + 1}. ${suite[k]}`; $('#enregEtapes').appendChild(li); k++;
+    }, 900);
+  } else {
+    clearInterval(minuteurEnreg);
+    if (!enregistrees.length) return toast('Aucune étape enregistrée');
+    SCRIPTS.push({ id: 'n' + SCRIPTS.length, titre: 'Télécharger une facture', source: 'parcours enregistré', creeLe: "aujourd'hui", rejeu: false, dernier: null, voix: '',
+      etapes: enregistrees.map((t, i) => { const [v, ...r] = t.split(' '); const type = Object.keys(VERBES).find(k => VERBES[k] === v) || 'cliquer'; return { type, cible: r.join(' '), ecran: i < 1 ? 'accueil' : 'factures', x: 40 + i * 6, y: 22 + i * 7, menu: i === 1 ? 'factures' : undefined }; }) });
+    etat.script = SCRIPTS[SCRIPTS.length - 1].id; $('#dlg-enregistrer').close(); dessinerTout(); reinitialiserApercu(); toast(`Script créé : ${enregistrees.length} étapes`);
+    $('#enregConsigne').innerHTML = "Un navigateur s'ouvre sur <b>app.etablia.fr</b>, déjà connecté au compte de démo. Fais ton parcours ; chaque clic, saisie et changement de page devient une étape.";
+  }
+};
+
+$('#btnChoisirTest').onclick = () => {
+  const lignes = [
+    ['Ouvrir app.etablia.fr/factures', true], ['Cliquer filtre « En retard »', true], ['Cliquer facture « F-2026-118 »', true],
+    ['Cliquer bouton « Relancer »', true], ['Saisir un message dans « Note »', true],
+    ['page.evaluate(() => localStorage.clear())', false], ['Attendre le message « Relance envoyée »', true],
+  ];
+  const rendre = () => {
+    const ko = lignes.filter(l => !l[1]).length;
+    $('#rapportImport').innerHTML = `
+      <p style="margin:12px 0 0"><b>relance-impaye.spec.ts</b> · test Playwright · ${lignes.length} étapes lues</p>
+      <ul class="liste-conversion">${lignes.map((l, i) => `<li class="${l[1] ? '' : 'ko'}"><span class="n">${i + 1}</span><span>${l[1] ? esc(l[0]) : `<code>${esc(l[0])}</code><br><span class="note">Je ne sais pas traduire cette instruction en étape.</span>`}</span>${l[1] ? '<span class="etiquette ok">traduite</span>' : `<button class="bouton" data-retirer-import="${i}">Retirer</button>`}</li>`).join('')}</ul>
+      <p class="note">${ko ? `Le script ne peut pas être créé tant que l'étape ${lignes.findIndex(l => !l[1]) + 1} n'est pas retirée ou réécrite.` : 'Tout est traduit : tu peux créer le script.'}</p>`;
+    $('#btnCreerImport').disabled = ko > 0;
+    $('#rapportImport').querySelectorAll('[data-retirer-import]').forEach(b => b.onclick = () => { lignes.splice(+b.dataset.retirerImport, 1); rendre(); $('#btnCreerImport').focus(); });
+    $('#btnCreerImport').onclick = () => {
+      SCRIPTS.push({ id: 'n' + SCRIPTS.length, titre: 'Relancer un impayé (import)', source: 'test Playwright', creeLe: "aujourd'hui", rejeu: false, dernier: null, voix: '',
+        etapes: lignes.map(([t], i) => { const [v, ...r] = t.split(' '); const type = Object.keys(VERBES).find(k => VERBES[k] === v) || 'cliquer'; return { type, cible: r.join(' '), ecran: 'factures', x: 45 + (i % 3) * 8, y: 22 + i * 6, menu: i === 0 ? 'factures' : undefined }; }) });
+      etat.script = SCRIPTS[SCRIPTS.length - 1].id; $('#dlg-importer').close(); dessinerTout(); reinitialiserApercu(); toast(`Script créé : ${lignes.length} étapes`);
+    };
+  };
+  $('#rapportImport').innerHTML = '<p class="note">Lecture du test…</p>'; setTimeout(rendre, 700);
+};
+
+/* ---------- Départ ---------- */
+dessinerHotes(); dessinerTout(); reinitialiserApercu();
+</script>
+</body>
+</html>
