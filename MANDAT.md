@@ -63,7 +63,7 @@ Conséquences : le PRD (familles « scénarios et capture » et « génération 
 | # | Lot | Preuve de complétude | État |
 |---|-----|----------------------|------|
 | 8 | Révision du PRD pour la capture vidéo multi-sources et l'éditeur timeline | `prd.md` amendé, nouvelles FR tracées | fait (2026-10-02) — nouveau PRD `docs/planning/prds/prd-regie-2026-10-02/prd.md` (71 FR, 39 NFR), finalisé avec bmad-prd |
-| 9 | Révision de l'architecture (modèle de timeline, moteur de rendu vidéo, capture web/mobile, IA locale) puis clôture des étapes 7-8 | `architecture.md` arrivé à sa dernière étape | à faire |
+| 9 | Révision de l'architecture (modèle de timeline, moteur de rendu vidéo, capture web/mobile, IA locale) puis clôture des étapes 7-8 | `architecture.md` arrivé à sa dernière étape | fait (2026-10-02) — socle `docs/planning/architecture/architecture-regie-2026-10-02/ARCHITECTURE-SPINE.md` (21 décisions), relu par quatre revues ; `architecture.md` marqué remplacé |
 | 10 | Maquette de l'éditeur timeline et de l'écran de capture | Écrans servis par `maquette/serveur.mjs`, validés par le fondateur | à faire |
 
 ### Décisions de la session de design thinking et du party mode BMAD (2026-10-02)

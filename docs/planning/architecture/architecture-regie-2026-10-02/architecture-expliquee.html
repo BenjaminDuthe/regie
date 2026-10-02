@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture de regie</title>
+<style>
+:root{--fond:#fbfaf7;--texte:#1d1c1a;--doux:#5d5a54;--trait:#e2ded6;--accent:#b4462b;--carte:#ffffff;--code:#f1eee8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--fond:#161514;--texte:#ece9e3;--doux:#a8a39a;--trait:#2f2d2a;--accent:#e9805f;--carte:#1e1d1b;--code:#262421}}
+:root[data-theme="dark"]{--fond:#161514;--texte:#ece9e3;--doux:#a8a39a;--trait:#2f2d2a;--accent:#e9805f;--carte:#1e1d1b;--code:#262421}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fond);color:var(--texte);font:17px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:46rem;margin:0 auto;padding:2.5rem 16px 4rem}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .4rem}
+h2{font-size:1.3rem;margin:2.6rem 0 .6rem;padding-top:.6rem;border-top:1px solid var(--trait)}
+h3{font-size:1.05rem;margin:1.4rem 0 .3rem}
+p,li{color:var(--texte)}
+.chapeau{color:var(--doux);font-size:1.05rem}
+code{background:var(--code);padding:.05rem .3rem;border-radius:4px;font-size:.9em}
+.carte{background:var(--carte);border:1px solid var(--trait);border-radius:10px;padding:1rem 1.2rem;margin:1rem 0}
+.grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:.8rem}
+.grille .carte{margin:0}
+.carte strong{color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:.95rem}
+th,td{text-align:left;padding:.45rem .5rem;border-bottom:1px solid var(--trait);vertical-align:top}
+.tableau{overflow-x:auto}
+svg{width:100%;height:auto}
+svg text{fill:var(--texte);font:13px system-ui,sans-serif}
+svg .boite{fill:var(--carte);stroke:var(--trait)}
+svg .fort{fill:var(--carte);stroke:var(--accent);stroke-width:2}
+svg .fleche{stroke:var(--doux);fill:none;stroke-width:1.5;marker-end:url(#pointe)}
+.note{color:var(--doux);font-size:.92rem}
+</style>
+</head>
+<body>
+<main>
+<h1>Comment regie est construit</h1>
+<p class="chapeau">Les grandes décisions techniques du studio de vidéos verticales, expliquées sans jargon. La référence exacte, pour qui code, est le socle <code>ARCHITECTURE-SPINE.md</code> (21 décisions, AD-1 à AD-21).</p>
+
+<h2>L'idée en une image</h2>
+<p>regie a un <strong>cœur</strong> qui sait tout du métier : qui a le droit de faire quoi, où en est chaque vidéo, ce qui reste du quota. Autour, des <strong>ateliers</strong> spécialisés font le travail lourd (transcrire, proposer un montage, fabriquer la vidéo, filmer une appli, publier). Ces ateliers ne savent rien des utilisateurs : ils prennent un travail dans une file d'attente, le font, rendent le résultat.</p>
+<div class="carte">
+<svg viewBox="0 0 640 300" role="img" aria-label="Trois portes d'entrée mènent au cœur ; le cœur dépose des travaux dans une file ; six ateliers les prennent.">
+<defs><marker id="pointe" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="currentColor" style="fill:var(--doux)"/></marker></defs>
+<rect class="boite" x="20" y="20" width="170" height="44" rx="8"/><text x="105" y="47" text-anchor="middle">Interface web</text>
+<rect class="boite" x="235" y="20" width="170" height="44" rx="8"/><text x="320" y="47" text-anchor="middle">Claude (MCP)</text>
+<rect class="boite" x="450" y="20" width="170" height="44" rx="8"/><text x="535" y="47" text-anchor="middle">API privée</text>
+<path class="fleche" d="M105,64 L280,108"/><path class="fleche" d="M320,64 L320,104"/><path class="fleche" d="M535,64 L360,108"/>
+<rect class="fort" x="170" y="108" width="300" height="56" rx="10"/><text x="320" y="132" text-anchor="middle">Cœur : règles, statuts, droits,</text><text x="320" y="150" text-anchor="middle">quotas, coffre, planning</text>
+<path class="fleche" d="M320,164 L320,196"/>
+<rect class="boite" x="200" y="198" width="240" height="34" rx="8"/><text x="320" y="220" text-anchor="middle">File d'attente (PostgreSQL)</text>
+<path class="fleche" d="M260,232 L120,256"/><path class="fleche" d="M320,232 L320,256"/><path class="fleche" d="M380,232 L520,256"/>
+<text x="120" y="276" text-anchor="middle">transcription · langage · voix</text>
+<text x="320" y="276" text-anchor="middle">rendu</text>
+<text x="520" y="276" text-anchor="middle">capture · publication</text>
+</svg>
+</div>
+<p>Trois portes d'entrée — l'interface, Claude et l'API — appellent <strong>exactement les mêmes fonctions</strong> du cœur. Une règle n'est donc écrite qu'une fois : ce que l'interface refuse, Claude le refuse aussi, pour la même raison et avec le même message.</p>
+
+<h2>Le parcours d'une vidéo</h2>
+<ol>
+<li><strong>Envoi des rushes.</strong> Le téléphone envoie les fichiers par morceaux ; une coupure de réseau reprend là où elle s'était arrêtée. Le quota est réservé <em>avant</em> le transfert : pas de 20 Go envoyés pour rien.</li>
+<li><strong>Analyse.</strong> Un atelier mesure durée, son, netteté, puis la transcription note chaque mot avec son instant.</li>
+<li><strong>Proposition.</strong> Le modèle de langage local propose coupes, accroche et textes. C'est le cœur qui en fait un <em>montage</em> : une description de la vidéo en JSON, jamais modifiée ensuite. Chaque correction crée une nouvelle version ; l'ancienne reste.</li>
+<li><strong>Relecture.</strong> L'aperçu se joue dans le navigateur et applique les corrections tout de suite, sans attendre un nouveau calcul.</li>
+<li><strong>Gardée.</strong> Quand la vidéo est gardée, le fichier final est fabriqué sur la carte graphique, après contrôle des « gardes » (texte lisible, zones sûres, durées permises par chaque réseau). Une garde ne se contourne pas.</li>
+<li><strong>Publication.</strong> À l'heure dite, la vidéo part vers Instagram, Facebook, TikTok ou YouTube. Elle ne part <strong>jamais deux fois</strong> : si un doute existe sur un envoi interrompu, regie le signale au lieu de renvoyer.</li>
+</ol>
+
+<h2>Ce qui protège les inscrits</h2>
+<div class="grille">
+<div class="carte"><strong>Chacun chez soi.</strong> La base elle-même filtre chaque ligne par espace : même une requête mal écrite ne montre rien d'un autre. L'administrateur ne voit pas les contenus.</div>
+<div class="carte"><strong>Secrets au coffre.</strong> Clés et connexions aux réseaux sont chiffrées ; la clé maîtresse n'est jamais sauvegardée avec elles. Aucun secret ne passe par Claude ni par l'API.</div>
+<div class="carte"><strong>Capture enfermée.</strong> Filmer une appli web se fait dans une machine séparée, avec un navigateur jetable qui ne peut joindre que les sites dont on a prouvé la propriété.</div>
+<div class="carte"><strong>Traces infalsifiables.</strong> Chaque action est inscrite dans un journal chaîné : une modification après coup se voit.</div>
+</div>
+
+<h2>Où ça tourne</h2>
+<p>Sur le serveur Proxmox de Benjamin, dans deux conteneurs système (LXC) : <code>regie</code> pour le cœur, la base et les ateliers, <code>regie-capture</code> pour la capture, isolé du reste. La carte Intel Arc B570 est partagée avec Tdarr ; regie n'y lance qu'un travail lourd à la fois, et chaque atelier libère la mémoire de la carte en terminant. Forgejo construit et teste chaque version ; Uptime Kuma prévient en cas de panne, de disque plein ou de sauvegarde manquée.</p>
+<p>Toute l'IA est <strong>locale</strong> : Whisper pour la transcription, un modèle libre de 8 à 9 milliards de paramètres pour les propositions, une voix sous licence libre. Aucune donnée ne part vers une IA en nuage. Tout est libre et gratuit.</p>
+
+<h2>Connecter son Claude</h2>
+<p>Chaque inscrit branche son propre Claude sur regie par un bouton « Se connecter » (OAuth), comme pour n'importe quel connecteur. Il choisit l'espace et ce que Claude a le droit de faire. Quelques actions sensibles restent réservées à l'interface : créer une clé, gérer les membres, connecter un réseau social, supprimer un compte.</p>
+
+<h2>Ce qui reste à trancher</h2>
+<div class="tableau"><table>
+<thead><tr><th>Sujet</th><th>Quand</th></tr></thead>
+<tbody>
+<tr><td>Modèle de langage et réglage de la carte graphique</td><td>Banc sur de vrais rushes français, à l'étape 5</td></tr>
+<tr><td>Voix de synthèse</td><td>Avant l'étape 2 (Benjamin)</td></tr>
+<tr><td>Indice de confiance par mot (Whisper ne le donne pas tel quel)</td><td>Banc de transcription</td></tr>
+<tr><td>Disponibilité réelle de la connexion du foyer</td><td>Mesure avant l'ouverture des inscriptions</td></tr>
+<tr><td>Brevets H.264 pour un service hébergé</td><td>Avant l'ouverture des inscriptions</td></tr>
+<tr><td>Amendements à reporter dans le PRD (8 points)</td><td>Prochaine mise à jour du PRD</td></tr>
+</tbody></table></div>
+
+<h2>Ordre de construction</h2>
+<ol>
+<li>Chaîne de tests, base, droits, coffre.</li>
+<li>Comptes, connexion de Claude, journal d'audit.</li>
+<li>File d'attente, planning, notifications.</li>
+<li>Envoi des rushes et quotas.</li>
+<li>Premier montage complet de bout en bout.</li>
+<li>Écran de relecture.</li>
+<li>Capture d'applis web.</li>
+<li>Publication, voix, musique.</li>
+<li>Données personnelles, administration, sauvegardes.</li>
+</ol>
+<p class="note">Document dérivé du socle d'architecture du 2026-10-02, relu par quatre revues (grille, sécurité, adversaire, vérification des versions sur le web).</p>
+</main>
+</body>
+</html>

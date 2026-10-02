@@ -13,6 +13,9 @@ user_name: 'Benjaminduthe'
 date: '2026-09-08'
 ---
 
+> **Remplacé le 2026-10-02.** Ce document décrit l'ancienne régie (SQLite, cookie signé, stockage S3, installation en 4 étapes, ffmpeg-static, moteur `.mjs`, rendu à 1 280 px, LinkedIn, sans Safari iOS). Il ne fait plus foi. L'architecture en vigueur est le socle `docs/planning/architecture/architecture-regie-2026-10-02/ARCHITECTURE-SPINE.md`, avec son explication `architecture-expliquee.html`.
+
+
 # Document de décisions d'architecture — regie
 
 _Ce document se construit pas à pas, par découverte collaborative. Chaque section est ajoutée au fil des décisions prises ensemble._
