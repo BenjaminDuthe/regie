@@ -1,0 +1,12 @@
+# Contexte de construction des images (docker et podman) : seulement ce qu’il faut au cœur.
+**/node_modules
+**/dist
+**/.astro
+.venv
+.git
+**/.env
+**/.env.*
+_bmad
+_bmad-output
+maquette
+docs

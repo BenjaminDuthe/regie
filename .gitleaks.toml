@@ -1,0 +1,11 @@
+# regie — configuration du scan de secrets (NFR-14).
+# Règles par défaut de gitleaks, et une liste d'exclusions volontairement minimale.
+
+title = "regie"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Manifeste BMAD : empreintes SHA-256 de fichiers, prises pour des clés génériques"
+paths = ['''(^|/)_bmad/_config/files-manifest\.csv$''']

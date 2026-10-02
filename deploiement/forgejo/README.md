@@ -1,0 +1,60 @@
+# Forgejo et forgejo-runner — CT 130 « forgejo »
+
+La CI de regie tourne sur un Forgejo auto-hébergé, joignable seulement depuis le réseau local et WireGuard. GitHub n'est qu'un miroir alimenté par Forgejo.
+
+## Ce que fait `installer.sh`
+
+Sur l'hôte Proxmox `pve` (celui de l'Arc B570) :
+
+- crée (ou remet à niveau) le CT 130 `forgejo` : non privilégié, Debian 13 (modèle officiel Proxmox), 2 cœurs, 3 Go de mémoire, 30 Go sur `local-nvme`, `nesting=1,keyctl=1`, 192.168.20.130/24 par 192.168.20.1, `firewall=1`, pont et VLAN repris du CT 101 `nginx` ;
+- élargit l'idmap du CT (`/etc/subuid`, `/etc/subgid` et `lxc.idmap`, copie de sauvegarde des fichiers de l'hôte) pour que Podman rootless dispose de 65 536 identifiants ;
+- écrit `/etc/pve/firewall/130.fw` : entrée refusée par défaut, 3000 (web) et 22 (git par SSH) acceptés depuis `192.168.1.0/24`, `192.168.20.0/24` et le réseau WireGuard seulement.
+
+Dans le CT :
+
+- utilisateurs dédiés `git` (Forgejo) et `runner` (forgejo-runner) ;
+- binaires Forgejo et `forgejo-runner` téléchargés depuis les versions officielles (Codeberg et code.forgejo.org), installés seulement si la somme SHA-256 **et** la signature GPG (clé `EB114F5E6C0DC2BCDD183550A4B61A2DC5923710`) sont bonnes ;
+- Forgejo en SQLite (`/var/lib/forgejo`), unité systemd `forgejo` ; inscriptions fermées, connexion exigée pour lire ;
+- forgejo-runner sur Podman rootless (socket utilisateur, `linger`), unité systemd `forgejo-runner`, aucun socket monté dans les jobs.
+
+Le script est rejouable : il ne recrée pas un CT existant, n'écrase ni `app.ini` ni la configuration du runner, et ne retélécharge un binaire que si sa version change. Il ne contient aucun secret.
+
+## Lancer l'installation
+
+```sh
+scp -J pve-nipogi deploiement/forgejo/installer.sh root@192.168.1.200:/root/
+ssh -J pve-nipogi root@192.168.1.200
+RESEAU_WIREGUARD=10.10.0.0/24 /root/installer.sh
+```
+
+Prérequis : le pare-feu du centre de données Proxmox doit être actif (sinon les règles du CT ne s'appliquent pas). Le script s'arrête en le disant plutôt que de l'activer à ta place.
+
+Versions : épinglées dans le script et dans `deploiement/versions.json` (Forgejo 16.0.5, forgejo-runner 13.2.0). Pour préparer une montée de version, passe `FORGEJO_VERSION=` (vide : dernière version stable, affichée par le script) ou une version précise, puis reporte-la aux deux endroits.
+
+Le CT reçoit `/dev/net/tun` (`dev0`) : Podman rootless en a besoin pour le réseau de ses conteneurs (pasta).
+
+Installé le 2026-10-03 sur `pve` : CT 130, http://192.168.20.130:3000/.
+
+## À faire par toi, Benjamin (jamais par Claude)
+
+> **Fais l'étape 1 tout de suite après le script.** Tant que le compte administrateur n'existe pas (`INSTALL_LOCK = false`), la page d'installation est ouverte à tout le réseau local et à WireGuard : le premier venu pourrait la remplir à ta place.
+
+1. Ouvre `http://192.168.20.130:3000/` : la page d'installation reprend les réglages (SQLite, adresse). Crée le **compte administrateur** dans la section « Paramètres de l'administrateur », puis installe.
+2. *Administration du site → Actions → Runners → Créer un nouveau runner* : copie le **jeton d'enregistrement**.
+3. Enregistre le runner (le jeton est saisi au clavier, masqué) :
+   ```sh
+   pct exec 130 -- /root/installer.sh enregistrer-runner
+   ```
+4. Crée le dépôt `regie`, puis *Paramètres → Dépôt → Miroirs* : ajoute un **miroir poussé** vers `https://github.com/<toi>/regie.git` avec un jeton GitHub à portée minimale (`contents: write` sur ce seul dépôt).
+5. Ajoute Forgejo comme remote et pousse la branche :
+   ```sh
+   git remote add forgejo http://192.168.20.130:3000/<toi>/regie.git
+   git push forgejo <branche>
+   ```
+   Le workflow `.forgejo/workflows/ci.yaml` doit passer au vert (jobs `suites` et `python`).
+
+## Vérifier le pare-feu
+
+- Depuis le réseau local ou WireGuard : `curl -sI http://192.168.20.130:3000/` répond.
+- Depuis une autre source (autre VLAN, hors WireGuard) : la connexion au port 3000 doit échouer (paquet jeté).
+- Règles en place : `pve-firewall status` et `iptables-save | grep -i veth130` sur l'hôte.

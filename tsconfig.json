@@ -1,0 +1,7 @@
+{
+  "files": [],
+  "references": [
+    { "path": "paquets/contrats" },
+    { "path": "coeur" }
+  ]
+}

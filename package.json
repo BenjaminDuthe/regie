@@ -1,0 +1,26 @@
+{
+  "name": "regie",
+  "version": "0.0.0",
+  "private": true,
+  "description": "regie — ton studio de vidéos verticales, piloté par Claude via MCP.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=26.5.0 <27"
+  },
+  "workspaces": [
+    "paquets/*",
+    "coeur"
+  ],
+  "scripts": {
+    "dev": "node outils/dev.mjs",
+    "build": "npm run build --workspace coeur",
+    "test": "vitest run",
+    "ci": "node outils/ci/lancer.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3"
+  }
+}

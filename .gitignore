@@ -11,3 +11,8 @@ node_modules/
 _bmad/config.user.toml
 _bmad/custom/config.user.toml
 _bmad-output/
+
+# Constructions et environnements locaux
+dist/
+.astro/
+.venv/
