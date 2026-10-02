@@ -48,3 +48,33 @@ une fois les vidéo génrer elle sont disponible dans une librairie disponible p
 - Second facteur d'authentification → hors V1 ; mot de passe défini à la première mise en route — fondateur, 2026-09-06.
 - Suppression d'une vidéo ayant eu une publication → refusée ; seule une vidéo jamais publiée se supprime, le reste s'archive — fondateur, 2026-09-06.
 - Cible chiffrée de durée de rendu avant le chronométrage de « traiteur 1 », montée en charge multi-utilisateurs ou multi-marques, haute disponibilité → hors V1 — fondateur, 2026-09-06.
+
+## Réorientation du 2026-10-02 — capture vidéo de n'importe quelle application + montage façon CapCut
+
+Décisions du fondateur, 2026-10-02 :
+- **Capture** : la vidéo ne naît plus seulement de captures d'écran d'URL Établia. Trois sources en V1 : (1) apps web par URL, scénario joué et **enregistré en vidéo** par un navigateur piloté ; (2) apps mobiles enregistrées dans le simulateur iOS / l'émulateur Android ; (3) import de rushes existants. La capture de fenêtre ou d'écran du Mac en direct n'est pas retenue.
+- **Éditeur façon CapCut, tout en V1** : timeline multi-clips (couper, rogner, réordonner, vitesse) ; recadrage 9:16 avec auto-zoom qui suit curseur et clics ; textes et animations (accroches, sous-titres, carte de fin, garde de zone sûre conservée) ; musique et transitions.
+- **Publication** : le périmètre régie du PRD (Instagram, Facebook Page, TikTok, programmation, librairie) **reste en V1**.
+- **100 % gratuit et libre** : aucune brique sous licence payante ou conditionnelle (Remotion écarté) ; uniquement des licences libres (MIT, Apache, BSD, LGPL/GPL, domaine public) — fondateur, 2026-10-02.
+- **IA** : la contrainte « aucune IA hors MCP » est levée **pour de l'IA locale uniquement** (ex. transcription Whisper en local pour les sous-titres) ; aucune API d'IA en nuage.
+
+Conséquences : le PRD (familles « scénarios et capture » et « génération et éditeur ») et l'architecture (portage du moteur, modèle de rendu, éditeur) sont à réviser avant tout code.
+
+| # | Lot | Preuve de complétude | État |
+|---|-----|----------------------|------|
+| 8 | Révision du PRD pour la capture vidéo multi-sources et l'éditeur timeline | `prd.md` amendé, nouvelles FR tracées | à faire |
+| 9 | Révision de l'architecture (modèle de timeline, moteur de rendu vidéo, capture web/mobile, IA locale) puis clôture des étapes 7-8 | `architecture.md` arrivé à sa dernière étape | à faire |
+| 10 | Maquette de l'éditeur timeline et de l'écran de capture | Écrans servis par `maquette/serveur.mjs`, validés par le fondateur | à faire |
+
+### Décisions de la session de design thinking et du party mode BMAD (2026-10-02)
+
+- **Utilisateurs** : Benjamin (Établia, MGA, Fanny) puis une bêta gratuite d'influenceuses de son entourage (face caméra, lifestyle / produits), tant que le produit n'est pas terminé. Lève « une seule marque » et « un compte par réseau » de la V1.
+- **Succès à six mois** : la bêta est adoptée, les influenceuses l'utilisent chaque semaine à la place de CapCut.
+- **Promesse centrale : « ne plus monter »** : un brouillon monté automatiquement (coupes, sous-titres, rythme et musique, habillage), qu'on relit et corrige. Par MCP pour Benjamin, par un bouton pour les influenceuses.
+- **Ordre** : Benjamin et les démos d'apps d'abord ; le brouillon automatique doit marcher sur ses démos avant toute maquette pour les influenceuses.
+- **Hébergement de la bêta** : serveur de Benjamin, accès web.
+- **Mobile** : les influenceuses montent sur téléphone, d'où une application native plus tard, pas de PWA en attendant. Lève « ordinateur seulement » à terme.
+- **API privée dès la conception** : une couche de services commune à l'interface, au MCP et à une API authentifiée, exposée quand l'app native arrive. Lève l'exclusion « API REST publique ».
+- **Parcours des démos d'apps** : enregistré à la main par Benjamin ou écrit par Claude, toujours converti en un script d'actions modifiable et rejouable. Le journal des clics alimente l'auto-zoom.
+- **Gabarit de marque** : identité visuelle seulement (logo, couleurs, polices, style des sous-titres). Le récit reste libre, décidé vidéo par vidéo.
+- **Voix** : synthèse vocale locale (type Piper), avec une voix sous licence réellement libre, à valider sur deux vidéos test.
