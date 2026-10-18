@@ -3,15 +3,19 @@
 #
 # Usage (en root sur l'hôte Proxmox `pve`) :
 #   RESEAU_WIREGUARD=10.10.0.0/24 ./installer.sh           # crée ou met à niveau le CT, puis l'installe
+#   pct exec 130 -- /root/installer.sh creer-admin          # crée le compte administrateur (mot de passe à usage unique)
 #   pct exec 130 -- /root/installer.sh enregistrer-runner   # Benjamin colle le jeton du runner (saisie masquée)
 #
 # Sous-commandes :
 #   hote                 (défaut) côté hôte : CT, idmap élargi, pare-feu, puis lance « conteneur » dans le CT
 #   conteneur            dans le CT : paquets, utilisateurs, binaires vérifiés, unités systemd
+#   creer-admin          dans le CT : crée le compte administrateur en ligne de commande
 #   enregistrer-runner   dans le CT : enregistre le runner avec un jeton saisi au clavier
 #
 # Aucun secret dans ce script : les clés internes de Forgejo sont générées dans le CT,
-# le compte administrateur et les jetons sont saisis par Benjamin (interface ou clavier).
+# le mot de passe administrateur est tiré au hasard par Forgejo, les jetons sont saisis au clavier.
+# La page d'installation web reste verrouillée (INSTALL_LOCK = true) : personne sur le réseau
+# ne peut s'approprier le compte administrateur entre le démarrage et la première connexion.
 
 set -euo pipefail
 shopt -s inherit_errexit   # un échec dans $(…) arrête aussi le script
@@ -169,7 +173,7 @@ hote() {
     ADRESSE="$ADRESSE" /root/installer.sh conteneur
 
   dire "Terminé. À faire par Benjamin, dans l'ordre (voir deploiement/forgejo/README.md) :"
-  dire "  1. http://${ADRESSE}:${PORT_HTTP}/ → page d'installation : créer le compte administrateur."
+  dire "  1. pct exec ${CTID} -- /root/installer.sh creer-admin   (puis changer le mot de passe à la connexion)"
   dire "  2. Administration du site → Actions → Runners → créer un jeton d'enregistrement."
   dire "  3. pct exec ${CTID} -- /root/installer.sh enregistrer-runner   (coller le jeton, saisie masquée)"
   dire "  4. Créer le dépôt regie, puis le miroir poussé vers GitHub (jeton GitHub saisi dans l'interface)."
@@ -245,9 +249,13 @@ conteneur() {
   fi
   install -d -o "$UTILISATEUR_FORGEJO" -g "$UTILISATEUR_FORGEJO" -m 0750 /var/lib/forgejo
   install -d -o root -g "$UTILISATEUR_FORGEJO" -m 0770 /etc/forgejo
-  ecrire_si_absent /etc/forgejo/app.ini <<EOF
-; regie — Forgejo du CT ${CTID:-130}. Réglages de départ ; la page d'installation les reprend.
-; Les clés internes sont générées par Forgejo à l'installation, jamais versionnées.
+  if [[ ! -e /etc/forgejo/app.ini ]]; then   # n'écrase jamais un app.ini existant
+    local cle_secrete jeton_interne
+    cle_secrete="$(/usr/local/bin/forgejo generate secret SECRET_KEY)"
+    jeton_interne="$(/usr/local/bin/forgejo generate secret INTERNAL_TOKEN)"
+    cat >/etc/forgejo/app.ini <<EOF
+; regie — Forgejo du CT ${CTID:-130}. Installation verrouillée : pas de page d'installation web.
+; Les clés internes ci-dessous sont générées dans le CT à la première installation, jamais versionnées.
 APP_NAME = Forgejo regie
 RUN_USER = ${UTILISATEUR_FORGEJO}
 RUN_MODE = prod
@@ -276,8 +284,12 @@ REQUIRE_SIGNIN_VIEW = true
 ENABLED = true
 
 [security]
-INSTALL_LOCK = false
+INSTALL_LOCK = true
+SECRET_KEY = ${cle_secrete}
+INTERNAL_TOKEN = ${jeton_interne}
 EOF
+    unset cle_secrete jeton_interne
+  fi
   chown root:"$UTILISATEUR_FORGEJO" /etc/forgejo/app.ini
   chmod 0660 /etc/forgejo/app.ini
 
@@ -366,6 +378,19 @@ EOF
   dire "Forgejo ${FORGEJO_VERSION} actif sur http://${ADRESSE}:${PORT_HTTP}/ ; runner ${RUNNER_VERSION} installé, en attente d'enregistrement."
 }
 
+creer_admin() {
+  # Compte administrateur créé en ligne de commande : la page d'installation web n'est jamais ouverte.
+  # Forgejo tire le mot de passe au hasard et l'affiche une fois ; il doit être changé à la première connexion.
+  local nom courriel
+  read -r -p "Identifiant du compte administrateur : " nom
+  read -r -p "Adresse électronique du compte administrateur : " courriel
+  [[ -n "$nom" && -n "$courriel" ]] || mourir "Identifiant ou adresse vide."
+  runuser -u "$UTILISATEUR_FORGEJO" -- env HOME=/home/git FORGEJO_WORK_DIR=/var/lib/forgejo \
+    /usr/local/bin/forgejo --config /etc/forgejo/app.ini admin user create \
+    --admin --username "$nom" --email "$courriel" --random-password --must-change-password
+  dire "Compte « $nom » créé : connecte-toi sur http://${ADRESSE}:${PORT_HTTP}/ avec le mot de passe affiché ci-dessus, puis change-le."
+}
+
 enregistrer_runner() {
   [[ -f /home/runner/.runner ]] && { dire "Runner déjà enregistré (/home/runner/.runner)."; exit 0; }
   local jeton
@@ -385,6 +410,7 @@ enregistrer_runner() {
 case "${1:-hote}" in
   hote) hote ;;
   conteneur) conteneur ;;
+  creer-admin) creer_admin ;;
   enregistrer-runner) enregistrer_runner ;;
-  *) mourir "Sous-commande inconnue : $1 (hote | conteneur | enregistrer-runner)" ;;
+  *) mourir "Sous-commande inconnue : $1 (hote | conteneur | creer-admin | enregistrer-runner)" ;;
 esac

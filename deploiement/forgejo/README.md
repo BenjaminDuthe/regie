@@ -37,9 +37,12 @@ Installé le 2026-10-03 sur `pve` : CT 130, http://192.168.20.130:3000/.
 
 ## À faire par toi, Benjamin (jamais par Claude)
 
-> **Fais l'étape 1 tout de suite après le script.** Tant que le compte administrateur n'existe pas (`INSTALL_LOCK = false`), la page d'installation est ouverte à tout le réseau local et à WireGuard : le premier venu pourrait la remplir à ta place.
+> La page d'installation web n'est jamais ouverte : `app.ini` est écrit avec `INSTALL_LOCK = true` et des clés internes générées dans le CT. Personne sur le réseau ne peut donc s'approprier le compte administrateur avant toi.
 
-1. Ouvre `http://192.168.20.130:3000/` : la page d'installation reprend les réglages (SQLite, adresse). Crée le **compte administrateur** dans la section « Paramètres de l'administrateur », puis installe.
+1. Crée le **compte administrateur** en ligne de commande. Forgejo tire un mot de passe au hasard et l'affiche une seule fois ; il est à changer à la première connexion sur `http://192.168.20.130:3000/` :
+   ```sh
+   pct exec 130 -- /root/installer.sh creer-admin
+   ```
 2. *Administration du site → Actions → Runners → Créer un nouveau runner* : copie le **jeton d'enregistrement**.
 3. Enregistre le runner (le jeton est saisi au clavier, masqué) :
    ```sh
