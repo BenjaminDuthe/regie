@@ -3,7 +3,7 @@
 - **PRD :** `docs/planning/prds/prd-regie-2026-10-02/prd.md` (statut `draft`, 2026-10-02)
 - **Grille :** `.claude/skills/bmad-prd/assets/prd-validation-checklist.md`
 - **Niveau d'exigence :** lancement public (inscription ouverte, RGPD, montée en charge)
-- **Contrôles demandés en plus :** non-reproduction des défauts de `docs/planning/prd-validation-report.md` (NFR sans valeur ni vérification, noms de technologies dans les NFR), cohérence des statuts, renvois entre FR, numérotation.
+- **Contrôles demandés en plus :** non-reproduction des défauts de `docs/planning/archive/2026-09/prd-validation-report.md` (NFR sans valeur ni vérification, noms de technologies dans les NFR), cohérence des statuts, renvois entre FR, numérotation.
 
 ## Verdict global
 

@@ -5,6 +5,8 @@ inputDocuments:
   - 'docs/planning/architecture/architecture-regie-2026-10-02/ARCHITECTURE-SPINE.md'
   - 'maquette/public/relire.html'
   - 'maquette/public/capture.html'
+  - 'maquette/public/editeur.html (ajoutée le 2026-10-18)'
+  - 'MANDAT.md (Recentrage du 2026-10-18)'
 ---
 
 # regie - Epic Breakdown
@@ -14,6 +16,338 @@ inputDocuments:
 Ce document découpe en épopées et en histoires livrables les exigences de regie V1 : le PRD du 2026-10-02, le socle d'architecture (AD-1 à AD-21) et les deux maquettes validées (« Relire » et capture d'applis web), qui tiennent lieu de spécification UX.
 
 Termes : ceux du glossaire du PRD, sans synonyme.
+
+## Recentrage du 2026-10-18 — plan de livraison (prime sur la suite)
+
+Le grill du 2026-10-18 recentre la V1 sur un seul utilisateur et une première tranche en production : une démo d'app filmée par script, éditée sur ordinateur, publiée ou programmée sur Instagram (MANDAT, « Recentrage du 2026-10-18 » ; PRD §0 ; socle, « Amendement du 2026-10-18 »). Cette section ordonne les histoires. Elle en ajoute de nouvelles (épopées 0 et 9, histoires 1.14, 3.10 et 3.11), en réduit certaines et renvoie le reste en V1.1. Les histoires plus bas restent la spécification détaillée. Quand elles parlent d'espaces, de membres, d'inscription ou de quotas, on lit « la marque Établia de Benjamin » et l'on écarte ce qui ne sert qu'à plusieurs comptes.
+
+### Ordre de la V1
+
+| # | Histoire | Ajustement du 2026-10-18 |
+|---|----------|--------------------------|
+| 1 | 0.1 Réparer Authentik et créer l'application « regie » | nouvelle |
+| 2 | 0.2 Le LXC `regie` sur `pve-media` | nouvelle |
+| 3 | 0.3 `regie.etablia.fr` derrière nginx | nouvelle |
+| 4 | 0.4 La CI tourne sur Forgejo | nouvelle ; valide la CI de 1.1 |
+| 5 | 1.1 Amorcer le dépôt, la CI et la première page | **faite** (238c584) ; reste la CI verte sur Forgejo (0.4) |
+| 6 | 1.2 Une première page sûre, lisible et accessible | inchangée |
+| 7 | 1.3 Des suites de conformité qui bloquent chaque commit | inchangée |
+| 8 | 1.4 Migrations contrôlées, coffre et démarrage sûr | RLS par `marque_id` ; `regie_admin` fondu dans `regie_coeur` |
+| 9 | 1.14 Se connecter par Authentik | nouvelle ; remplace 1.5, 1.7 et 1.8 pour la V1 |
+| 10 | 1.9 Mon espace personnel et mes espaces de marque | réduite à la marque Établia, sans création d'espace partagé |
+| 11 | 1.11 Une API privée à jetons, en parité avec l'interface | inchangée |
+| 12 | 1.12 Brancher son Claude sur regie | consentement sous la session Authentik |
+| 13 | 1.13 Consulter le journal d'audit | filtres réduits à la période, l'origine et l'objet |
+| 14 | 2.1 Une file de traitement durable et équitable | sans équité entre comptes |
+| 15 | 2.2 Des échéances qui ne se perdent pas | inchangée |
+| 16 | 2.5 Suivre ma séance dans la file | suit une capture ou un rendu, pas une séance de rushes |
+| 17 | 2.6 Être prévenue et relancer une étape en échec | prévenu dans l'interface seulement ; le courriel passe en V1.1 |
+| 18 | 2.7 Un gabarit de départ, des gardes et une mise en page communes | inchangée |
+| 19 | 2.8 Définir mon gabarit complet et le prévisualiser | gabarit Établia ; pas de limite de 3 gabarits |
+| 20 | 4.1 Déclarer mon application et prouver mes hôtes | sans preuve de contrôle du domaine ; cible : tenant de démo d'Établia en production |
+| 21 | 4.2 Une capture enfermée, loin du reste de regie | dans le LXC `regie` (Podman rootless, utilisateur dédié, réseau interne vers le proxy) ; plus de LXC ni de VLAN séparés |
+| 22 | 4.3 Un compte de démo au coffre et un test de connexion | inchangée |
+| 23 | 4.4 Lire et corriger les étapes d'un script | inchangée |
+| 24 | 4.5 Jouer et filmer mon script | inchangée |
+| 25 | 4.8 Demander un script à Claude | inchangée ; première façon d'obtenir un script en V1 |
+| 26 | 4.6 Une démo recadrée et zoomée sur chaque clic | inchangée |
+| 27 | 4.7 Une voix de synthèse locale qui commente ma démo | sous-titres tirés du texte de la voix |
+| 28 | 2.12 Voir mon brouillon dans une page d'aperçu | aperçu d'une démo |
+| 29 | 3.10 Éditer les textes, l'ordre et les durées d'une vidéo | nouvelle (FR-73) |
+| 30 | 3.11 Régler les animations et regénérer le rendu | nouvelle (FR-73) |
+| 31 | 2.13 Changer de gabarit sans toucher au passé | inchangée |
+| 32 | 3.5 Choisir mon accroche, ma couverture et ma prise | réduite à la couverture (FR-25) ; l'accroche se règle dans l'éditeur |
+| 33 | 3.7 Ma légende et mes hashtags | inchangée |
+| 34 | 3.8 Télécharger ma vidéo prête | inchangée |
+| 35 | 3.9 Ma bibliothèque de vidéos | inchangée |
+| 36 | 4.11 Rejouer ma démo à chaque mise en production | inchangée |
+| 37 | 7.1 L'administrateur ouvre la publication | clés de l'application Meta dans Paramètres ; pas de droit de publication par espace |
+| 38 | 7.6 Publier sur Instagram et Facebook | Instagram seul en V1 ; la Page Facebook passe en V1.1 |
+| 39 | 7.3 Publier une vidéo maintenant, jamais deux fois | inchangée |
+| 40 | 7.4 Programmer, déplacer ou annuler une publication | inchangée |
+| 41 | 7.5 Suivre le résultat et rejouer un échec | échec visible dans l'interface ; courriel en V1.1 |
+| 42 | 9.1 Tout piloter depuis Claude | nouvelle |
+| 43 | 9.2 Une sauvegarde quotidienne, restaurée avant la production | nouvelle ; remplace 8.4 pour la V1 |
+| 44 | 9.3 La recette sur le compte Instagram de test | nouvelle |
+| 45 | 9.4 La première vraie vidéo Établia | nouvelle ; clôt la V1 |
+
+### V1.1, dans cet ordre
+
+1. **Autres réseaux** : 7.6 (Page Facebook), 7.7 TikTok (en premier si le temps manque), 7.2 YouTube.
+2. **Rushes et montage automatique** : 2.3, 2.4, 2.9, 2.10, 2.11, 2.14, 3.5 (accroches et prises), 3.6, puis l'épopée 5 (5.1 à 5.6).
+3. **Relecture au téléphone** : 3.1, 3.2, 3.3, 3.4.
+4. **Capture, autres sources de script** : 4.9, 4.10.
+5. **Plusieurs personnes** : 1.6, 1.7, 1.8, 1.10, puis l'épopée 6 (6.1, 6.2).
+6. **Données personnelles et exploitation** : 8.1, 8.2, 8.3, 8.4 (test mensuel), 8.5 (sonde Uptime Kuma).
+
+**Retirée** : 1.5, remplacée par 1.14 (le second facteur est porté par Authentik).
+
+## Epic 0: Infrastructure de la V1
+
+Benjamin dispose d'une identité unique (Authentik), d'un conteneur LXC dédié sur `pve-media`, d'une adresse publique en HTTPS et d'une CI qui tourne chez lui. **Aucune action d'infrastructure ne se fait sans le feu vert de Benjamin au moment de la faire** ; chaque histoire décrit l'action, la montre, puis l'exécute après accord.
+
+### Story 0.1: Réparer Authentik et créer l'application « regie »
+
+As a Benjamin,
+I want qu'Authentik reparte sur le plan d'adresses actuel et connaisse regie,
+So that l'interface de regie ne s'ouvre qu'à moi, avec mon second facteur.
+
+**Acceptance Criteria:**
+
+**Given** le CT 115 `authentik` arrêté sur `pve-media`, configuré en `192.168.1.115/24` avec la passerelle `192.168.1.200`
+**When** Benjamin donne son accord
+**Then** `net0` passe sur une adresse libre en `192.168.20.x/24` avec la passerelle du réseau actuel, le conteneur démarre et son interface répond sur le réseau local
+**And** l'ancienne configuration est notée dans `deploiement/infra/authentik.md` pour pouvoir revenir en arrière
+
+**Given** Authentik relancé
+**When** on se connecte avec le compte de Benjamin
+**Then** un second facteur (TOTP ou WebAuthn) est exigé
+
+**Given** l'administration d'Authentik
+**When** on crée le fournisseur OIDC et l'application « regie »
+**Then** le client est confidentiel, l'adresse de retour est `https://regie.etablia.fr/auth/retour`, et seul le groupe de Benjamin y a accès
+**And** l'identifiant et le secret du client vont dans Vaultwarden, jamais dans le dépôt (NFR-14)
+
+### Story 0.2: Le LXC `regie` sur `pve-media`
+
+As a Benjamin,
+I want un conteneur LXC dédié à regie, avec l'accès à l'Arc B570,
+So that regie tourne isolé du reste du serveur et peut rendre ses vidéos sur la carte graphique.
+
+**Acceptance Criteria:**
+
+**Given** `pve-media` (192.168.20.200) et l'accord de Benjamin
+**When** le LXC `regie` est créé
+**Then** il est en Debian 13, non privilégié, avec le nesting activé, une adresse fixe en `192.168.20.x`, et sa définition est versionnée dans `deploiement/infra/lxc-regie.md`
+
+**Given** le LXC `regie`
+**When** on y installe Podman rootless avec linger, Quadlet et cgroups v2
+**Then** un conteneur de test démarre au boot de l'hôte sans session ouverte (NFR-7)
+
+**Given** `/dev/dri` transmis avec le `gid` du groupe `render`
+**When** un conteneur de test encode une vidéo avec ffmpeg en QSV ou VAAPI
+**Then** l'encodage passe par l'Arc ; en cas d'échec, la cause est notée et le repli sur processeur est documenté (Différé du socle)
+
+**Given** le pare-feu Proxmox du LXC
+**When** on teste les sorties
+**Then** seuls Internet, nginx (CT 101), Authentik (CT 115) et la cible de sauvegarde sur `pve-nipogi` sont joignables ; le reste du réseau local est refusé
+
+### Story 0.3: `regie.etablia.fr` derrière nginx
+
+As a Benjamin,
+I want ouvrir regie sur Internet à une adresse en HTTPS,
+So that je l'utilise de partout et que Meta puisse lire les vidéos à publier.
+
+**Acceptance Criteria:**
+
+**Given** l'enregistrement DNS `regie.etablia.fr` vers l'IP publique du foyer et l'accord de Benjamin
+**When** le site est ajouté au nginx du CT 101
+**Then** il obtient un certificat Let's Encrypt renouvelé automatiquement et redirige le port 80 vers 443
+
+**Given** une requête sur `regie.etablia.fr`
+**When** nginx la relaie vers le LXC `regie`
+**Then** les en-têtes de sécurité (HSTS, `X-Content-Type-Options`, `Referrer-Policy`) sont posés, les limites de débit s'appliquent et le journal d'accès ne contient aucune chaîne de requête
+**And** la configuration est versionnée dans `deploiement/nginx/regie.conf`
+
+**Given** le cœur pas encore déployé
+**When** on ouvre `https://regie.etablia.fr/sante`
+**Then** une page d'attente répond, sans exposer d'autre service du serveur
+
+### Story 0.4: La CI tourne sur Forgejo
+
+As a développeur de regie,
+I want que chaque commit poussé sur GitHub soit testé sur mon Forgejo,
+So that la CI reste chez moi et le dépôt public reste la référence.
+
+**Acceptance Criteria:**
+
+**Given** le Forgejo du CT 130 et l'accord de Benjamin
+**When** le dépôt `BenjaminDuthe/regie` y est ajouté en miroir de GitHub
+**Then** chaque commit poussé sur GitHub arrive sur Forgejo en moins de 10 minutes
+
+**Given** un runner Forgejo Actions dédié, sans accès aux secrets de production
+**When** un commit arrive
+**Then** `.forgejo/workflows` lance `npm run ci` (types, tests, scan de secrets) et le résultat est visible sur Forgejo
+
+**Given** une branche dont la CI échoue
+**When** on prépare la fusion sur `main`
+**Then** l'échec est visible avant la fusion
+
+## Histoires ajoutées aux épopées 1 et 3 (2026-10-18)
+
+### Story 1.14: Se connecter par Authentik
+
+As a Benjamin,
+I want me connecter à regie avec mon compte Authentik,
+So that je n'ai ni mot de passe de plus, ni second facteur à gérer dans regie.
+
+**Acceptance Criteria:**
+
+**Given** une page de l'interface sans session valide
+**When** je l'ouvre
+**Then** je suis renvoyé vers Authentik (code d'autorisation + PKCE S256, `state` et `nonce` vérifiés), puis ramené sur la page demandée (FR-72)
+
+**Given** le retour d'Authentik
+**When** le jeton d'identité est validé (émetteur, audience, signature, expiration)
+**Then** une session est créée en base, portée par un cookie `__Host-` `HttpOnly; SameSite=Lax; Secure`, et révocable
+
+**Given** une action sensible (saisir une clé, connecter un compte réseau, créer un jeton)
+**When** la dernière authentification Authentik date de plus de 10 min
+**Then** regie redemande une authentification (`max_age`) avant d'agir
+
+**Given** `/mcp`, les adresses signées des vidéos, les pages légales et `/sante`
+**When** on les appelle sans session
+**Then** ils ne renvoient pas vers Authentik ; `/mcp` exige un jeton Bearer valide (FR-46), les adresses signées leur signature de moins d'une heure
+
+**Given** la liste des routes publiques dans un seul fichier
+**When** la CI tourne
+**Then** un test la compare aux routes servies et échoue sur toute route publique non déclarée
+
+**Given** la politique de confidentialité et les conditions d'utilisation
+**When** on les ouvre sans session
+**Then** elles sont servies par regie elle-même, en français (FR-51, exigées par Meta)
+
+**Given** une connexion, un échec ou une déconnexion
+**When** l'action se termine
+**Then** une ligne est ajoutée au journal d'audit chaîné, sans secret (NFR-21)
+
+### Story 3.10: Éditer les textes, l'ordre et les durées d'une vidéo
+
+As a Benjamin,
+I want ouvrir une vidéo dans un éditeur par scènes et y changer tous les textes, l'ordre et la durée des scènes,
+So that la démo dit exactement ce que je veux, sans repasser par une capture.
+
+Spécification UX : la maquette `maquette/public/editeur.html`, validée le 2026-09-08, adaptée aux scènes d'une démo filmée.
+
+**Acceptance Criteria:**
+
+**Given** une vidéo prête ou un brouillon sur ordinateur
+**When** je l'ouvre dans l'éditeur
+**Then** je vois ses scènes dans l'ordre, chacune avec sa durée, ses textes (accroche, textes à l'écran, sous-titres, carte de fin) et un aperçu à jour dans le navigateur (FR-73, AD-13)
+
+**Given** une scène
+**When** je modifie un texte, sa durée, ou que je la déplace, la duplique ou la retire
+**Then** l'aperçu suit sans rendu complet, et l'enregistrement crée une nouvelle version immuable du montage (AD-5)
+
+**Given** un texte qui sort de la zone sûre ou devient illisible sur le gabarit
+**When** j'enregistre
+**Then** la garde l'indique sur la scène fautive et la vidéo ne passe pas « prête » tant que ce n'est pas corrigé (FR-28, AD-6)
+
+**Given** une vidéo qui a déjà une publication partie
+**When** je l'édite
+**Then** la publication partie reste liée à l'ancienne version ; seules les publications futures prennent la nouvelle
+
+**Given** Claude connecté
+**When** il lit le montage puis change un texte, une durée ou l'ordre par le MCP
+**Then** le résultat est le même que dans l'interface (FR-47, FR-64)
+
+### Story 3.11: Régler les animations et regénérer le rendu
+
+As a Benjamin,
+I want choisir et régler les animations de chaque texte et de chaque scène, puis regénérer la vidéo,
+So that le rythme et l'habillage me conviennent avant de publier.
+
+**Acceptance Criteria:**
+
+**Given** une scène dans l'éditeur
+**When** je choisis une animation d'entrée ou de sortie pour un texte, ou une transition entre deux scènes, et que je règle sa durée et son délai
+**Then** l'aperçu la joue, et seules les animations du catalogue du moteur sont proposées
+
+**Given** un zoom automatique tiré du journal des clics
+**When** je le décale, change son niveau ou le retire
+**Then** l'aperçu suit (FR-26)
+
+**Given** une version éditée
+**When** je lance « regénérer »
+**Then** une tâche de rendu entre dans la file, sa progression est visible (FR-31), et la vidéo rendue fait foi à la place de l'aperçu (AD-13)
+
+**Given** le même montage, le même matériel et le même build
+**When** on le rend deux fois
+**Then** les deux fichiers sont identiques (FR-30)
+
+**Given** Claude connecté
+**When** il règle une animation ou lance la regénération par le MCP
+**Then** le résultat est le même que dans l'interface (FR-47)
+
+## Epic 9: Mise en production de la V1
+
+La V1 est en production : Claude pilote tout, les données sont sauvegardées et restaurables, la recette est passée sur un compte de test, et la première vraie vidéo Établia est partie.
+
+### Story 9.1: Tout piloter depuis Claude
+
+As a Benjamin,
+I want faire depuis Claude tout ce que je fais dans l'interface, sauf toucher aux secrets,
+So that je produis une démo de bout en bout sans ouvrir regie.
+
+**Acceptance Criteria:**
+
+**Given** le registre de parité
+**When** la CI tourne
+**Then** chaque action de l'interface a son outil MCP et son point d'API, sauf les exceptions déclarées (FR-47) ; aucun outil ne lit, n'écrit ni ne renvoie un secret
+
+**Given** Claude connecté par OAuth
+**When** je lui demande « fais une démo de la création d'une facture dans Établia et programme-la demain à 18 h sur Instagram »
+**Then** il obtient le script, le fait jouer, édite les textes, lance le rendu et crée la publication programmée, par les seuls outils MCP
+
+**Given** la référence du MCP
+**When** une version est livrée
+**Then** elle est générée depuis le code, avec un exemple de demande par parcours (FR-65)
+
+### Story 9.2: Une sauvegarde quotidienne, restaurée avant la production
+
+As a Benjamin,
+I want une sauvegarde quotidienne que j'ai déjà restaurée une fois,
+So that une panne de `pve-media` ne me fait perdre ni mes vidéos ni mes réglages.
+
+**Acceptance Criteria:**
+
+**Given** le LXC `regie` en service
+**When** la nuit passe
+**Then** un `pg_dump` chiffré par age et, chaque semaine, un vzdump du LXC arrivent sur `pve-nipogi` ; leur âge est visible dans `/sante` (NFR-41)
+
+**Given** la clé maîtresse du coffre
+**When** on inspecte une sauvegarde
+**Then** elle n'y figure pas ; elle est gardée dans Vaultwarden (AD-9)
+
+**Given** une sauvegarde et un conteneur vierge
+**When** on suit la procédure de `deploiement/restauration.md`
+**Then** regie redémarre en mode `restauration`, sans planificateur ni publication, avec ses vidéos et ses réglages, et la procédure est datée et signée par Benjamin avant la mise en production
+
+### Story 9.3: La recette sur le compte Instagram de test
+
+As a Benjamin,
+I want jouer tout le parcours sur un compte Instagram de test,
+So that je vois chaque cas avant de toucher au compte Établia.
+
+**Acceptance Criteria:**
+
+**Given** un compte Instagram de test connecté dans Paramètres
+**When** une démo filmée, éditée et programmée à une heure proche arrive à échéance
+**Then** elle part seule, une seule fois, et sa publication passe « publiée » avec le lien rendu par Instagram (FR-43, FR-44)
+
+**Given** une publication qui échoue (jeton révoqué, vidéo hors bornes)
+**When** l'échec arrive
+**Then** il est visible dans l'interface avec sa cause, et « rejouer » relance après correction
+
+**Given** un redémarrage du LXC pendant qu'une publication est programmée
+**When** l'heure arrive
+**Then** la publication part quand même, sans doublon
+
+### Story 9.4: La première vraie vidéo Établia
+
+As a Benjamin,
+I want publier la première démo sur le compte Instagram d'Établia,
+So that la V1 est terminée, en production.
+
+**Acceptance Criteria:**
+
+**Given** la recette 9.3 passée et la restauration 9.2 faite
+**When** je relis la vidéo dans regie et donne mon accord
+**Then** elle est publiée ou programmée sur le compte Établia depuis `regie.etablia.fr`
+
+**Given** la vidéo publiée
+**When** je l'ouvre dans Instagram
+**Then** elle est lisible, verticale, sans filigrane, avec sa légende ; le MANDAT note le lot 17 « fait »
 
 ## Requirements Inventory
 

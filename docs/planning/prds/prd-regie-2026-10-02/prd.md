@@ -2,11 +2,67 @@
 title: regie — studio de vidéos verticales libre
 status: final
 created: 2026-10-02
-updated: 2026-10-02
-supersedes: docs/planning/prd.md
+updated: 2026-10-18
+amended: 2026-10-18 (MANDAT, « Recentrage du 2026-10-18 »)
+supersedes: docs/planning/archive/2026-09/prd.md
 ---
 
 # regie — PRD
+
+## 0. Amendement du 2026-10-18 — prime sur tout le reste du document
+
+Décidé par le fondateur au grill du 2026-10-18 (voir MANDAT, « Recentrage du 2026-10-18 »). Quand une section plus bas contredit cet amendement, l'amendement l'emporte.
+
+### 0.1 Ce qui change
+
+- **Un seul utilisateur : Benjamin.** Pas d'inscription ouverte, de bêta, de quotas par compte ni d'équité entre comptes. Le modèle de données garde une table « marque » (Établia d'abord) pour accueillir d'autres marques plus tard. UJ-1 (Léa) et UJ-3 (Fanny) passent en V1.1 ; **UJ-2 est le parcours de la V1**.
+- **V1 = la première tranche en production** : une démo d'app filmée par script d'actions, éditée sur ordinateur, publiée ou programmée sur Instagram Reels, depuis `regie.etablia.fr` hébergé sur le Proxmox de Benjamin.
+- **L'édition n'est plus l'exception en V1** : un éditeur complet sur ordinateur (FR-73) permet de tout régler à la main ; le montage automatique par IA arrive en V1.1.
+- **Connexion par Authentik** (FR-72) ; le second facteur est porté par Authentik. Remplace FR-1, FR-54 et le second facteur maison.
+- **Écrans** : ordinateur en V1 ; relecture et correction légère au téléphone en V1.1.
+- **Ordre des réseaux** : Instagram (V1), puis Page Facebook, TikTok, YouTube Shorts (V1.1, TikTok en premier si le temps manque). LinkedIn et X plus tard.
+
+### 0.2 Nouvelles exigences
+
+#### FR-72 : Connexion par Authentik
+L'interface n'est accessible qu'après une connexion OIDC auprès de l'Authentik de Benjamin (application « regie »). Réalise UJ-2.
+- Sans session valide, toute page de l'interface renvoie vers Authentik ; la déconnexion ferme la session regie.
+- Échappent au SSO : `/mcp` (jeton Bearer OAuth 2.1, FR-46), les adresses signées des fichiers vidéo lus par les réseaux (moins d'une heure), et le point de santé.
+- Le second facteur est exigé par Authentik ; regie n'en gère aucun.
+
+#### FR-73 : Éditeur complet sur ordinateur
+Un utilisateur ouvre une vidéo dans un éditeur par scènes et y modifie tous les textes (accroche, textes à l'écran, sous-titres, carte de fin), les animations (choix et réglages), la durée et l'ordre de chaque scène, le gabarit appliqué ; il lance la regénération du rendu et voit l'aperçu à jour. Réalise UJ-2.
+- Chaque modification passe aussi par le MCP avec le même résultat (FR-47).
+- Les gardes du gabarit (zone sûre, lisibilité) restent appliquées (FR-28).
+- Une modification ne touche jamais une publication déjà partie ; elle crée une nouvelle version de la vidéo.
+- La timeline multi-clips image par image reste hors périmètre (§6).
+
+#### NFR-40 : Hébergement et exposition
+regie tourne dans un conteneur LXC dédié sur `pve-media`, servi en HTTPS sur `regie.etablia.fr` par le nginx existant (certificat Let's Encrypt renouvelé seul).
+
+#### NFR-41 : Sauvegarde et restauration
+La base est sauvegardée chaque jour (`pg_dump`) et le conteneur chaque semaine (vzdump), vers `pve-nipogi`. Une restauration complète est testée avant la mise en production. La clé maîtresse du coffre (`REGIE_MASTER_KEY`) est gardée hors du serveur, dans Vaultwarden.
+
+### 0.3 Répartition des exigences
+
+| Famille | V1 | V1.1 |
+|---------|----|------|
+| §4.1 Comptes et espaces | FR-72 ; FR-2 réduit à une marque sans membres | FR-1, FR-54 (si ouverture), FR-3, FR-4, FR-5 |
+| §4.2 Gabarit | FR-55, FR-6, FR-7, FR-8 | — |
+| §4.3 Rushes | — | FR-9 à FR-12 |
+| §4.4 Capture | FR-13, FR-14, FR-15, FR-17, FR-18 (isolation par conteneur, sans LXC séparé), FR-19 | FR-16 |
+| §4.5 Montage | FR-73, FR-25, FR-26, FR-27, FR-28, FR-30 ; recette « démo d'app » seule (FR-56) ; sous-titres tirés du texte de la voix | FR-20 à FR-24, FR-29, FR-57 à FR-59, autres recettes |
+| §4.6 File | FR-31, FR-33 ; FR-32 dans l'interface | FR-32 par courriel |
+| §4.7 Relecture | FR-34, FR-35, FR-38 sur ordinateur | FR-36, FR-37, FR-60 à FR-62, relecture au téléphone |
+| §4.8 Validation | — | FR-39 |
+| §4.9 Publication | FR-40, FR-41 (Instagram), FR-42, FR-43, FR-44 (échec visible, « rejouer »), FR-45 | FR-41 (Page Facebook, TikTok, YouTube), FR-63, courriel d'échec |
+| §4.10 MCP et API | FR-46, FR-47, FR-48, FR-64, FR-65, FR-66 | — |
+| §4.11 Musique | — | FR-49, FR-50 |
+| §4.12 Légal | FR-51 (exigée par Meta), FR-67 | FR-52, FR-53, FR-68, FR-69 |
+| §4.13 Administration | FR-71 ; FR-70 se confond avec Benjamin | — |
+
+Les exigences transverses (§5) s'appliquent à ce que livre chaque version ; celles qui portent sur les rushes, la transcription, le modèle de langage ou plusieurs comptes attendent la V1.1.
+
 
 ## 1. Vision
 
@@ -567,12 +623,12 @@ Chaque exigence porte une valeur mesurable et sa vérification. Aucune ne nomme 
 
 ## 6. Non-objectifs
 
-- Timeline et montage image par image : V2.
+- Timeline multi-clips et montage image par image : V2 (l'éditeur par scènes de FR-73 est en V1).
 - Capture d'apps mobiles dans les simulateurs iOS et Android : V2.
 - Publication sur les comptes de tiers : V2, après agréments Meta et TikTok.
-- X et LinkedIn : non prévus.
+- X et LinkedIn : plus tard, après la V1.1.
 - Application native, PWA, notifications push : plus tard.
-- Second facteur d'authentification : hors V1, sauf pour l'administrateur de l'instance, pour qui il est obligatoire (décision du 2026-10-02, alignée sur AD-15).
+- Second facteur géré par regie : non prévu ; il est porté par Authentik (FR-72, amendement du 2026-10-18).
 - Recettes paramétrables par l'utilisateur : hors V1.
 - Haute disponibilité par serveurs redondants : hors V1.
 - Interface dans une autre langue que le français : hors V1.
@@ -583,38 +639,47 @@ Chaque exigence porte une valeur mesurable et sa vérification. Aucune ne nomme 
 
 ## 7. Périmètre de la V1
 
+Remplacé le 2026-10-18 ; la répartition détaillée est au §0.3.
+
 ### 7.1 Dans la V1
 
-- Comptes ouverts et espaces de marque partagés avec validation (§4.1) ;
+- connexion par Authentik (FR-72) et une marque, Établia ;
 - gabarit (§4.2) ;
-- envoi des rushes (§4.3) ;
-- capture par script d'actions (§4.4) ;
-- montage automatique avec trois recettes (§4.5) ;
-- file et notifications (§4.6) ;
-- fil de relecture adapté au téléphone et à l'ordinateur (§4.7) ;
-- validation (§4.8) ;
-- export pour tous et publication vers Instagram Reels, Page Facebook, TikTok et YouTube Shorts pour les espaces qui ont le droit de publication (§4.9) ;
-- MCP et API privée (§4.10) ;
-- bibliothèque musicale (§4.11) ;
-- données personnelles et obligations légales (§4.12) ;
-- administration de l'instance (§4.13).
+- capture par script d'actions sur le tenant de démo d'Établia en production (§4.4) ;
+- recette « démo d'app » : zoom automatique, voix de synthèse, sous-titres tirés du texte de la voix ;
+- éditeur complet sur ordinateur (FR-73) ;
+- file visible et relance (§4.6) ;
+- bibliothèque, export, publication et programmation vers Instagram Reels (§4.9) ;
+- MCP qui pilote tout, et API privée (§4.10) ;
+- Paramètres : coffre, clés d'application, compte Instagram (FR-71, FR-41) ;
+- pages légales et lien vers le code source (FR-51, FR-67) ;
+- mise en production sur `pve-media`, sauvegarde testée (NFR-40, NFR-41).
 
-### 7.2 Hors V1
+**Critère de fin de V1** : une démo Établia, filmée par script, éditée et programmée depuis `regie.etablia.fr`, part seule à l'heure dite sur le compte Instagram de test ; puis la première vraie vidéo, relue par Benjamin, est publiée sur le compte Établia.
 
-Voir §6. Le noyau commun, la programmation et le fil de relecture ne glissent jamais. En cas de conflit de calendrier, la qualité du premier brouillon passe avant l'ajout de fonctions (§1).
+### 7.2 V1.1, dans cet ordre
 
-### 7.3 Ordre de livraison
+1. Page Facebook, TikTok (en premier si le temps manque), YouTube Shorts.
+2. Rushes et montage automatique par IA locale (§4.3, §4.5), musique (§4.11).
+3. Relecture et correction légère au téléphone (§4.7).
+4. Validation à plusieurs et membres (§4.1, §4.8).
+5. Données personnelles et exploitation pour d'autres comptes (§4.12).
 
-1. **Noyau commun** : comptes et espaces (§4.1), envoi des rushes (§4.3), coupe des silences (FR-21), sous-titres (FR-22), gabarit (§4.2), fil de relecture (§4.7) et export (FR-40).
-2. **Démos d'apps de Benjamin** : capture par script d'actions (§4.4), recette démo d'app, zoom et voix de synthèse (FR-26, FR-27).
-3. **Recettes face caméra et lifestyle sur musique** : découpage par idée, meilleure prise, montage sur musique, textes à l'écran (FR-20, FR-57 à FR-59), pour la bêta des influenceuses.
-4. **Publication** : administration de l'instance (§4.13), comptes réseau, publication et programmation (§4.9), validation (§4.8).
+La programmation, l'éditeur et le MCP ne glissent jamais hors de la V1.
 
-Les démarches d'agrément Meta et TikTok sont lancées dès l'étape 1 (voir Questions ouvertes).
+### 7.3 Ordre de livraison de la V1
+
+1. **Infrastructure** : Authentik réparé et application OIDC « regie », LXC regie, nginx et certificat, CI Forgejo.
+2. **Socle** : base, file, connexion, coffre et Paramètres.
+3. **Capture** : application à capturer, script d'actions, jeu filmé.
+4. **Rendu et éditeur** : moteur vidéo porté, gabarit, éditeur complet.
+5. **Publication** : bibliothèque, Instagram, programmation, « rejouer ».
+6. **MCP** : parité vérifiée outil par outil.
+7. **Production** : sauvegarde et restauration testées, recette sur le compte de test, première vraie vidéo.
 
 ## 8. Indicateurs de réussite
 
-SM-1 à SM-4 portent sur la bêta ; SM-5 prépare l'ouverture publique.
+**SM-0 (V1)** : la première vraie vidéo Établia est publiée sur Instagram depuis regie en production, et une démo programmée part seule à l'heure dite. SM-1 à SM-4 portent sur la V1.1 ; SM-5 prépare une éventuelle ouverture.
 
 | ID | Indicateur | Cible | Mesure |
 |----|------------|-------|--------|

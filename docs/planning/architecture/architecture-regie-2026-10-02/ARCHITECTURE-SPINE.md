@@ -4,15 +4,15 @@ type: architecture-spine
 purpose: build-substrate
 altitude: initiative
 paradigm: 'cœur hexagonal à trois façades + services techniques en tubes et filtres sur une file PostgreSQL'
-scope: 'regie V1 entière : studio web de vidéos verticales hébergé, multi-utilisateur (PRD du 2026-10-02)'
+scope: 'regie V1 recentrée le 2026-10-18 : un utilisateur, démo d app → Instagram en production ; V1.1 ensuite (PRD amendé)'
 status: final
 created: '2026-10-02'
-updated: '2026-10-02'
-binds: ['FR-1..FR-71', 'NFR-1..NFR-39']
+updated: '2026-10-18'
+binds: ['FR-1..FR-73', 'NFR-1..NFR-41']
 sources:
   - 'docs/planning/prds/prd-regie-2026-10-02/prd.md'
   - 'docs/planning/prds/prd-regie-2026-10-02/.memlog.md'
-  - 'docs/planning/architecture.md (ancienne architecture, remplacée)'
+  - 'docs/planning/archive/2026-09/architecture.md (ancienne architecture, remplacée)'
   - 'MANDAT.md'
 companions:
   - 'docs/planning/architecture/architecture-regie-2026-10-02/.memlog.md'
@@ -20,6 +20,33 @@ companions:
 ---
 
 # Socle d'architecture — regie
+
+## Amendement du 2026-10-18 — pivot allégé (prime sur les décisions plus bas)
+
+Décidé par le fondateur (MANDAT, « Recentrage du 2026-10-18 » ; PRD §0). On garde le paradigme, le socle technique, PostgreSQL et sa file, et les services techniques à part. On retire ce qui ne sert qu'à plusieurs comptes. Chaque point ci-dessous remplace la règle contraire de la décision citée.
+
+- **Un utilisateur, des marques** (AD-2, AD-8) : un seul utilisateur, Benjamin. La table `marques` remplace les espaces partagés : pas de membres, d'invitations, de validation ni de suspension. L'`Acteur` reste obligatoire et la RLS reste forcée par `marque_id`, pour accueillir une seconde marque sans réécriture. Le rôle `regie_admin` est fondu dans `regie_coeur` ; un rôle PostgreSQL par service technique est maintenu.
+- **Capture dans le LXC `regie`** (AD-10) : pas de LXC `regie-capture` ni de VLAN dédié. `capture` et `proxy-capture` tournent dans le LXC `regie`. Les conteneurs Chromium jetables sont lancés par l'instance Podman rootless d'un utilisateur Unix dédié, sur un réseau `internal` qui ne mène qu'au proxy filtrant (anti-DNS rebinding et refus des adresses privées conservés). Les hôtes autorisés sont déclarés par Benjamin dans Paramètres, sans preuve de contrôle du domaine. Cible de la V1 : le tenant de démo d'Établia en production, ses identifiants au coffre (AD-9). L'enregistreur de clics et l'import de tests passent après le script écrit par Claude.
+- **Identité par Authentik** (AD-15) : l'interface est un client OIDC confidentiel (code d'autorisation + PKCE) de l'Authentik du foyer, application « regie » ; le second facteur est exigé par Authentik. Disparaissent : mots de passe, scrypt, freinage, inscription, liens à usage unique et second facteur maison. Restent : sessions en base (cookie `__Host-`), réauthentification récente (`max_age` OIDC de 10 min) pour saisir une clé, connecter un compte réseau ou créer un jeton ; serveur OAuth 2.1 pour le MCP, dont l'écran de consentement s'affiche sous la session Authentik ; jetons `regie_pat_` ; audit chaîné. Routes publiques : retour OIDC, points OAuth, adresses signées, pages légales, `/sante`.
+- **Exploitation** (AD-16) : un seul LXC `regie` (Debian 13, non privilégié, nesting) sur `pve-media` (192.168.20.200), `/dev/dri` de l'Arc B570 transmis. Conteneurs Quadlet de la V1 : `coeur`, `postgres`, `rendu`, `capture`, `proxy-capture`, `publication`, `voix` ; `transcription` et `langage` arrivent en V1.1. Le pare-feu Proxmox refuse par défaut les sorties du LXC vers le réseau local, sauf nginx, Authentik et la cible de sauvegarde.
+- **Sauvegardes** (AD-16) : `pg_dump` quotidien chiffré par age et vzdump hebdomadaire du LXC vers `pve-nipogi` (remplace PBS et la copie hors site, reportés en V1.1). La clé maîtresse est gardée dans Vaultwarden, jamais dans une sauvegarde. Une restauration complète est testée avant la mise en production ; le test mensuel passe en V1.1.
+- **Limites** (AD-18) : plus de quotas par compte (rushes, stockage, séances). Restent les bornes techniques : durée maximale d'une capture, taille d'un rendu, quotas des réseaux lus avant publication, unicité d'une publication par compte et par vidéo.
+- **Chaîne de livraison** (AD-19) : le dépôt public reste sur GitHub ; le Forgejo existant (CT 130 de `pve-media`) le reflète et fait tourner Forgejo Actions avec un runner dédié ; les images sont construites par la CI et épinglées par empreinte. Le LXC `regie-recette` passe en V1.1 ; la recette de la V1 se fait sur le compte Instagram de test.
+- **Exposition** (AD-20) : Caddy (`proxy-tls`) est retiré. Le nginx existant (CT 101) sert `regie.etablia.fr` avec un certificat Let's Encrypt et relaie vers le LXC `regie` sur le réseau local ; il applique les en-têtes de sécurité et les limites de débit, et ne journalise pas les chaînes de requête. `/sante` est conservé ; la sonde Uptime Kuma passe en V1.1.
+- **Pipeline** (AD-21) : en V1, la recette « démo d'app » enchaîne `capture` → `voix` → montage créé par le cœur → `rendu`. Les sous-titres sont tirés du texte de la voix, sans transcription. Le graphe des rushes (`analyse_media`, `transcription`, `langage`) arrive en V1.1.
+- **Éditeur complet** (AD-5, AD-13, FR-73) : chaque édition crée une nouvelle version immuable du montage JSON ; l'aperçu reste dans le navigateur et le rendu fait foi. Chaque commande de l'éditeur a son outil MCP (AD-1).
+
+### Ordre de mise en œuvre de la V1 (remplace la section plus bas)
+
+1. **Infrastructure** (avec le feu vert de Benjamin à chaque action) : Authentik (CT 115) repassé sur le plan 192.168.20.x et relancé, application OIDC « regie » ; LXC `regie` sur `pve-media` et accès à l'Arc ; nginx et certificat pour `regie.etablia.fr` ; runner Forgejo et miroir GitHub.
+2. **Socle** : contrats, migrations (tables, rôles, RLS, fonctions de file), `env.ts`, clé et coffre ; connexion OIDC, sessions, audit ; façades vides et test de parité.
+3. **File** : application des résultats, planificateur et échéances, SSE.
+4. **Capture** : proxy filtrant, conteneurs jetables, scripts déclaratifs, exploration pour Claude, jeu filmé et journal des clics.
+5. **Rendu et éditeur** : moteur vidéo porté, gabarit Établia, voix, gardes, éditeur par scènes, aperçu.
+6. **Publication** : bibliothèque, compte Instagram et clés dans Paramètres, publication, programmation, « rejouer ».
+7. **MCP complet** : un outil par action, référence générée.
+8. **Production** : sauvegardes, restauration testée, recette sur le compte Instagram de test, première vraie vidéo Établia.
+
 
 ## Paradigme
 

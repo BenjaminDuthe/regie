@@ -3,7 +3,7 @@ title: Réconciliation du nouveau PRD regie avec l'ancien PRD, le mandat et la r
 created: 2026-10-02
 etape: bmad-prd — Input reconciliation
 sources:
-  - docs/planning/prds/prd-regie-2026-10-02/reconcile-ancien-prd.md (classement des 86 exigences de docs/planning/prd.md)
+  - docs/planning/prds/prd-regie-2026-10-02/reconcile-ancien-prd.md (classement des 86 exigences de docs/planning/archive/2026-09/prd.md)
   - MANDAT.md (la section « Arbitrages du design thinking et de la révision du PRD » prime sur « Réorientation »)
   - docs/planning/prds/prd-regie-2026-10-02/research-concurrence.md
 cible: docs/planning/prds/prd-regie-2026-10-02/prd.md (FR-1 à FR-53, NFR-1 à NFR-31)

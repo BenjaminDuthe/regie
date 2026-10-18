@@ -1,8 +1,8 @@
 ---
 stepsCompleted: ['step-01-init', 'step-02-context', 'step-03-starter', 'step-04-decisions', 'step-05-patterns', 'step-06-structure']
 inputDocuments:
-  - 'docs/planning/prd.md'
-  - 'docs/planning/prd-validation-report.md'
+  - 'docs/planning/archive/2026-09/prd.md'
+  - 'docs/planning/archive/2026-09/prd-validation-report.md'
   - 'MANDAT.md'
   - 'maquette/public/*.html (maquette UX validée le 2026-09-08)'
   - 'saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs'

@@ -2,8 +2,8 @@
 title: Réconciliation de l'ancien PRD regie avec la réorientation du 2026-10-02
 created: 2026-10-02
 sources:
-  - docs/planning/prd.md (ancien PRD, 2026-09-05, 49 FR, 37 NFR)
-  - docs/planning/prd-validation-report.md (statut Critical, note 4/5)
+  - docs/planning/archive/2026-09/prd.md (ancien PRD, 2026-09-05, 49 FR, 37 NFR)
+  - docs/planning/archive/2026-09/prd-validation-report.md (statut Critical, note 4/5)
   - MANDAT.md, section « Réorientation du 2026-10-02 » et sous-sections
   - docs/planning/design-thinking-2026-10-02.md
 cible: docs/planning/prds/prd-regie-2026-10-02/prd.md
