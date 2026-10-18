@@ -290,6 +290,11 @@ INTERNAL_TOKEN = ${jeton_interne}
 EOF
     unset cle_secrete jeton_interne
   fi
+  # Un app.ini antérieur non verrouillé rouvrirait la page d'installation au redémarrage : on s'arrête.
+  if ! grep -qE '^[[:space:]]*INSTALL_LOCK[[:space:]]*=[[:space:]]*true[[:space:]]*$' /etc/forgejo/app.ini; then
+    systemctl stop forgejo 2>/dev/null || true
+    mourir "/etc/forgejo/app.ini n'a pas INSTALL_LOCK = true : Forgejo est arrêté. Si aucun compte n'existe encore, supprime app.ini et relance ; sinon passe INSTALL_LOCK à true (avec SECRET_KEY et INTERNAL_TOKEN renseignés) puis relance."
+  fi
   chown root:"$UTILISATEUR_FORGEJO" /etc/forgejo/app.ini
   chmod 0660 /etc/forgejo/app.ini
 
