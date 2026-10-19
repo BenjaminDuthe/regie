@@ -47,6 +47,12 @@ Ces étapes passent par l'interface et manipulent des secrets. Claude ne les fai
 
 L'émetteur à donner au cœur sera `https://auth.sitecraft-it.com/application/o/regie/` (histoire 1.14).
 
-## Point ouvert : se connecter hors du réseau local
+## Ouverture au public (décidée le 2026-10-19, pas encore faite)
 
-`auth.sitecraft-it.com` n'accepte que `127.0.0.1`, `192.168.1.0/24` et `192.168.20.0/24` (`deny all` pour le reste). La connexion OIDC passe par le navigateur. Depuis Internet, ou par WireGuard (`10.10.0.0/24`), la page de connexion répondra donc 403 et regie ne sera pas utilisable « de partout ». La décision est à prendre avant l'histoire 1.14 : ouvrir le site au public, derrière CrowdSec et le second facteur, ou n'ajouter que le réseau WireGuard.
+Benjamin a choisi d'ouvrir `auth.sitecraft-it.com` au public, derrière CrowdSec et le second facteur. Le trafic public arrive par le tunnel Cloudflare (`cloudflared` → `localhost:80`), sur le bloc `listen 80` du site. Ce bloc ne laisse passer que `127.0.0.1`, `192.168.1.0/24` et `192.168.20.0/24`.
+
+Trois préalables, dans cet ordre :
+
+1. **Le bouncer nginx de CrowdSec ne bloque rien aujourd'hui.** Au démarrage, il charge la liste complète des décisions (environ 17 000, 2,2 Mo, 0,7 s). Cette version applique `REQUEST_TIMEOUT=500` (ms) à ce chargement (`/usr/lib/crowdsec/lua/crowdsec.lua`, appel à `stream_query_api`) : le chargement échoue toutes les 10 s et le cache reste vide. Le bouncer de pare-feu ne voit que `cloudflared` et ne peut donc rien contre le trafic du tunnel. Correctif : passer `REQUEST_TIMEOUT=10000` dans `/etc/crowdsec/bouncers/crowdsec-nginx-bouncer.conf` (en mode `stream`, ce délai ne sert qu'au chargement de la liste), puis `nginx -t && systemctl reload nginx`. Vérifier ensuite que `stream_query_api … timeout` disparaît d'`error.log`.
+2. **Second facteur exigé** dans Authentik (étape 1 de la section précédente), vérifié par une connexion de test.
+3. **Bloc `listen 80`** : retirer `allow`/`deny`, ajouter les protections du bloc 443 (`limit_req zone=global`, `limit_conn`, `security-headers.conf`, `limit_req zone=auth` sur les flux d'authentification). Ensuite, contrôler qu'une décision CrowdSec de test bloque bien une adresse.
