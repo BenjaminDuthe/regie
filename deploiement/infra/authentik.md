@@ -47,12 +47,18 @@ Ces étapes passent par l'interface et manipulent des secrets. Claude ne les fai
 
 L'émetteur à donner au cœur sera `https://auth.sitecraft-it.com/application/o/regie/` (histoire 1.14).
 
-## Ouverture au public (décidée le 2026-10-19, pas encore faite)
+## Ouverture au public (faite le 2026-10-19)
 
-Benjamin a choisi d'ouvrir `auth.sitecraft-it.com` au public, derrière CrowdSec et le second facteur. Le trafic public arrive par le tunnel Cloudflare (`cloudflared` → `localhost:80`), sur le bloc `listen 80` du site. Ce bloc ne laisse passer que `127.0.0.1`, `192.168.1.0/24` et `192.168.20.0/24`.
+Benjamin a choisi d'ouvrir `auth.sitecraft-it.com` au public, derrière CrowdSec et le second facteur. Le trafic public arrive par le tunnel Cloudflare, sur le bloc HTTP du site dans le CT 101.
 
-Trois préalables, dans cet ordre :
+Ce qui a été fait dans le CT 101 :
 
-1. **Le bouncer nginx de CrowdSec ne bloque rien aujourd'hui.** Au démarrage, il charge la liste complète des décisions (environ 17 000, 2,2 Mo, 0,7 s). Cette version applique `REQUEST_TIMEOUT=500` (ms) à ce chargement (`/usr/lib/crowdsec/lua/crowdsec.lua`, appel à `stream_query_api`) : le chargement échoue toutes les 10 s et le cache reste vide. Le bouncer de pare-feu ne voit que `cloudflared` et ne peut donc rien contre le trafic du tunnel. Correctif : passer `REQUEST_TIMEOUT=10000` dans `/etc/crowdsec/bouncers/crowdsec-nginx-bouncer.conf` (en mode `stream`, ce délai ne sert qu'au chargement de la liste), puis `nginx -t && systemctl reload nginx`. Vérifier ensuite que `stream_query_api … timeout` disparaît d'`error.log`.
-2. **Second facteur exigé** dans Authentik (étape 1 de la section précédente), vérifié par une connexion de test.
-3. **Bloc `listen 80`** : retirer `allow`/`deny`, ajouter les protections du bloc 443 (`limit_req zone=global`, `limit_conn`, `security-headers.conf`, `limit_req zone=auth` sur les flux d'authentification). Ensuite, contrôler qu'une décision CrowdSec de test bloque bien une adresse.
+1. **Bouncer nginx de CrowdSec réparé.** Son délai d'attente était trop court pour charger la liste des décisions : le cache restait vide et rien n'était bloqué. Le délai a été allongé.
+2. **Bloc du tunnel.** nginx retrouve l'adresse réelle du visiteur, transmise par Cloudflare. Le bloc reprend les protections du bloc HTTPS : en-têtes de sécurité, limites de débit et de connexions, limite renforcée sur les flux d'authentification.
+3. **Contrôle.** Une adresse bannie par une décision de test reçoit 403, les autres 200. Depuis Internet, le site répond 200 avec HSTS.
+
+Les fichiers d'origine sont copiés dans le CT 101 (suffixe `.avant-regie-2026-10-19` ou `.avant-ouverture-2026-10-19`) pour revenir en arrière.
+
+**Reste à faire par Benjamin : exiger le second facteur** (étape 1 de la section précédente). Tant que ce n'est pas fait, un mot de passe suffit pour entrer.
+
+D'autres sites servis par le CT 101 sont touchés par le même problème d'adresse réelle. Leur cas est suivi hors de ce dépôt.
