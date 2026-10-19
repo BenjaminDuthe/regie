@@ -5,7 +5,8 @@
       "name": "maquette-regie",
       "runtimeExecutable": "node",
       "runtimeArgs": ["maquette/serveur.mjs"],
-      "port": 4310
+      "port": 4310,
+      "autoPort": true
     }
   ]
 }

@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Relire — regie (maquette)</title>
+<style>
+/* regie — maquette du fil de relecture (lot 10). Données d'exemple, aucun appel réseau. */
+:root {
+  --noir: #000;
+  --fond: #0c0c0d;
+  --surface: #17171a;
+  --surface-2: #222226;
+  --trait: #34343a;
+  --texte: #f4f3f0;
+  --doux: #b3b1aa;
+  --garder: #3ddc84;
+  --garder-fond: rgba(61, 220, 132, .16);
+  --jeter: #ff6b5e;
+  --jeter-fond: rgba(255, 107, 94, .16);
+  --doute: #ffc94d;
+  --doute-fond: rgba(255, 201, 77, .14);
+  --accent: #ff8fb1;
+  --rayon: 14px;
+  --focus: 0 0 0 3px #fff, 0 0 0 5px #3b82f6;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--noir);
+  color: var(--texte);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+button:focus-visible, textarea:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 10px; }
+.visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Ossature ---------- */
+.ecran { position: fixed; inset: 0; display: flex; justify-content: center; align-items: stretch; }
+.scene {
+  position: relative;
+  height: 100dvh;
+  width: min(100vw, calc(100dvh * 9 / 16));
+  transition: transform .35s cubic-bezier(.2,.8,.2,1);
+  transform-origin: 50% 0;
+}
+.badge-maquette {
+  position: fixed; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  z-index: 50; font-size: 11px; letter-spacing: .02em; color: #d9d7d0;
+  background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.18); border-radius: 99px; padding: 3px 10px;
+  pointer-events: none; white-space: nowrap;
+}
+
+/* ---------- Carte vidéo (glissable) ---------- */
+.carte-video {
+  position: absolute; inset: 0; overflow: hidden; border-radius: 0;
+  background: #111; touch-action: pan-y; user-select: none; -webkit-user-select: none;
+  will-change: transform;
+}
+@media (min-width: 700px) { .carte-video { border-radius: 18px; inset: 10px 0; } }
+.image {
+  position: absolute; inset: -6%;
+  animation: lent 14s ease-in-out infinite alternate;
+}
+@keyframes lent { from { transform: scale(1) translate(0,0); } to { transform: scale(1.08) translate(-2%, -1.5%); } }
+@media (prefers-reduced-motion: reduce) { .image { animation: none; } .scene { transition: none; } }
+.image .tete { position: absolute; left: 50%; top: 30%; width: 46%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; filter: blur(2px); opacity: .9; }
+.image .buste { position: absolute; left: 50%; top: 52%; width: 86%; height: 60%; transform: translateX(-50%); border-radius: 46% 46% 0 0; opacity: .85; }
+.image .flacon { position: absolute; width: 13%; height: 22%; border-radius: 10px 10px 6px 6px; bottom: 18%; opacity: .95; box-shadow: inset -6px 0 0 rgba(0,0,0,.12); }
+.voile { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.45) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 55%, rgba(0,0,0,.65) 100%); }
+
+/* Surimpressions du montage */
+.accroche {
+  position: absolute; left: 7%; right: 7%; top: 17%;
+  font-weight: 800; font-size: clamp(20px, 6.4vw, 30px); line-height: 1.12; text-align: center;
+  color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.5);
+  transition: opacity .25s, transform .25s;
+}
+.accroche span { background: var(--accent); color: #1a0a10; padding: .05em .3em; border-radius: 6px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.accroche.cachee { opacity: 0; transform: translateY(-8px); }
+.texte-ecran {
+  position: absolute; left: 7%; top: 27%; max-width: 70%;
+  font-weight: 700; font-size: clamp(14px, 4.2vw, 18px); color: #fff;
+  background: rgba(0,0,0,.45); border-left: 4px solid var(--accent); padding: 6px 10px; border-radius: 6px;
+  transition: opacity .25s;
+}
+.texte-ecran.cachee { opacity: 0; }
+.sous-titres {
+  position: absolute; left: 16px; right: 68px; top: 60%;
+  text-align: center; font-weight: 800; font-size: clamp(19px, 6vw, 27px); line-height: 1.18;
+  color: #fff; text-shadow: 0 2px 0 #000, 0 0 10px rgba(0,0,0,.6); text-transform: none;
+  min-height: 2.4em;
+}
+.sous-titres .mot { opacity: .55; transition: opacity .1s; }
+.sous-titres .mot.dit { opacity: 1; }
+.sous-titres .mot.courant { color: var(--accent); opacity: 1; }
+.signature { position: absolute; left: 16px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 118px); font-size: 12px; font-weight: 700; color: rgba(255,255,255,.85); letter-spacing: .04em; }
+
+/* Étiquettes de glissement */
+.tampon {
+  position: absolute; top: 40%; padding: 8px 16px; border: 3px solid; border-radius: 12px;
+  font-weight: 900; font-size: 26px; letter-spacing: .06em; text-transform: uppercase; opacity: 0;
+  pointer-events: none;
+}
+.tampon.garder { left: 8%; color: var(--garder); transform: rotate(-12deg); background: rgba(0,0,0,.35); }
+.tampon.jeter { right: 8%; color: var(--jeter); transform: rotate(12deg); background: rgba(0,0,0,.35); }
+
+/* ---------- Haut : série ---------- */
+.haut {
+  position: absolute; left: 0; right: 0; top: 0; padding: max(34px, calc(env(safe-area-inset-top) + 26px)) 12px 0;
+  z-index: 5;
+}
+.segments { display: flex; gap: 4px; }
+.segments i { flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.28); overflow: hidden; position: relative; }
+.segments i b { position: absolute; inset: 0; width: 0; background: #fff; }
+.segments i.garde b { background: var(--garder); width: 100%; }
+.segments i.jete b { background: var(--jeter); width: 100%; }
+.ligne-titre { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.ligne-titre .titres { flex: 1; min-width: 0; }
+.ligne-titre .numero { font-size: 12px; color: var(--doux); }
+.ligne-titre h1 { margin: 0; font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bouton-rond {
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.18);
+}
+.bouton-rond svg { width: 20px; height: 20px; }
+.etat-apercu {
+  position: absolute; left: 50%; top: calc(max(34px, calc(env(safe-area-inset-top) + 26px)) + 64px); transform: translateX(-50%);
+  z-index: 6; font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 99px;
+  background: rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.2); display: none; align-items: center; gap: 7px; white-space: nowrap;
+}
+.etat-apercu.visible { display: inline-flex; }
+.etat-apercu .rond { width: 9px; height: 9px; border-radius: 50%; border: 2px solid #fff; border-top-color: transparent; animation: tourne .7s linear infinite; }
+.etat-apercu.pret .rond { animation: none; border-color: var(--garder); background: var(--garder); }
+@keyframes tourne { to { transform: rotate(360deg); } }
+
+/* ---------- Rail d'outils ---------- */
+.rail {
+  position: absolute; right: 8px; bottom: 21%; z-index: 5;
+  display: flex; flex-direction: column; gap: 14px; align-items: center;
+}
+.outil { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; text-shadow: 0 1px 3px #000; }
+.outil .icone { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: rgba(0,0,0,.42); border: 1px solid rgba(255,255,255,.2); position: relative; }
+.outil .icone svg { width: 22px; height: 22px; }
+.outil .pastille { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--doute); color: #1d1500; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+
+/* ---------- Bas : progression + décisions ---------- */
+.bas { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; padding: 0 12px max(12px, env(safe-area-inset-bottom)); }
+.progression { height: 3px; background: rgba(255,255,255,.25); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+.progression b { display: block; height: 100%; width: 0; background: #fff; }
+.temps { display: flex; justify-content: space-between; font-size: 11px; color: var(--doux); margin: -6px 0 8px; font-variant-numeric: tabular-nums; }
+.decisions { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; }
+.decision {
+  height: 50px; border-radius: 25px; font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1.5px solid;
+}
+.decision svg { width: 20px; height: 20px; }
+.decision.jeter { color: var(--jeter); border-color: rgba(255,107,94,.6); background: rgba(0,0,0,.45); }
+.decision.garder { color: #06240f; background: var(--garder); border-color: var(--garder); }
+.lecture { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); }
+.lecture svg { width: 20px; height: 20px; }
+.aide-geste { text-align: center; font-size: 11px; color: var(--doux); margin-top: 7px; }
+
+/* ---------- Feuilles (corriger, variantes, légende) ---------- */
+.feuille {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  height: 62dvh; background: var(--surface); border-radius: 20px 20px 0 0; border-top: 1px solid var(--trait);
+  display: flex; flex-direction: column; transform: translateY(105%); transition: transform .32s cubic-bezier(.2,.8,.2,1);
+  box-shadow: 0 -12px 40px rgba(0,0,0,.5);
+}
+.feuille.ouverte { transform: none; }
+.feuille[hidden] { display: flex; visibility: hidden; }
+.feuille.ouverte[hidden] { visibility: visible; }
+.feuille .poignee { width: 38px; height: 4px; border-radius: 2px; background: #55555c; margin: 8px auto 0; }
+.feuille header { display: flex; align-items: center; gap: 10px; padding: 8px 16px 10px; border-bottom: 1px solid var(--trait); }
+.feuille header h2 { margin: 0; font-size: 16px; flex: 1; }
+.feuille header .fermer { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); }
+.feuille header .fermer svg { width: 18px; height: 18px; }
+.feuille .contenu { flex: 1; overflow-y: auto; padding: 14px 16px 22px; -webkit-overflow-scrolling: touch; }
+.feuille .pied { padding: 10px 16px max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--trait); }
+body.feuille-ouverte .scene { transform: translateY(0) scale(.38); }
+@media (min-width: 900px) {
+  .feuille { left: auto; top: 0; width: 420px; height: 100dvh; border-radius: 0; border-top: 0; border-left: 1px solid var(--trait); transform: translateX(105%); }
+  .feuille.ouverte { transform: none; }
+  body.feuille-ouverte .scene { transform: translateX(-210px); }
+}
+.section-titre { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--doux); margin: 18px 0 8px; font-weight: 700; }
+.section-titre:first-child { margin-top: 0; }
+.note { font-size: 12.5px; color: var(--doux); }
+
+/* Zones douteuses */
+.doute {
+  border: 1px solid rgba(255,201,77,.45); background: var(--doute-fond); border-radius: 12px; padding: 11px 12px; margin-bottom: 8px;
+}
+.doute .type { font-size: 11px; font-weight: 800; color: var(--doute); text-transform: uppercase; letter-spacing: .05em; }
+.doute p { margin: 4px 0 9px; }
+.doute .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.doute.reglee { opacity: .55; border-style: dashed; }
+.doute.reglee .actions { display: none; }
+.petit-bouton { padding: 8px 12px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--trait); font-weight: 650; font-size: 13px; }
+.petit-bouton.plein { background: var(--texte); color: #111; border-color: var(--texte); }
+
+/* Transcription */
+.phrase {
+  display: block; width: 100%; text-align: left; padding: 9px 10px 9px 34px; border-radius: 10px; margin-bottom: 4px; position: relative; line-height: 1.5;
+}
+.phrase:hover { background: var(--surface-2); }
+.phrase .coche { position: absolute; left: 9px; top: 11px; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid #6d6d75; display: grid; place-items: center; }
+.phrase.barree .texte { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--jeter); color: #8d8b85; }
+.phrase.barree .coche { border-color: var(--jeter); background: var(--jeter-fond); }
+.phrase.barree .coche::after { content: ""; width: 9px; height: 2px; background: var(--jeter); }
+.phrase .duree { font-size: 11px; color: #85837c; margin-left: 6px; font-variant-numeric: tabular-nums; }
+.phrase.eclair { animation: eclair 1.4s ease-out; }
+@keyframes eclair { 0% { background: rgba(255,143,177,.35); } 100% { background: transparent; } }
+.mot-douteux { border-bottom: 2px dotted var(--doute); color: var(--doute); }
+.edition-mot { display: flex; gap: 8px; margin: 6px 0 10px 34px; }
+.edition-mot input { flex: 1; min-width: 0; background: var(--fond); color: var(--texte); border: 1px solid var(--trait); border-radius: 10px; padding: 9px 11px; font: inherit; }
+.limite-purge { font-size: 12px; color: var(--doux); margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--trait); }
+
+/* Dictée */
+.dictee { display: flex; align-items: center; gap: 12px; }
+.micro {
+  flex: none; width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #1a0a10;
+}
+.micro svg { width: 24px; height: 24px; }
+.micro.ecoute { animation: pouls 1s ease-in-out infinite; }
+@keyframes pouls { 50% { box-shadow: 0 0 0 10px rgba(255,143,177,.25); } }
+.dictee .consigne { flex: 1; font-size: 13.5px; color: var(--doux); min-height: 2.6em; display: flex; align-items: center; }
+.dictee .consigne q { color: var(--texte); font-weight: 650; }
+.ondes { display: inline-flex; gap: 3px; align-items: center; height: 20px; margin-right: 8px; }
+.ondes i { width: 3px; background: var(--accent); border-radius: 2px; animation: onde .8s ease-in-out infinite; }
+.ondes i:nth-child(2) { animation-delay: .1s; } .ondes i:nth-child(3) { animation-delay: .2s; } .ondes i:nth-child(4) { animation-delay: .3s; }
+@keyframes onde { 0%, 100% { height: 5px; } 50% { height: 18px; } }
+
+/* Variantes */
+.onglets { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.onglet { padding: 8px 13px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--trait); font-weight: 650; font-size: 13.5px; white-space: nowrap; }
+.onglet[aria-selected="true"] { background: var(--texte); color: #111; border-color: var(--texte); }
+.choix { display: grid; gap: 8px; margin-top: 14px; }
+.option {
+  display: flex; gap: 12px; align-items: center; text-align: left; padding: 11px 12px; border-radius: 12px; border: 1.5px solid var(--trait); background: var(--fond); width: 100%;
+}
+.option[aria-checked="true"] { border-color: var(--accent); background: rgba(255,143,177,.08); }
+.option .rond-choix { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #6d6d75; display: grid; place-items: center; }
+.option[aria-checked="true"] .rond-choix { border-color: var(--accent); }
+.option[aria-checked="true"] .rond-choix::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.option .corps { flex: 1; min-width: 0; }
+.option .principal { font-weight: 700; }
+.option .secondaire { font-size: 12.5px; color: var(--doux); }
+.vignettes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.vignette { aspect-ratio: 9/16; border-radius: 10px; overflow: hidden; position: relative; border: 2px solid transparent; }
+.vignette[aria-checked="true"] { border-color: var(--accent); }
+.vignette .fond-v { position: absolute; inset: 0; }
+.vignette span { position: absolute; left: 6px; right: 6px; bottom: 10%; font-size: 11px; font-weight: 800; line-height: 1.15; text-shadow: 0 1px 4px #000; }
+.vignette .marque-choix { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #1a0a10; display: none; place-items: center; font-size: 12px; font-weight: 900; }
+.vignette[aria-checked="true"] .marque-choix { display: grid; }
+
+/* Légende */
+.reseaux { display: flex; gap: 6px; }
+textarea {
+  width: 100%; min-height: 120px; resize: vertical; background: var(--fond); color: var(--texte); border: 1px solid var(--trait); border-radius: 12px; padding: 11px 12px; font: inherit; line-height: 1.45;
+}
+.compteur { display: flex; justify-content: space-between; font-size: 12px; color: var(--doux); margin-top: 6px; }
+.hashtags { display: flex; flex-wrap: wrap; gap: 6px; }
+.hashtag { display: inline-flex; align-items: center; gap: 4px; padding: 6px 6px 6px 11px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--trait); font-size: 13.5px; }
+.hashtag button { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: var(--doux); }
+.ajout-hashtag { display: flex; gap: 8px; margin-top: 10px; }
+.ajout-hashtag input { flex: 1; min-width: 0; background: var(--fond); color: var(--texte); border: 1px solid var(--trait); border-radius: 10px; padding: 9px 11px; font: inherit; }
+.garde {
+  margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--jeter-fond); border: 1px solid rgba(255,107,94,.5); font-size: 13px; display: none;
+}
+.garde.visible { display: block; }
+.garde b { color: var(--jeter); }
+
+/* ---------- Toast et fin de série ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 120px); transform: translate(-50%, 20px);
+  z-index: 40; background: #f4f3f0; color: #141414; border-radius: 12px; padding: 10px 10px 10px 14px; display: flex; gap: 14px; align-items: center;
+  font-weight: 650; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100vw - 32px);
+}
+.toast span { white-space: nowrap; }
+body.feuille-ouverte .toast { top: calc(38dvh + 12px); bottom: auto; }
+@media (min-width: 900px) { body.feuille-ouverte .toast { top: auto; bottom: 24px; left: calc(50% - 210px); } }
+#zoneDoutes { margin-top: 18px; }
+.toast.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast button { font-weight: 800; color: #b3123d; padding: 6px 8px; }
+.fin {
+  position: absolute; inset: 0; z-index: 8; display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 10px;
+  padding: 24px; background: radial-gradient(circle at 50% 30%, #2a1620, #0c0c0d 70%);
+}
+.fin.visible { display: flex; }
+.fin h2 { margin: 0; font-size: 24px; }
+.fin .bilan { display: flex; gap: 10px; margin: 6px 0 4px; }
+.fin .bilan span { padding: 6px 12px; border-radius: 99px; font-weight: 750; font-size: 14px; }
+.fin .bilan .g { background: var(--garder-fond); color: var(--garder); }
+.fin .bilan .j { background: var(--jeter-fond); color: var(--jeter); }
+.fin p { margin: 0; color: var(--doux); max-width: 30ch; }
+.fin .actions-fin { display: grid; gap: 8px; width: min(100%, 300px); margin-top: 10px; }
+.fin .actions-fin button { height: 48px; border-radius: 24px; font-weight: 750; }
+.fin .actions-fin .principal { background: var(--texte); color: #111; }
+.fin .actions-fin .secondaire { border: 1px solid var(--trait); }
+</style>
+</head>
+<body>
+<div class="badge-maquette">Maquette · données d'exemple</div>
+
+<div class="ecran">
+  <div class="scene" id="scene">
+    <div class="carte-video" id="carte" aria-roledescription="brouillon" aria-label="Brouillon en lecture">
+      <div class="image" id="image" aria-hidden="true"></div>
+      <div class="voile" aria-hidden="true"></div>
+      <div class="texte-ecran cachee" id="texteEcran" aria-hidden="true"></div>
+      <div class="accroche" id="accroche" aria-hidden="true"></div>
+      <div class="sous-titres" id="sousTitres" aria-live="off"></div>
+      <div class="signature" aria-hidden="true">@lea.skin</div>
+      <div class="tampon garder" id="tamponGarder" aria-hidden="true">Gardée</div>
+      <div class="tampon jeter" id="tamponJeter" aria-hidden="true">Jetée</div>
+    </div>
+
+    <div class="haut">
+      <div class="segments" id="segments" aria-hidden="true"></div>
+      <div class="ligne-titre">
+        <button class="bouton-rond" aria-label="Retour à mes séances">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="titres">
+          <div class="numero" id="numero">Brouillon 1 sur 3</div>
+          <h1 id="titre">…</h1>
+        </div>
+        <button class="bouton-rond" id="son" aria-label="Couper le son" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path id="sonOndes" d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="etat-apercu" id="etatApercu" role="status"><span class="rond"></span><span id="etatTexte">Mise à jour de l'aperçu…</span></div>
+
+    <div class="rail" aria-label="Outils de correction">
+      <button class="outil" data-ouvre="corriger" aria-label="Corriger par le texte ou à la voix">
+        <span class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/><path d="M15 19l5-5-2-2-5 5v2h2z"/></svg><span class="pastille" id="pastilleDoutes">2</span></span>
+        Corriger
+      </button>
+      <button class="outil" data-ouvre="corriger" data-dicter="1" aria-label="Dicter une correction">
+        <span class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></span>
+        Dicter
+      </button>
+      <button class="outil" data-ouvre="variantes" aria-label="Choisir une variante">
+        <span class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="16" rx="2"/><rect x="14" y="4" width="7" height="16" rx="2"/></svg></span>
+        Variantes
+      </button>
+      <button class="outil" data-ouvre="legende" aria-label="Lire et corriger la légende">
+        <span class="icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14M5 15h14M10 3L8 21M16 3l-2 18"/></svg></span>
+        Légende
+      </button>
+    </div>
+
+    <div class="bas">
+      <div class="progression" aria-hidden="true"><b id="barre"></b></div>
+      <div class="temps"><span id="tempsCourant">0:00</span><span id="tempsTotal">0:00</span></div>
+      <div class="decisions">
+        <button class="decision jeter" id="btnJeter" aria-label="Jeter ce brouillon (flèche gauche)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>Jeter
+        </button>
+        <button class="lecture" id="btnLecture" aria-label="Mettre en pause (espace)">
+          <svg id="icoLecture" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        </button>
+        <button class="decision garder" id="btnGarder" aria-label="Garder ce brouillon (flèche droite)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L19 7"/></svg>Garder
+        </button>
+      </div>
+      <div class="aide-geste">Glisse à droite pour garder, à gauche pour jeter</div>
+    </div>
+
+    <div class="fin" id="fin" role="region" aria-label="Fin de la série">
+      <h2>Série relue</h2>
+      <div class="bilan"><span class="g" id="bilanG">2 gardées</span><span class="j" id="bilanJ">1 jetée</span></div>
+      <p id="finTexte">Tes vidéos gardées seront prêtes vers 18&nbsp;h&nbsp;40. On te prévient.</p>
+      <div class="actions-fin">
+        <button class="principal" id="btnRevoir">Revoir la série</button>
+        <button class="secondaire">Retour à mes séances</button>
+      </div>
+      <p class="note" style="margin-top:8px">Les brouillons jetés se récupèrent jusqu'au 1er décembre.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Feuille : corriger -->
+<section class="feuille" id="feuille-corriger" role="dialog" aria-modal="false" aria-labelledby="t-corriger" hidden>
+  <div class="poignee" aria-hidden="true"></div>
+  <header><h2 id="t-corriger">Corriger</h2><button class="fermer" data-ferme aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <div class="contenu">
+    <div class="dictee">
+      <button class="micro" id="micro" aria-label="Dicter une correction" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>
+      </button>
+      <div class="consigne" id="consigne" aria-live="polite">Dis par exemple « coupe la deuxième phrase » ou « raccourcis l'intro ».</div>
+    </div>
+    <div id="zoneDoutes"></div>
+    <div class="section-titre">Ce que tu dis</div>
+    <p class="note" style="margin:-2px 0 8px">Touche une phrase pour la couper de la vidéo ; touche-la de nouveau pour la remettre.</p>
+    <div id="transcription"></div>
+    <div class="limite-purge">Corrections possibles jusqu'au 1er décembre, date d'effacement des rushes de cette séance.</div>
+  </div>
+</section>
+
+<!-- Feuille : variantes -->
+<section class="feuille" id="feuille-variantes" role="dialog" aria-modal="false" aria-labelledby="t-variantes" hidden>
+  <div class="poignee" aria-hidden="true"></div>
+  <header><h2 id="t-variantes">Variantes</h2><button class="fermer" data-ferme aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <div class="contenu">
+    <div class="onglets" role="tablist" aria-label="Élément à changer" id="onglets"></div>
+    <div id="panneauVariantes" role="tabpanel"></div>
+  </div>
+</section>
+
+<!-- Feuille : légende -->
+<section class="feuille" id="feuille-legende" role="dialog" aria-modal="false" aria-labelledby="t-legende" hidden>
+  <div class="poignee" aria-hidden="true"></div>
+  <header><h2 id="t-legende">Légende et hashtags</h2><button class="fermer" data-ferme aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <div class="contenu">
+    <div class="section-titre">Pour</div>
+    <div class="reseaux" role="radiogroup" aria-label="Réseau visé" id="reseaux"></div>
+    <div class="section-titre">Légende</div>
+    <label class="visuellement-cache" for="legende">Légende</label>
+    <textarea id="legende"></textarea>
+    <div class="compteur"><span>Proposée d'après ton gabarit et ce que tu dis</span><span id="compteLegende">0</span></div>
+    <div class="section-titre">Hashtags</div>
+    <div class="hashtags" id="hashtags"></div>
+    <form class="ajout-hashtag" id="formHashtag">
+      <label class="visuellement-cache" for="nouveauHashtag">Ajouter un hashtag</label>
+      <input id="nouveauHashtag" placeholder="#ajouter" autocomplete="off">
+      <button class="petit-bouton" type="submit">Ajouter</button>
+    </form>
+    <div class="garde" id="gardeHashtags" role="alert"></div>
+  </div>
+</section>
+
+<div class="toast" id="toast" role="status"><span id="toastTexte"></span><button id="toastAnnuler">Annuler</button></div>
+
+<script>
+/* ---------- Données d'exemple ---------- */
+const BROUILLONS = [
+  {
+    titre: 'La routine du soir en 3 gestes',
+    couleurs: ['#3b2a35', '#d8a59a', '#7a4e5c', '#f2d7c9'],
+    texteEcran: 'Geste 1 · démaquiller',
+    accroches: ['Ta peau te dira merci demain matin', '3 gestes, 4 minutes, zéro excuse', 'Arrête de te coucher maquillée'],
+    musiques: [
+      { nom: 'Velours', artiste: 'Lumen', licence: 'CC BY 4.0', ambiance: 'douce, 92 bpm' },
+      { nom: 'Nuit claire', artiste: 'Ondine Field', licence: 'CC0', ambiance: 'calme, 80 bpm' },
+      { nom: 'Rituel', artiste: 'Atelier Sud', licence: 'CC BY 4.0', ambiance: 'pop légère, 104 bpm' },
+    ],
+    phrases: [
+      { t: "Le soir, j'ai trois gestes que je ne saute jamais." },
+      { t: "Un, je démaquille avec une huile, même sans maquillage." },
+      { t: "Euh, attends, je recommence.", coupeeParRegie: true, doute: 'coupe' },
+      { t: "Deux, un sérum à la niacinamide sur peau encore humide.", motDouteux: { mot: 'niacinamide', propositions: ['niacinamide', 'niacine amide'] } },
+      { t: "Trois, une crème riche, et je n'oublie pas le cou." },
+      { t: "Et le samedi, j'ajoute un masque.", doute: 'frontiere' },
+    ],
+    legende: "Ma routine du soir en 3 gestes, testée et approuvée ✨ Tu fais lequel ?",
+    hashtags: ['#skincare', '#routinedusoir', '#peausensible', '#soinvisage'],
+    prises: null,
+  },
+  {
+    titre: 'Le sérum que je ne lâche plus',
+    couleurs: ['#1f3340', '#9cc5c8', '#3e6a73', '#e4f0ee'],
+    texteEcran: 'Sérum hydratant',
+    accroches: ['Le seul sérum que je rachète', 'Ce sérum a sauvé ma peau en hiver', 'Pas sponsorisé, juste addict'],
+    musiques: [
+      { nom: 'Glace pilée', artiste: 'Lumen', licence: 'CC BY 4.0', ambiance: 'fraîche, 98 bpm' },
+      { nom: 'Matin bleu', artiste: 'Ondine Field', licence: 'CC0', ambiance: 'aérienne, 86 bpm' },
+      { nom: 'Pétillant', artiste: 'Atelier Sud', licence: 'CC BY 4.0', ambiance: 'enjouée, 112 bpm' },
+    ],
+    phrases: [
+      { t: "Ce sérum, c'est mon troisième flacon." },
+      { t: "Il hydrate sans coller, même sous le maquillage." },
+      { t: "Je le mets matin et soir, deux gouttes suffisent." },
+      { t: "Et non, ce n'est pas un partenariat." },
+    ],
+    legende: "Mon sérum chouchou depuis un an. Pas de partenariat, juste de l'amour 💧",
+    hashtags: ['#serum', '#hydratation', '#skincareroutine'],
+    prises: [
+      { nom: 'Prise retenue', detail: 'à 4:12 · la plus nette, sans hésitation' },
+      { nom: 'Autre prise', detail: 'à 1:05 · plus spontanée, une hésitation' },
+    ],
+  },
+  {
+    titre: "L'erreur que tout le monde fait avec la crème solaire",
+    couleurs: ['#3f3218', '#f0c46a', '#8a6a2a', '#fff1cf'],
+    texteEcran: 'La bonne dose',
+    accroches: ['Tu mets sûrement trop peu de crème solaire', "L'erreur n°1 avec la crème solaire", 'Deux doigts. Pas un de moins.'],
+    musiques: [
+      { nom: 'Plein été', artiste: 'Atelier Sud', licence: 'CC BY 4.0', ambiance: 'solaire, 108 bpm' },
+      { nom: 'Sable', artiste: 'Lumen', licence: 'CC BY 4.0', ambiance: 'détendue, 90 bpm' },
+      { nom: 'Midi', artiste: 'Ondine Field', licence: 'CC0', ambiance: 'rythmée, 120 bpm' },
+    ],
+    phrases: [
+      { t: "La plupart des gens mettent trois fois trop peu de crème solaire." },
+      { t: "La bonne dose, c'est deux longueurs de doigt pour le visage." },
+      { t: "Et on en remet toutes les deux heures dehors." },
+      { t: "Même quand il fait gris." },
+    ],
+    legende: "La règle des deux doigts, tu connaissais ? ☀️",
+    hashtags: ['#cremesolaire', '#spf', '#skincaretips', '#protectionsolaire', '#ete', '#peau'],
+    prises: null,
+  },
+];
+const RESEAUX = { tiktok: { nom: 'TikTok', maxHashtags: 8, maxLegende: 2200 }, instagram: { nom: 'Instagram', maxHashtags: 5, maxLegende: 2200 } };
+const DUREE_MOT = 0.34, PAUSE = 0.35, DUREE_ACCROCHE = 2;
+
+/* ---------- État ---------- */
+const etat = {
+  index: 0, t: 0, lecture: true, son: true, decisions: [],
+  b: BROUILLONS.map(b => ({
+    accroche: 0, musique: 0, couverture: 0, prise: 0, reseau: 'tiktok',
+    barrees: new Set(b.phrases.map((p, i) => p.coupeeParRegie ? i : -1).filter(i => i >= 0)),
+    doutesRegles: new Set(), mots: {}, legende: b.legende, hashtags: [...b.hashtags],
+  })),
+};
+const $ = s => document.querySelector(s);
+const courant = () => BROUILLONS[etat.index];
+const reglages = () => etat.b[etat.index];
+const fmt = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const motsDe = (p, i) => { let t = p.t; const r = reglages().mots[i]; if (p.motDouteux && r) t = t.replace(p.motDouteux.mot, r); return t.split(' '); };
+
+/* Plan de lecture : phrases gardées, avec leurs instants */
+function plan() {
+  const r = reglages(); let t = 0; const out = [];
+  courant().phrases.forEach((p, i) => {
+    if (r.barrees.has(i)) return;
+    const mots = motsDe(p, i); const d = mots.length * DUREE_MOT + PAUSE;
+    out.push({ i, debut: t, fin: t + d, mots }); t += d;
+  });
+  return { phrases: out, total: Math.max(t, 1) };
+}
+// Durée affichée « à l'échelle » d'un vrai brouillon (≈ 10× la phrase lue ici)
+const echelle = 1.6;
+
+/* ---------- Rendu de la scène ---------- */
+function dessinerImage() {
+  const c = courant().couleurs, cv = reglages().couverture;
+  $('#image').style.background = `radial-gradient(circle at ${30 + cv * 20}% 25%, ${c[3]}55, transparent 45%), linear-gradient(160deg, ${c[0]}, ${c[2]})`;
+  $('#image').innerHTML = `<div class="buste" style="background:${c[2]}"></div><div class="tete" style="background:${c[1]}"></div>
+    <div class="flacon" style="left:12%;background:${c[3]}"></div><div class="flacon" style="left:74%;height:16%;background:${c[1]}"></div>`;
+}
+function dessinerSegments() {
+  $('#segments').innerHTML = BROUILLONS.map((_, i) => {
+    const d = etat.decisions[i]; return `<i class="${d === 'garder' ? 'garde' : d === 'jeter' ? 'jete' : ''}"><b id="seg${i}"></b></i>`;
+  }).join('');
+}
+function chargerBrouillon() {
+  const b = courant();
+  $('#numero').textContent = `Brouillon ${etat.index + 1} sur ${BROUILLONS.length}`;
+  $('#titre').textContent = b.titre;
+  $('#texteEcran').textContent = b.texteEcran;
+  $('#accroche').innerHTML = `<span>${b.accroches[reglages().accroche]}</span>`;
+  etat.t = 0; dessinerImage(); dessinerSegments(); majPastille();
+  const carte = $('#carte'); carte.style.transition = 'none'; carte.style.transform = 'translateX(0)'; carte.style.opacity = 1;
+  $('#tamponGarder').style.opacity = 0; $('#tamponJeter').style.opacity = 0;
+  if (document.body.classList.contains('feuille-ouverte')) rafraichirFeuille();
+}
+function image(dt) {
+  if (etat.fini) return;
+  const p = plan();
+  if (etat.lecture && !glisse.actif) { etat.t += dt; if (etat.t > p.total) etat.t = 0; }
+  const t = etat.t;
+  $('#accroche').classList.toggle('cachee', t > DUREE_ACCROCHE);
+  $('#texteEcran').classList.toggle('cachee', t <= DUREE_ACCROCHE + .3 || t > DUREE_ACCROCHE + 3.8);
+  const ph = p.phrases.find(x => t >= x.debut && t < x.fin) || p.phrases[p.phrases.length - 1];
+  if (ph) {
+    const k = Math.floor((t - ph.debut) / DUREE_MOT);
+    $('#sousTitres').innerHTML = ph.mots.map((m, j) => `<span class="mot ${j < k ? 'dit' : j === k ? 'courant' : ''}">${m}</span>`).join(' ');
+  } else $('#sousTitres').textContent = '';
+  $('#barre').style.width = (100 * t / p.total) + '%';
+  const seg = document.getElementById('seg' + etat.index); if (seg && !etat.decisions[etat.index]) seg.style.width = (100 * t / p.total) + '%';
+  $('#tempsCourant').textContent = fmt(t * echelle); $('#tempsTotal').textContent = fmt(p.total * echelle);
+}
+let avant = performance.now();
+function boucle(n) { image((n - avant) / 1000); avant = n; requestAnimationFrame(boucle); }
+
+/* ---------- Lecture et son ---------- */
+function basculerLecture() {
+  etat.lecture = !etat.lecture;
+  $('#icoLecture').innerHTML = etat.lecture
+    ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>'
+    : '<path d="M7 5l12 7-12 7z"/>';
+  $('#btnLecture').setAttribute('aria-label', etat.lecture ? 'Mettre en pause (espace)' : 'Lire (espace)');
+}
+$('#btnLecture').onclick = basculerLecture;
+$('#son').onclick = () => {
+  etat.son = !etat.son; $('#sonOndes').style.display = etat.son ? '' : 'none';
+  $('#son').setAttribute('aria-pressed', String(!etat.son)); $('#son').setAttribute('aria-label', etat.son ? 'Couper le son' : 'Remettre le son');
+};
+
+/* ---------- Garder / jeter ---------- */
+let annulerDerniere = null;
+function decider(choix) {
+  if (etat.fini || etat.decisions[etat.index]) return;
+  fermerFeuille();
+  const i = etat.index; etat.decisions[i] = choix;
+  const carte = $('#carte'); carte.style.transition = 'transform .35s ease-in, opacity .35s';
+  carte.style.transform = `translateX(${choix === 'garder' ? 130 : -130}%) rotate(${choix === 'garder' ? 14 : -14}deg)`; carte.style.opacity = 0;
+  (choix === 'garder' ? $('#tamponGarder') : $('#tamponJeter')).style.opacity = 1;
+  dessinerSegments();
+  montrerToast(choix === 'garder' ? 'Brouillon gardé' : 'Brouillon jeté', () => {
+    etat.decisions[i] = undefined; etat.fini = false; $('#fin').classList.remove('visible'); etat.index = i; chargerBrouillon();
+  });
+  setTimeout(() => {
+    if (etat.decisions[i] !== choix || etat.index !== i) return;
+    const suivant = etat.decisions.findIndex((d, k) => k > i && !d);
+    const libre = suivant >= 0 ? suivant : BROUILLONS.findIndex((_, k) => !etat.decisions[k]);
+    if (libre >= 0) { etat.index = libre; chargerBrouillon(); } else finSerie();
+  }, 380);
+}
+function finSerie() {
+  etat.fini = true;
+  const g = etat.decisions.filter(d => d === 'garder').length, j = etat.decisions.filter(d => d === 'jeter').length;
+  $('#bilanG').textContent = `${g} gardée${g > 1 ? 's' : ''}`; $('#bilanJ').textContent = `${j} jetée${j > 1 ? 's' : ''}`;
+  $('#finTexte').textContent = g ? `Tes vidéos gardées seront prêtes vers 18\u00a0h\u00a040. On te prévient.` : `Aucune vidéo gardée. Tu peux demander « refaire » depuis ta séance.`;
+  $('#fin').classList.add('visible'); $('#btnRevoir').focus();
+}
+$('#btnRevoir').onclick = () => { etat.decisions = []; etat.fini = false; etat.index = 0; $('#fin').classList.remove('visible'); chargerBrouillon(); };
+$('#btnGarder').onclick = () => decider('garder');
+$('#btnJeter').onclick = () => decider('jeter');
+
+/* Glissement */
+const glisse = { actif: false, x0: 0, dx: 0, id: null };
+const carte = $('#carte');
+carte.addEventListener('pointerdown', e => { if (etat.fini) return; glisse.actif = true; glisse.x0 = e.clientX; glisse.dx = 0; glisse.id = e.pointerId; carte.setPointerCapture(e.pointerId); carte.style.transition = 'none'; });
+carte.addEventListener('pointermove', e => {
+  if (!glisse.actif) return; glisse.dx = e.clientX - glisse.x0;
+  const w = carte.offsetWidth; const f = Math.max(-1, Math.min(1, glisse.dx / (w * .35)));
+  carte.style.transform = `translateX(${glisse.dx}px) rotate(${f * 6}deg)`;
+  $('#tamponGarder').style.opacity = Math.max(0, f); $('#tamponJeter').style.opacity = Math.max(0, -f);
+});
+function finGlisse() {
+  if (!glisse.actif) return; glisse.actif = false;
+  const w = carte.offsetWidth;
+  if (Math.abs(glisse.dx) > w * .3) decider(glisse.dx > 0 ? 'garder' : 'jeter');
+  else {
+    if (Math.abs(glisse.dx) < 6) basculerLecture();
+    carte.style.transition = 'transform .25s'; carte.style.transform = 'translateX(0)';
+    $('#tamponGarder').style.opacity = 0; $('#tamponJeter').style.opacity = 0;
+  }
+}
+carte.addEventListener('pointerup', finGlisse); carte.addEventListener('pointercancel', finGlisse);
+
+/* Clavier */
+document.addEventListener('keydown', e => {
+  if (e.target.closest?.('input, textarea')) return;
+  if (e.key === 'Escape') return fermerFeuille();
+  if (document.body.classList.contains('feuille-ouverte')) return;
+  if (e.key === 'ArrowRight') decider('garder');
+  else if (e.key === 'ArrowLeft') decider('jeter');
+  else if (e.key === ' ' && !e.target.closest?.('button')) { e.preventDefault(); basculerLecture(); }
+});
+
+/* ---------- Toast ---------- */
+let minuteurToast;
+function montrerToast(texte, annuler) {
+  $('#toastTexte').textContent = texte; annulerDerniere = annuler;
+  $('#toastAnnuler').style.display = annuler ? '' : 'none';
+  $('#toast').classList.add('visible'); clearTimeout(minuteurToast);
+  minuteurToast = setTimeout(() => $('#toast').classList.remove('visible'), 4000);
+}
+$('#toastAnnuler').onclick = () => { $('#toast').classList.remove('visible'); if (annulerDerniere) annulerDerniere(); annulerDerniere = null; };
+
+/* ---------- Aperçu mis à jour (NFR-6 : moins de 10 s) ---------- */
+let minuteurApercu;
+function apercuMisAJour() {
+  const e = $('#etatApercu'); e.classList.add('visible'); e.classList.remove('pret'); $('#etatTexte').textContent = "Mise à jour de l'aperçu…";
+  clearTimeout(minuteurApercu);
+  minuteurApercu = setTimeout(() => {
+    e.classList.add('pret'); $('#etatTexte').textContent = `Aperçu à jour · ${fmt(plan().total * echelle)}`; etat.t = 0;
+    minuteurApercu = setTimeout(() => e.classList.remove('visible'), 2200);
+  }, 1300);
+}
+
+/* ---------- Feuilles ---------- */
+let feuilleOuverte = null, declencheur = null;
+function ouvrirFeuille(nom, opts = {}) {
+  fermerFeuille(true); declencheur = document.activeElement;
+  feuilleOuverte = nom; const f = document.getElementById('feuille-' + nom);
+  f.hidden = false; requestAnimationFrame(() => f.classList.add('ouverte'));
+  document.body.classList.add('feuille-ouverte');
+  rafraichirFeuille(); setTimeout(() => (opts.dicter ? $('#micro') : f.querySelector('.fermer')).focus(), 50);
+  if (opts.dicter) setTimeout(dicter, 300);
+}
+function fermerFeuille(silencieux) {
+  if (!feuilleOuverte) return;
+  const f = document.getElementById('feuille-' + feuilleOuverte); f.classList.remove('ouverte');
+  setTimeout(() => { if (!f.classList.contains('ouverte')) f.hidden = true; }, 330);
+  document.body.classList.remove('feuille-ouverte'); feuilleOuverte = null; arreterDictee();
+  if (!silencieux && declencheur) declencheur.focus();
+}
+function rafraichirFeuille() { if (feuilleOuverte === 'corriger') dessinerCorriger(); if (feuilleOuverte === 'variantes') dessinerVariantes(); if (feuilleOuverte === 'legende') dessinerLegende(); }
+document.querySelectorAll('[data-ouvre]').forEach(b => b.onclick = () => ouvrirFeuille(b.dataset.ouvre, { dicter: !!b.dataset.dicter }));
+document.querySelectorAll('[data-ferme]').forEach(b => b.onclick = () => fermerFeuille());
+
+/* ---------- Corriger ---------- */
+function doutes() {
+  const r = reglages(); const out = [];
+  courant().phrases.forEach((p, i) => {
+    if (p.motDouteux) out.push({ cle: 'm' + i, i, type: 'Mot peu sûr', texte: `As-tu dit « ${p.motDouteux.mot} » ?`, actions: p.motDouteux.propositions.map(x => ({ l: x, f: () => { r.mots[i] = x; } })) });
+    if (p.doute === 'coupe') out.push({ cle: 'c' + i, i, type: 'Coupe à vérifier', texte: `J'ai coupé « ${p.t} » : ça ressemblait à un faux départ.`, actions: [{ l: 'Bien coupé', f: () => {} }, { l: 'Remettre', f: () => { r.barrees.delete(i); } }] });
+    if (p.doute === 'frontiere') out.push({ cle: 'f' + i, i, type: 'Fin du brouillon ?', texte: `« ${p.t} » ouvre peut-être une autre idée. Je la laisse ici ?`, actions: [{ l: 'La laisser', f: () => {} }, { l: 'La couper', f: () => { r.barrees.add(i); } }] });
+  });
+  return out;
+}
+function majPastille() { const n = doutes().filter(d => !reglages().doutesRegles.has(d.cle)).length; const p = $('#pastilleDoutes'); p.textContent = n; p.style.display = n ? '' : 'none'; }
+function dessinerCorriger() {
+  const r = reglages(); const ds = doutes();
+  const ouverts = ds.filter(d => !r.doutesRegles.has(d.cle));
+  $('#zoneDoutes').innerHTML = ds.length ? `<div class="section-titre">À vérifier d'abord · ${ouverts.length}</div>` + ds.map(d => `
+    <div class="doute ${r.doutesRegles.has(d.cle) ? 'reglee' : ''}" data-cle="${d.cle}">
+      <div class="type">${d.type}${r.doutesRegles.has(d.cle) ? ' · vérifié' : ''}</div><p>${d.texte}</p>
+      <div class="actions">${d.actions.map((a, k) => `<button class="petit-bouton ${k === 0 ? 'plein' : ''}" data-action="${k}">${a.l}</button>`).join('')}</div>
+    </div>`).join('') : '';
+  $('#zoneDoutes').querySelectorAll('.doute').forEach(el => el.querySelectorAll('[data-action]').forEach(b => b.onclick = () => {
+    const d = ds.find(x => x.cle === el.dataset.cle); d.actions[+b.dataset.action].f(); r.doutesRegles.add(d.cle);
+    dessinerCorriger(); majPastille(); apercuMisAJour();
+  }));
+  const p = plan();
+  $('#transcription').innerHTML = courant().phrases.map((ph, i) => {
+    const barree = r.barrees.has(i); const pl = p.phrases.find(x => x.i === i);
+    let texte = motsDe(ph, i).join(' ');
+    if (ph.motDouteux && !r.doutesRegles.has('m' + i)) texte = texte.replace(ph.motDouteux.mot, `<span class="mot-douteux">${ph.motDouteux.mot}</span>`);
+    const d = pl ? fmt((pl.fin - pl.debut) * echelle) : '';
+    return `<button class="phrase ${barree ? 'barree' : ''}" data-i="${i}" aria-pressed="${barree}" aria-label="${barree ? 'Remettre' : 'Couper'} : ${ph.t}">
+      <span class="coche" aria-hidden="true"></span><span class="texte">${texte}</span><span class="duree">${barree ? 'coupée' : d}</span></button>`;
+  }).join('');
+  $('#transcription').querySelectorAll('.phrase').forEach(b => b.onclick = () => {
+    const i = +b.dataset.i;
+    if (r.barrees.has(i)) r.barrees.delete(i);
+    else { if (plan().phrases.length <= 1) return montrerToast('Garde au moins une phrase'); r.barrees.add(i); }
+    dessinerCorriger(); apercuMisAJour();
+  });
+}
+
+/* Dictée simulée */
+let minuteursDictee = [];
+function arreterDictee() { minuteursDictee.forEach(clearTimeout); minuteursDictee = []; const m = $('#micro'); m.classList.remove('ecoute'); m.setAttribute('aria-pressed', 'false'); }
+function dicter() {
+  const m = $('#micro');
+  if (m.classList.contains('ecoute')) { arreterDictee(); $('#consigne').textContent = 'Dictée arrêtée.'; return; }
+  m.classList.add('ecoute'); m.setAttribute('aria-pressed', 'true');
+  $('#consigne').innerHTML = '<span class="ondes" aria-hidden="true"><i></i><i></i><i></i><i></i></span> Je t\'écoute…';
+  minuteursDictee.push(setTimeout(() => { $('#consigne').innerHTML = 'J\'ai compris <q>coupe la deuxième phrase</q>'; m.classList.remove('ecoute'); }, 2200));
+  minuteursDictee.push(setTimeout(() => {
+    const r = reglages(); const gardees = plan().phrases; const cible = gardees[1];
+    if (!cible) { $('#consigne').textContent = "Il n'y a pas de deuxième phrase à couper."; return; }
+    r.barrees.add(cible.i); dessinerCorriger(); apercuMisAJour(); m.setAttribute('aria-pressed', 'false');
+    $('#consigne').innerHTML = `C'est fait : <q>${courant().phrases[cible.i].t}</q> est coupée.`;
+    const el = document.querySelector(`.phrase[data-i="${cible.i}"]`); if (el) { el.classList.add('eclair'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+    montrerToast('Phrase coupée', () => { r.barrees.delete(cible.i); dessinerCorriger(); apercuMisAJour(); });
+  }, 3200));
+}
+$('#micro').onclick = dicter;
+
+/* ---------- Variantes ---------- */
+let ongletVariantes = 'accroche';
+function dessinerVariantes() {
+  const b = courant(), r = reglages();
+  const onglets = [['accroche', 'Accroche'], ['musique', 'Musique'], ['couverture', 'Couverture']].concat(b.prises ? [['prise', 'Prise']] : []);
+  if (!onglets.some(o => o[0] === ongletVariantes)) ongletVariantes = 'accroche';
+  $('#onglets').innerHTML = onglets.map(([k, l]) => `<button class="onglet" role="tab" aria-selected="${k === ongletVariantes}" data-k="${k}">${l}</button>`).join('');
+  $('#onglets').querySelectorAll('.onglet').forEach(o => o.onclick = () => { ongletVariantes = o.dataset.k; dessinerVariantes(); });
+  const choisir = (cle, v) => { r[cle] = v; if (cle === 'accroche') $('#accroche').innerHTML = `<span>${b.accroches[v]}</span>`; if (cle === 'couverture') dessinerImage(); etat.t = 0; dessinerVariantes(); apercuMisAJour(); };
+  let html = '';
+  if (ongletVariantes === 'accroche') html = `<div class="choix" role="radiogroup" aria-label="Accroche">${b.accroches.map((a, i) => opt(r.accroche === i, a, i === 0 ? 'proposée en premier' : '', i)).join('')}</div><p class="note" style="margin-top:12px">L'accroche tient dans les deux premières secondes.</p>`;
+  if (ongletVariantes === 'musique') html = `<div class="choix" role="radiogroup" aria-label="Musique">${b.musiques.map((m, i) => opt(r.musique === i, `${m.nom} — ${m.artiste}`, `${m.ambiance} · ${m.licence}`, i)).join('')}${opt(r.musique === 3, 'Sans musique', 'pour poser un son tendance dans l\'app du réseau', 3)}</div><p class="note" style="margin-top:12px">La musique reste sous ta voix pour que tes mots restent clairs.</p>`;
+  if (ongletVariantes === 'couverture') html = `<div class="vignettes" role="radiogroup" aria-label="Couverture">${[0, 1, 2].map(i => `
+      <button class="vignette" role="radio" aria-checked="${r.couverture === i}" data-v="${i}" aria-label="Couverture ${i + 1}">
+        <span class="fond-v" style="background:radial-gradient(circle at ${30 + i * 20}% 25%, ${b.couleurs[3]}88, transparent 50%), linear-gradient(${150 + i * 25}deg, ${b.couleurs[0]}, ${b.couleurs[2]})"></span>
+        <span>${b.accroches[r.accroche]}</span><i class="marque-choix" aria-hidden="true">✓</i></button>`).join('')}</div>`;
+  if (ongletVariantes === 'prise') html = `<div class="choix" role="radiogroup" aria-label="Prise">${b.prises.map((p, i) => opt(r.prise === i, p.nom, p.detail, i)).join('')}</div><p class="note" style="margin-top:12px">Tu as dit ce passage deux fois ; j'ai retenu la prise la plus nette.</p>`;
+  $('#panneauVariantes').innerHTML = html;
+  $('#panneauVariantes').querySelectorAll('[data-v]').forEach(o => o.onclick = () => choisir(ongletVariantes, +o.dataset.v));
+}
+function opt(coche, principal, secondaire, v) {
+  return `<button class="option" role="radio" aria-checked="${coche}" data-v="${v}"><span class="rond-choix" aria-hidden="true"></span><span class="corps"><span class="principal">${principal}</span>${secondaire ? `<br><span class="secondaire">${secondaire}</span>` : ''}</span></button>`;
+}
+
+/* ---------- Légende ---------- */
+function dessinerLegende() {
+  const r = reglages(), res = RESEAUX[r.reseau];
+  $('#reseaux').innerHTML = Object.entries(RESEAUX).map(([k, v]) => `<button class="onglet" role="radio" aria-selected="${k === r.reseau}" aria-checked="${k === r.reseau}" data-k="${k}">${v.nom}</button>`).join('');
+  $('#reseaux').querySelectorAll('[data-k]').forEach(b => b.onclick = () => { r.reseau = b.dataset.k; dessinerLegende(); });
+  const ta = $('#legende'); if (document.activeElement !== ta) ta.value = r.legende;
+  $('#compteLegende').textContent = `${r.legende.length} / ${res.maxLegende}`;
+  $('#hashtags').innerHTML = r.hashtags.map((h, i) => `<span class="hashtag">${h}<button data-i="${i}" aria-label="Retirer ${h}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span>`).join('');
+  $('#hashtags').querySelectorAll('button').forEach(b => b.onclick = () => { r.hashtags.splice(+b.dataset.i, 1); dessinerLegende(); });
+  const g = $('#gardeHashtags'); const trop = r.hashtags.length - res.maxHashtags;
+  g.classList.toggle('visible', trop > 0);
+  g.innerHTML = trop > 0 ? `<b>${res.nom} accepte au plus ${res.maxHashtags} hashtags.</b> Tu en as ${r.hashtags.length} : retires-en ${trop} pour pouvoir publier.` : '';
+}
+$('#legende').addEventListener('input', e => { reglages().legende = e.target.value; $('#compteLegende').textContent = `${e.target.value.length} / ${RESEAUX[reglages().reseau].maxLegende}`; });
+$('#formHashtag').addEventListener('submit', e => {
+  e.preventDefault(); const i = $('#nouveauHashtag'); let v = i.value.trim().replace(/\s+/g, ''); if (!v) return;
+  if (!v.startsWith('#')) v = '#' + v; reglages().hashtags.push(v); i.value = ''; dessinerLegende();
+});
+
+/* ---------- Départ ---------- */
+chargerBrouillon(); requestAnimationFrame(boucle);
+</script>
+</body>
+</html>

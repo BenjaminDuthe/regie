@@ -1,0 +1,15 @@
+# regie — dépendances communes des services Python (transcription, langage, voix).
+# Versions exactes en « == » ; le verrou haché requirements.lock est produit par :
+#   uv pip compile pyproject.toml --universal --generate-hashes --python-version 3.14 -o requirements.lock
+# et installé par : pip install --require-hashes -r requirements.lock
+
+[project]
+name = "regie-services"
+version = "0.0.0"
+description = "Dépendances communes des services Python de regie."
+license = "AGPL-3.0-only"
+requires-python = "==3.14.*"
+dependencies = [
+  "datamodel-code-generator==0.83.0",
+  "pydantic==2.13.5",
+]

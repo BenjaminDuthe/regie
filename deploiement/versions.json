@@ -1,0 +1,49 @@
+{
+  "$commentaire": "Versions de référence de la stack du socle (ARCHITECTURE-SPINE, table « Stack »). outils/ci/verifier-epinglage.mjs confronte les manifestes à ce fichier. Aucune RC.",
+  "node": {
+    "version": "26.5.0",
+    "engines": ">=26.5.0 <27"
+  },
+  "npm": {
+    "@astrojs/check": "0.9.10",
+    "@astrojs/node": "11.1.6",
+    "@astrojs/svelte": "9.0.1",
+    "@fastify/middie": "9.3.4",
+    "@fastify/static": "10.1.5",
+    "@types/node": "26.6.4",
+    "astro": "7.3.5",
+    "fastify": "5.12.5",
+    "pino": "10.3.1",
+    "svelte": "5.57.1",
+    "typescript": "6.0.3",
+    "vitest": "5.0.3",
+    "zod": "4.6.5"
+  },
+  "python": {
+    "version": "3.14.8",
+    "requiresPython": "==3.14.*",
+    "paquets": {
+      "datamodel-code-generator": "0.83.0",
+      "pydantic": "2.13.5"
+    }
+  },
+  "images": {
+    "node": "docker.io/library/node:26.5.0-trixie@sha256:0473e7dc433a1310f436edee02aa79737ec78a4b345433ab0963d4a256f9ad85",
+    "nodeSlim": "docker.io/library/node:26.5.0-trixie-slim@sha256:715e55e4b84e4bb0ff48e49b398a848f08e55daed8eb6a0ea1839ae53bc57583",
+    "python": "docker.io/library/python:3.14.8-trixie@sha256:4dbad2306cac8f917443403b7b1144384ea6af87c9e8d08b53c36053ceb016c3"
+  },
+  "outils": {
+    "gitleaks": "8.30.0",
+    "forgejo": "16.0.5",
+    "forgejoRunner": "13.2.0"
+  },
+  "plateforme": {
+    "postgresql": "18.6",
+    "ffmpeg": "9.0.2",
+    "playwright": "1.63.0",
+    "podman": "5.4.2",
+    "debian": "13",
+    "proxmoxVe": "9.2",
+    "proxmoxBackupServer": "4.2"
+  }
+}

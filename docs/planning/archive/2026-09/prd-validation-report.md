@@ -1,5 +1,5 @@
 ---
-validationTarget: 'docs/planning/prd.md'
+validationTarget: 'docs/planning/archive/2026-09/prd.md'
 validationDate: '2026-09-06'
 inputDocuments:
   - ../../MANDAT.md
@@ -15,7 +15,7 @@ overallStatus: Critical
 
 # Rapport de validation du PRD
 
-**PRD validé :** `docs/planning/prd.md` (regie)
+**PRD validé :** `docs/planning/archive/2026-09/prd.md` (regie)
 **Date de validation :** 2026-09-06
 **Référentiel :** standard BMAD `bmad-validate-prd` (13 étapes, `steps-v/`)
 
@@ -655,4 +655,4 @@ Autrement dit, le document est complet à 100 %, conforme à son type de projet 
 
 Deux voies s'offrent donc, et elles ne s'excluent pas : corriger d'abord ces deux familles d'écarts (workflow `bmad-edit-prd`, qui sait consommer ce rapport), ou poursuivre la conception en tenant les valeurs différées pour ce qu'elles sont — un engagement à mesurer avant l'architecture. La seule chose à ne pas faire est de laisser les douze valeurs ouvertes traverser l'architecture : c'est là qu'elles deviendraient des hypothèses tacites.
 
-**Rapport de validation enregistré :** `docs/planning/prd-validation-report.md`
+**Rapport de validation enregistré :** `docs/planning/archive/2026-09/prd-validation-report.md`

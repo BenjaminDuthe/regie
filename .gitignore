@@ -6,3 +6,13 @@
 # Dépendances et artefacts
 node_modules/
 .DS_Store
+
+# BMAD : préférences personnelles et sorties de travail
+_bmad/config.user.toml
+_bmad/custom/config.user.toml
+_bmad-output/
+
+# Constructions et environnements locaux
+dist/
+.astro/
+.venv/

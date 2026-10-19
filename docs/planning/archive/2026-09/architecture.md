@@ -1,8 +1,8 @@
 ---
 stepsCompleted: ['step-01-init', 'step-02-context', 'step-03-starter', 'step-04-decisions', 'step-05-patterns', 'step-06-structure']
 inputDocuments:
-  - 'docs/planning/prd.md'
-  - 'docs/planning/prd-validation-report.md'
+  - 'docs/planning/archive/2026-09/prd.md'
+  - 'docs/planning/archive/2026-09/prd-validation-report.md'
   - 'MANDAT.md'
   - 'maquette/public/*.html (maquette UX validée le 2026-09-08)'
   - 'saas-souverain:marketing/video/moteur/{format,scenes,montage,rendu,ffmpeg,images}.mjs'
@@ -12,6 +12,9 @@ project_name: 'regie'
 user_name: 'Benjaminduthe'
 date: '2026-09-08'
 ---
+
+> **Remplacé le 2026-10-02.** Ce document décrit l'ancienne régie (SQLite, cookie signé, stockage S3, installation en 4 étapes, ffmpeg-static, moteur `.mjs`, rendu à 1 280 px, LinkedIn, sans Safari iOS). Il ne fait plus foi. L'architecture en vigueur est le socle `docs/planning/architecture/architecture-regie-2026-10-02/ARCHITECTURE-SPINE.md`, avec son explication `architecture-expliquee.html`.
+
 
 # Document de décisions d'architecture — regie
 
