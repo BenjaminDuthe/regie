@@ -57,6 +57,8 @@ L'installation du 2026-10-03 avait été faite par une version antérieure du sc
 5. **Jeton de statut GitHub.** Sur GitHub, *Settings → Developer settings → Fine-grained tokens* : dépôt `BenjaminDuthe/regie` seulement, permission **Commit statuses: Read and write**, rien d'autre. Dans Forgejo, *dépôt regie → Paramètres → Actions → Secrets* : secret `GITHUB_STATUTS`. Range aussi le jeton dans Vaultwarden. Ne le colle ni dans le dépôt ni dans le chat.
 6. **Protection de `main` sur GitHub.** *Settings → Branches → main* : exige le statut `forgejo/ci` avant la fusion.
 
+**Code venu de forks : à vérifier dès que le miroir existe.** Le dépôt GitHub est public : n'importe qui peut ouvrir une PR, et GitHub l'expose sous `refs/pull/*`. Si le miroir tirait ces refs et que Forgejo lançait leurs workflows, du code étranger s'exécuterait sur le runner (réseau de l'hôte) avec le secret `GITHUB_STATUTS`. Un `if:` dans le workflow n'y changerait rien : c'est le contenu poussé qui le définit. Contrôle à faire : `git ls-remote http://192.168.20.130:3000/<toi>/regie.git 'refs/pull/*'` doit être vide, ou aucun run ne doit apparaître pour ces refs. Sinon, coupe les Actions du dépôt jusqu'à ce que la synchronisation soit restreinte aux branches.
+
 Le job `statut-github` publie `success` seulement si `suites` et `python` passent ; sinon `failure`. Sans le secret, il échoue, et le commit GitHub reste sans statut : la protection de `main` bloque alors la fusion.
 
 ## Vérifier le pare-feu
