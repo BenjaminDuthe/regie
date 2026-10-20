@@ -40,17 +40,27 @@ Visiteur → Cloudflare → tunnel `cloudflared` du CT 101 → `https://localhos
 
 Un port fermé du CT 140 ne renvoie pas de RST visible : le pare-feu Proxmox le jette. Le délai de connexion est donc fixé à 1 s pour que la page d'attente arrive vite.
 
-## Reste à faire par Benjamin : brancher le nom sur le tunnel
+## Route du tunnel (ajoutée le 2026-10-20)
 
-Aujourd'hui, le joker DNS `*.etablia.fr` envoie `regie.etablia.fr` vers l'origine d'etablia, pas vers le foyer. Pour l'envoyer vers le foyer, ajoute-le au tunnel existant :
+Dans le tunnel `cloudflared` du CT 101 (*Networking → Tunnels → Routes*), une application publiée :
 
-*Cloudflare Zero Trust → Networks → Tunnels → le tunnel du CT 101 → Public Hostname → Add a public hostname*
+- `regie.etablia.fr` → `https://localhost:443` ;
+- *TLS* : **Origin Server Name** = `regie.etablia.fr`, vérification du certificat active.
 
-- **Subdomain** : `regie`, **Domain** : `etablia.fr`, **Path** : vide ;
-- **Service** : `HTTPS`, `localhost:443` ;
-- *Additional application settings → TLS* : **Origin Server Name** = `regie.etablia.fr` (la vérification du certificat reste active).
+Cloudflare a créé l'enregistrement `regie` vers le tunnel. Il passe avant le joker DNS `*.etablia.fr`, qui envoie toujours les autres sous-domaines vers l'origine d'etablia.
 
-Cloudflare crée alors l'enregistrement CNAME `regie` vers le tunnel. Il passe avant le joker, et les autres sous-domaines n'en sont pas touchés.
+**Port 80.** Le tunnel envoie aussi les requêtes `http://` vers `https://localhost:443` : le bloc 80 n'est donc pas atteint depuis Internet. La redirection vers HTTPS relève de l'option *Always Use HTTPS* de la zone, qui n'est pas activée, car elle toucherait tous les sites d'etablia.fr. HSTS couvre les visites suivantes.
+
+## Contrôles faits le 2026-10-20 depuis Internet
+
+| Contrôle | Résultat |
+|----------|----------|
+| DNS `regie.etablia.fr` | adresses Cloudflare |
+| `https://regie.etablia.fr/sante` | 503, page d'attente, en 1,2 s |
+| En-têtes | HSTS, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, CSP, `Cache-Control: no-store` |
+| 250 requêtes sur `/auth/`, 50 en parallèle | 238 × 429, 12 × 503 |
+| Journal | adresse réelle du visiteur (IPv6), chemin `/auth/essai` sans paramètres ; le code de test n'apparaît dans aucun journal de nginx |
+| `http://regie.etablia.fr/` | 503 par le tunnel, sans redirection (voir *Port 80*) |
 
 ## Revenir en arrière
 
@@ -61,4 +71,4 @@ rm /etc/nginx/sites-enabled/regie.etablia.fr.conf
 nginx -t && systemctl reload nginx
 ```
 
-Côté Cloudflare : supprime le *Public Hostname* `regie.etablia.fr` du tunnel.
+Côté Cloudflare : supprime la route `regie.etablia.fr` du tunnel, puis l'enregistrement DNS `regie` s'il reste.
