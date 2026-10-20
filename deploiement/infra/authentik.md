@@ -34,7 +34,7 @@ Dans le CT 101, les trois fichiers d'origine sont copiés dans `/root/nginx-avan
 
 Ces étapes passent par l'interface et manipulent des secrets. Claude ne les fait donc pas.
 
-1. **Second facteur obligatoire.** *Flows & Stages → Stages*. Dans l'étape de validation de l'authentification (`default-authentication-mfa-validation`), choisis TOTP et WebAuthn, puis règle *Not configured action* sur **Force the user to configure an authenticator**. Enrôle ensuite ton propre facteur.
+1. ~~**Second facteur obligatoire.**~~ Fait le 2026-10-20 (voir « Ouverture au public »).
 2. **Fournisseur.** *Applications → Providers → Create → OAuth2/OpenID Provider* :
    - nom `regie` ;
    - *Client type* : **Confidential** ;
@@ -59,6 +59,6 @@ Ce qui a été fait dans le CT 101 :
 
 Les fichiers d'origine sont copiés dans le CT 101 (suffixe `.avant-regie-2026-10-19` ou `.avant-ouverture-2026-10-19`) pour revenir en arrière.
 
-**Reste à faire par Benjamin : exiger le second facteur** (étape 1 de la section précédente). Tant que ce n'est pas fait, un mot de passe suffit pour entrer.
+**Second facteur exigé (2026-10-20).** Benjamin a enrôlé son facteur. L'étape `default-authentication-mfa-validation` accepte TOTP, WebAuthn et les codes de secours. Un compte sans facteur est obligé d'en configurer un (TOTP ou WebAuthn) avant d'entrer. Le mot de passe d'`akadmin` a été changé et rangé dans Vaultwarden.
 
 D'autres sites servis par le CT 101 sont touchés par le même problème d'adresse réelle. Leur cas est suivi hors de ce dépôt.
