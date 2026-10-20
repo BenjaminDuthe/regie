@@ -283,6 +283,15 @@ REQUIRE_SIGNIN_VIEW = true
 [actions]
 ENABLED = true
 
+[mirror]
+; Le dépôt est un miroir tiré de GitHub (histoire 0.4) : un commit arrive en moins de 10 minutes.
+MIN_INTERVAL = 5m
+DEFAULT_INTERVAL = 5m
+
+[migrations]
+; Seul GitHub peut servir de source de miroir ou de migration.
+ALLOWED_DOMAINS = github.com
+
 [security]
 INSTALL_LOCK = true
 SECRET_KEY = ${cle_secrete}
@@ -294,6 +303,14 @@ EOF
   if ! grep -qE '^[[:space:]]*INSTALL_LOCK[[:space:]]*=[[:space:]]*true[[:space:]]*$' /etc/forgejo/app.ini; then
     systemctl stop forgejo 2>/dev/null || true
     mourir "/etc/forgejo/app.ini n'a pas INSTALL_LOCK = true : Forgejo est arrêté. Si aucun compte n'existe encore, supprime app.ini et relance ; sinon passe INSTALL_LOCK à true (avec SECRET_KEY et INTERNAL_TOKEN renseignés) puis relance."
+  fi
+  # /etc est en lecture seule pour Forgejo (ProtectSystem=full) : le secret JWT qu'il voudrait
+  # écrire lui-même au premier démarrage est généré ici, une seule fois.
+  if ! grep -qE '^[[:space:]]*JWT_SECRET[[:space:]]*=' /etc/forgejo/app.ini; then
+    local secret_jwt
+    secret_jwt="$(/usr/local/bin/forgejo generate secret JWT_SECRET)"
+    printf '\n[oauth2]\nJWT_SECRET = %s\n' "$secret_jwt" >>/etc/forgejo/app.ini
+    unset secret_jwt
   fi
   chown root:"$UTILISATEUR_FORGEJO" /etc/forgejo/app.ini
   chmod 0660 /etc/forgejo/app.ini
