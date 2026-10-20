@@ -8,6 +8,9 @@ import middie from '@fastify/middie';
 import fastifyStatic from '@fastify/static';
 import { pino, type DestinationStream } from 'pino';
 import { env } from './env.ts';
+import { ErreurDemarrage, demarrerBase, type Contexte } from './infra/demarrage.ts';
+import { masqueurProcessus } from './infra/masquage.ts';
+import { calculerSante } from './infra/sante.ts';
 
 type HandlerAstro = (
   requete: import('node:http').IncomingMessage,
@@ -19,18 +22,25 @@ const RACINE_CLIENT = fileURLToPath(new URL('../dist/client/', import.meta.url))
 const ENTREE_SERVEUR = new URL('../dist/server/entry.mjs', import.meta.url).href;
 
 /** `journal` : destination des journaux (tests) ; sinon la sortie standard. */
-export async function construireServeur(options: { journal?: DestinationStream } = {}) {
+export async function construireServeur(options: { journal?: DestinationStream; contexte?: Contexte } = {}) {
   // Le handler d'Astro n'existe qu'après `astro build` : on le charge à l'exécution.
   const { handler } = (await import(ENTREE_SERVEUR)) as { handler: HandlerAstro };
 
   const niveau = options.journal !== undefined ? 'info' : env.NODE_ENV === 'test' ? 'silent' : 'info';
   const reglages = {
     level: niveau,
+    // Les secrets connus (clé maîtresse, mots de passe) et les clés sensibles sont masqués à chaque ligne (AR-11).
+    ...masqueurProcessus.optionsPino,
     // Méthode et URL seulement : ni adresse IP, ni port, ni nom d'hôte du client (donnée personnelle).
     serializers: { req: (requete: { method: string; url: string }) => ({ method: requete.method, url: requete.url }) },
   };
   const journal = options.journal !== undefined ? pino(reglages, options.journal) : pino(reglages);
   const app = Fastify({ loggerInstance: journal });
+  // /sante : sans authentification, donc rien d'un utilisateur ni de détaillé (AR-24).
+  app.get('/sante', async (_requete, reponse) => {
+    const sante = await calculerSante(options.contexte, '/');
+    return reponse.header('cache-control', 'no-store').code(sante.etat === 'ok' ? 200 : 503).send(sante);
+  });
   await app.register(fastifyStatic, { root: RACINE_CLIENT });
   await app.register(middie);
   app.use(handler);
@@ -38,11 +48,22 @@ export async function construireServeur(options: { journal?: DestinationStream }
 }
 
 if (import.meta.main) {
-  const app = await construireServeur();
+  // Ordre du socle : environnement (env.ts) → clé et coffre → base → migrations → façades → Astro.
+  let contexte: Contexte;
+  try {
+    contexte = await demarrerBase(env);
+  } catch (erreur) {
+    if (erreur instanceof ErreurDemarrage) {
+      process.stderr.write(`regie refuse de démarrer (${erreur.etape}). ${masqueurProcessus.masquerTexte(erreur.message)}\n`);
+      process.exit(1);
+    }
+    throw erreur;
+  }
+  const app = await construireServeur({ contexte });
   // Arrêt propre : en PID 1 du conteneur, node n'a pas de gestionnaire de SIGTERM par défaut.
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     process.once(signal, () => {
-      app.close().then(
+      Promise.all([app.close(), contexte.fermer()]).then(
         () => process.exit(0),
         () => process.exit(1),
       );

@@ -19,6 +19,22 @@ const schema = z.object({
     .string()
     .regex(/^[0-9a-f]{7,40}$/, 'doit être une empreinte de commit (7 à 40 caractères hexadécimaux)')
     .optional(),
+  // Dossier des secrets montés en fichiers (secrets Podman : /run/secrets). Jamais de secret dans
+  // l'environnement lui-même : ici, seulement l'emplacement des fichiers (AD-9, NFR-14).
+  DOSSIER_SECRETS: z.string().min(1, 'doit être un chemin non vide').default('/run/secrets'),
+  BASE_HOTE: z.string().min(1, 'doit être une adresse non vide').default('127.0.0.1'),
+  BASE_PORT: z
+    .string()
+    .regex(/^\d{1,5}$/, 'doit être un entier entre 1 et 65535')
+    .default('5432')
+    .transform(Number)
+    .refine((port) => port >= 1 && port <= 65535, 'doit être un entier entre 1 et 65535'),
+  BASE_NOM: z.string().regex(/^[a-z_][a-z0-9_]{0,62}$/, 'doit être un nom PostgreSQL simple').default('regie'),
+  BASE_UTILISATEUR: z.string().regex(/^[a-z_][a-z0-9_]{0,62}$/, 'doit être un nom de rôle simple').default('regie_coeur'),
+  BASE_MIGRATIONS_UTILISATEUR: z
+    .string()
+    .regex(/^[a-z_][a-z0-9_]{0,62}$/, 'doit être un nom de rôle simple')
+    .default('regie_migrations'),
 });
 
 export type Environnement = Readonly<z.infer<typeof schema>>;
@@ -44,6 +60,12 @@ export function lireEnvironnement(source: Readonly<Record<string, string | undef
     PORT: source['PORT'],
     // Vide quand l'image est construite sans --build-arg : même sens qu'absente.
     REGIE_VERSION: source['REGIE_VERSION'] || undefined,
+    DOSSIER_SECRETS: source['DOSSIER_SECRETS'],
+    BASE_HOTE: source['BASE_HOTE'],
+    BASE_PORT: source['BASE_PORT'],
+    BASE_NOM: source['BASE_NOM'],
+    BASE_UTILISATEUR: source['BASE_UTILISATEUR'],
+    BASE_MIGRATIONS_UTILISATEUR: source['BASE_MIGRATIONS_UTILISATEUR'],
   });
   if (!resultat.success) {
     throw new ErreurEnvironnement(

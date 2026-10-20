@@ -16,7 +16,8 @@
     "dev": "node outils/dev.mjs",
     "build": "npm run build --workspace coeur",
     "test": "vitest run",
-    "ci": "node outils/ci/lancer.mjs"
+    "ci": "node outils/ci/lancer.mjs",
+    "test:postgres": "node outils/test-postgres.mjs"
   },
   "devDependencies": {
     "@types/node": "26.6.4",

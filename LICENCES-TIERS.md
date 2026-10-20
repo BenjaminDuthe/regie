@@ -168,6 +168,7 @@ autorisant l’usage commercial (NFR-26) ; la CI refuse tout autre cas et vérif
 | @types/mdast | 4.0.4 | MIT |
 | @types/nlcst | 2.0.3 | MIT |
 | @types/node | 26.6.4 | MIT |
+| @types/pg | 8.23.1 | MIT |
 | @types/unist | 3.0.3 | MIT |
 | @ungap/structured-clone | 1.4.0 | ISC |
 | @vitest/mocker | 5.0.3 | MIT |
@@ -356,6 +357,14 @@ autorisant l’usage commercial (NFR-26) ; la CI refuse tout autre cas et vérif
 | path-browserify | 1.0.1 | MIT |
 | path-scurry | 2.0.2 | BlueOak-1.0.0 |
 | path-to-regexp | 8.4.2 | MIT |
+| pg | 8.23.1 | MIT |
+| pg-cloudflare | 1.4.1 | MIT |
+| pg-connection-string | 2.14.1 | MIT |
+| pg-int8 | 1.0.1 | ISC |
+| pg-pool | 3.14.0 | MIT |
+| pg-protocol | 1.16.1 | MIT |
+| pg-types | 2.2.0 | MIT |
+| pgpass | 1.0.5 | MIT |
 | piccolore | 0.1.3 | ISC |
 | picocolors | 1.1.1 | ISC |
 | picomatch | 2.3.2 | MIT |
@@ -364,6 +373,10 @@ autorisant l’usage commercial (NFR-26) ; la CI refuse tout autre cas et vérif
 | pino-abstract-transport | 3.0.0 | MIT |
 | pino-std-serializers | 7.1.0 | MIT |
 | postcss | 8.5.28 | MIT |
+| postgres-array | 2.0.0 | MIT |
+| postgres-bytea | 1.0.1 | MIT |
+| postgres-date | 1.0.7 | MIT |
+| postgres-interval | 1.2.0 | MIT |
 | prettier | 3.9.9 | MIT |
 | prismjs | 1.30.0 | MIT |
 | process-ancestry | 0.1.0 | MIT |
@@ -474,6 +487,7 @@ autorisant l’usage commercial (NFR-26) ; la CI refuse tout autre cas et vérif
 | vscode-uri | 3.2.0 | MIT |
 | why-is-node-running | 3.2.1 | MIT |
 | wrap-ansi | 9.0.2 | MIT |
+| xtend | 4.0.2 | MIT |
 | xxhash-wasm | 1.1.0 | MIT |
 | y18n | 5.0.8 | ISC |
 | yaml | 2.8.3 | ISC |

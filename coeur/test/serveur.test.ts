@@ -35,6 +35,15 @@ describe('serveur du cœur', () => {
     expect(reponse.body).toContain('<svg');
   });
 
+  it('répond à /sante sans authentification, avec l’état seulement (503 sans base)', async () => {
+    const reponse = await app.inject({ method: 'GET', url: '/sante' });
+    expect(reponse.statusCode).toBe(503);
+    expect(reponse.headers['cache-control']).toBe('no-store');
+    const sante = reponse.json();
+    expect(sante).toMatchObject({ etat: 'degrade', base: 'indisponible', coffre: 'indisponible' });
+    expect(Object.keys(sante).sort()).toEqual(['base', 'coffre', 'disque', 'etat']);
+  });
+
   it('répond 404 à une route inconnue (aucune route attrape-tout)', async () => {
     const reponse = await app.inject({ method: 'GET', url: '/api/v1/inexistant' });
     expect(reponse.statusCode).toBe(404);
