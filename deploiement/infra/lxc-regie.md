@@ -40,9 +40,10 @@ Entrée et sortie refusées par défaut.
 | Sorties interdites | interface Proxmox 8006, Forgejo 3000, Authelia 9091, `192.168.1.1` : fermés |
 | Entrée | SSH 22 depuis le réseau local : fermé |
 
-Deux limites :
+Trois limites :
 - le CT n'a pas d'IPv6, donc tout passe en IPv4 ;
-- aucun Proxmox Backup Server ne répond encore sur `pve-nipogi:8007`. La règle est prête pour le jour où il existera.
+- aucun Proxmox Backup Server ne répond encore sur `pve-nipogi:8007`. La règle est prête pour le jour où il existera ;
+- l'idmap commence à `100000`, comme pour les autres CT non privilégiés de l'hôte (réglage par défaut de Proxmox). Un processus qui s'échapperait d'un CT aurait donc les mêmes identifiants d'hôte que ceux d'un autre CT. Pour donner à chaque CT sa propre plage, il faudrait réattribuer toute sa racine. C'est à traiter séparément, pour tous les CT à la fois.
 
 ## Rejouer ou contrôler
 
