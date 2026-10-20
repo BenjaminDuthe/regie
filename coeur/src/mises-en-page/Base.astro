@@ -1,0 +1,30 @@
+---
+// Squelette commun à toutes les pages : thème, en-tête collant, lien vers le code source.
+// Rien n'est chargé d'un tiers : la CSP posée par Astro (security.csp) l'interdit.
+import EnTete from '../composants/EnTete.astro';
+import '../styles/theme.css';
+
+interface Props {
+  titre: string;
+}
+
+const { titre } = Astro.props;
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#17171a" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{titre}</title>
+  </head>
+  <body>
+    <EnTete />
+    <main class="contenu">
+      <slot />
+    </main>
+  </body>
+</html>

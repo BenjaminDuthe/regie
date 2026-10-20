@@ -13,6 +13,12 @@ const schema = z.object({
     .default('4321')
     .transform(Number)
     .refine((port) => port >= 1 && port <= 65535, 'doit être un entier entre 1 et 65535'),
+  // Commit en service, posé à la construction de l'image : chaque page renvoie vers son code
+  // source (FR-67, AGPL-3.0). Absent en développement : le lien mène alors à `main`.
+  REGIE_VERSION: z
+    .string()
+    .regex(/^[0-9a-f]{7,40}$/, 'doit être une empreinte de commit (7 à 40 caractères hexadécimaux)')
+    .optional(),
 });
 
 export type Environnement = Readonly<z.infer<typeof schema>>;
@@ -36,6 +42,8 @@ export function lireEnvironnement(source: Readonly<Record<string, string | undef
     NODE_ENV: source['NODE_ENV'],
     HOTE: source['HOTE'],
     PORT: source['PORT'],
+    // Vide quand l'image est construite sans --build-arg : même sens qu'absente.
+    REGIE_VERSION: source['REGIE_VERSION'] || undefined,
   });
   if (!resultat.success) {
     throw new ErreurEnvironnement(

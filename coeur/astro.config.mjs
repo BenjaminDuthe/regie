@@ -13,4 +13,19 @@ export default defineConfig({
   integrations: [svelte()],
   // Pas de télémétrie ni de ressource tierce : rien ne sort du serveur.
   devToolbar: { enabled: false },
+  // CSP posée par Astro dans une balise meta, avec les empreintes des scripts et styles en ligne
+  // (histoire 1.2). Rien ne se charge d'un autre domaine ; aucun effet en `astro dev`.
+  security: {
+    csp: {
+      directives: [
+        "default-src 'self'",
+        "img-src 'self' data:",
+        "media-src 'self' blob:",
+        "connect-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+      ],
+    },
+  },
 });

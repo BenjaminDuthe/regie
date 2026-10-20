@@ -22,6 +22,17 @@ describe('env.ts', () => {
     expect(lireEnvironnement({ PORT: '8080' }).PORT).toBe(8080);
   });
 
+  it('accepte une empreinte de commit dans REGIE_VERSION et la laisse absente sinon', () => {
+    expect(lireEnvironnement({ REGIE_VERSION: '164f9e2' }).REGIE_VERSION).toBe('164f9e2');
+    expect(lireEnvironnement({}).REGIE_VERSION).toBeUndefined();
+    expect(lireEnvironnement({ REGIE_VERSION: '' }).REGIE_VERSION).toBeUndefined();
+  });
+
+  it('refuse un REGIE_VERSION qui n’est pas une empreinte, sans recopier la valeur', () => {
+    expect(() => lireEnvironnement({ REGIE_VERSION: 'main"><script>' })).toThrow(/REGIE_VERSION : /);
+    expect(() => lireEnvironnement({ REGIE_VERSION: 'main"><script>' })).not.toThrow(/script/);
+  });
+
   it('rend un environnement figé', () => {
     expect(Object.isFrozen(lireEnvironnement({}))).toBe(true);
   });

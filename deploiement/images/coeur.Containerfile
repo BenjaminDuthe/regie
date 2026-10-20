@@ -15,7 +15,11 @@ COPY paquets/ paquets/
 COPY coeur/ coeur/
 RUN npm run build
 
+# Commit construit, pour le lien « Code source » de chaque page (FR-67) :
+#   podman build --build-arg REGIE_VERSION=$(git rev-parse HEAD) ...
+# Vide, le lien pointe sur main.
+ARG REGIE_VERSION
 USER node
-ENV NODE_ENV=production HOTE=0.0.0.0 PORT=4321
+ENV NODE_ENV=production HOTE=0.0.0.0 PORT=4321 REGIE_VERSION=${REGIE_VERSION}
 EXPOSE 4321
 CMD ["node", "coeur/src/serveur.ts"]
