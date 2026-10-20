@@ -420,13 +420,119 @@ enregistrer_runner() {
   echo
   [[ -n "$jeton" ]] || mourir "Jeton vide."
   # Le jeton est saisi au clavier : il n'est écrit ni dans ce script, ni dans l'historique du shell.
-  # shellcheck disable=SC2016  # $1…$3 et $jeton sont développés par le bash du runner, pas ici.
-  runuser -u "$UTILISATEUR_RUNNER" -- bash -c 'cd /home/runner && read -r jeton && exec forgejo-runner register --no-interactive \
-      --instance "$1" --name "$2" --labels "$3" --token "$jeton"' _ \
-    "http://${ADRESSE}:${PORT_HTTP}" "forgejo-ct${CTID}" "docker:docker://${IMAGE_RUNNER_PAR_DEFAUT}" <<<"$jeton"
+  enregistrer_runner_depuis_stdin <<<"$jeton"
   unset jeton
+}
+
+enregistrer_runner_depuis_stdin() {
+  # Le jeton arrive sur l'entrée standard : il n'apparaît dans aucune ligne de commande du CT.
+  # shellcheck disable=SC2016  # $1…$3 et $jeton sont développés par le bash du runner, pas ici.
+  runuser -u "$UTILISATEUR_RUNNER" -- bash -c 'cd /home/runner && read -r jeton && [[ -n "$jeton" ]] &&
+    exec /usr/local/bin/forgejo-runner register --no-interactive --config config.yml \
+      --instance "$1" --name "$2" --labels "$3" --token "$jeton"' _ \
+    "http://${ADRESSE}:${PORT_HTTP}" "forgejo-ct${CTID}" "docker:docker://${IMAGE_RUNNER_PAR_DEFAUT}" \
+    >/dev/null || mourir "Enregistrement du runner refusé."
   systemctl restart forgejo-runner
   dire "Runner enregistré et démarré (étiquette « docker »)."
+}
+
+forgejo_cli() {
+  runuser -u "$UTILISATEUR_FORGEJO" -- env HOME=/home/git FORGEJO_WORK_DIR=/var/lib/forgejo \
+    /usr/local/bin/forgejo --config /etc/forgejo/app.ini "$@"
+}
+
+amorcer() {
+  # Sans aucune saisie, et sans qu'aucun secret ne s'affiche :
+  #   1. compte administrateur, mot de passe tiré au hasard et jeté (à redéfinir avec
+  #      « forgejo admin user change-password » avant la première connexion) ;
+  #   2. runner enregistré avec un jeton tiré par la CLI et passé par un tube ;
+  #   3. dépôt regie, miroir des branches et étiquettes de GitHub toutes les 5 minutes, Actions
+  #      actives, créé par l'API avec des jetons à usage unique supprimés aussitôt.
+  local admin="${ADMIN:-BenjaminDuthe}" courriel="${COURRIEL:?COURRIEL manquant}"
+  local source_miroir="${SOURCE_MIROIR:-https://github.com/BenjaminDuthe/regie.git}"
+  local base="http://${ADRESSE}:${PORT_HTTP}"
+
+  if forgejo_cli admin user list --admin | awk 'NR>1 {print $2}' | grep -qx "$admin"; then
+    dire "Compte administrateur « $admin » déjà présent."
+  else
+    forgejo_cli admin user create --admin --username "$admin" --email "$courriel" \
+      --random-password --must-change-password >/dev/null
+    dire "Compte « $admin » créé ; son mot de passe aléatoire n'a pas été affiché."
+  fi
+
+  if [[ -f /home/runner/.runner ]]; then
+    dire "Runner déjà enregistré."
+  else
+    # Jeton d'enregistrement tiré par la CLI et passé par un tube, jamais affiché.
+    forgejo_cli actions generate-runner-token | enregistrer_runner_depuis_stdin
+  fi
+
+  local depot="/var/lib/forgejo/data/forgejo-repositories/${admin,,}/regie.git"
+  if requete_sql "select 1 from repository where lower_name='regie' and is_mirror=1 and status=0" | grep -q 1; then
+    dire "Miroir regie déjà présent."
+  else
+    python3 -I - "$source_miroir" "$admin" >/root/migration.json <<'PY2'
+import json, sys
+print(json.dumps({"clone_addr": sys.argv[1], "repo_name": "regie", "repo_owner": sys.argv[2],
+                  "service": "git", "mirror": True, "mirror_interval": "5m", "private": True,
+                  "description": "Miroir de GitHub : CI de regie (histoire 0.4)"}))
+PY2
+    # Une migration interrompue laisse un dépôt bloqué (status ≠ 0) qui occupe le nom : on le retire.
+    if requete_sql "select 1 from repository where lower_name='regie'" | grep -q 1; then
+      appel_api "$admin" DELETE "/repos/${admin}/regie" >/dev/null
+      dire "Dépôt regie d'une migration interrompue supprimé."
+    fi
+    local code
+    code="$(appel_api "$admin" POST /repos/migrate /root/migration.json)"
+    rm -f /root/migration.json
+    [[ "$code" == 201 ]] || mourir "Création du miroir refusée (HTTP $code) : $(head -c 300 /root/reponse-api.json)"
+    dire "Miroir ${admin}/regie créé depuis ${source_miroir} (toutes les 5 minutes)."
+  fi
+
+  # Code venu de forks : GitHub publie chaque PR sous refs/pull/*, et le miroir les tire par défaut
+  # (+refs/*:refs/*). Seules les branches et les étiquettes sont gardées.
+  runuser -u "$UTILISATEUR_FORGEJO" -- git -C "$depot" config --replace-all remote.origin.fetch '+refs/heads/*:refs/heads/*'
+  runuser -u "$UTILISATEUR_FORGEJO" -- git -C "$depot" config --add remote.origin.fetch '+refs/tags/*:refs/tags/*'
+  runuser -u "$UTILISATEUR_FORGEJO" -- git -C "$depot" for-each-ref --format='delete %(refname)' refs/pull/ |
+    runuser -u "$UTILISATEUR_FORGEJO" -- git -C "$depot" update-ref --stdin
+  dire "Miroir limité aux branches et aux étiquettes ; refs/pull/* retirées."
+
+  # Unité Actions (type 10) : un dépôt migré ne l'a pas.
+  if requete_sql "select 1 from repo_unit u join repository r on r.id=u.repo_id where r.lower_name='regie' and u.type=10" | grep -q 1; then
+    dire "Actions déjà actives sur regie."
+  else
+    printf '{"has_actions": true}' >/root/actions.json
+    local code
+    code="$(appel_api "$admin" PATCH "/repos/${admin}/regie" /root/actions.json)"
+    rm -f /root/actions.json
+    [[ "$code" == 200 ]] || mourir "Activation des Actions refusée (HTTP $code) : $(head -c 300 /root/reponse-api.json)"
+    dire "Actions activées sur regie."
+  fi
+  rm -f /root/reponse-api.json
+}
+
+requete_sql() {
+  runuser -u "$UTILISATEUR_FORGEJO" -- sqlite3 /var/lib/forgejo/data/forgejo.db "$1"
+}
+
+appel_api() {
+  # Appel d'API avec un jeton à usage unique, créé par la CLI et supprimé aussitôt. Le jeton passe
+  # par l'entrée standard de curl, jamais par une ligne de commande. Affiche le code HTTP ; le
+  # corps de la réponse est dans /root/reponse-api.json.
+  local compte="$1" methode="$2" chemin="$3" corps="${4:-}" jeton nom code
+  nom="amorce-$(date +%s%N)"
+  jeton="$(forgejo_cli admin user generate-access-token --username "$compte" --token-name "$nom" \
+    --scopes write:repository,write:user --raw)"
+  # Un compte qui doit changer son mot de passe n'a droit à aucune action : l'obligation est
+  # levée le temps de l'appel, puis remise.
+  forgejo_cli admin user must-change-password --unset "$compte" >/dev/null
+  code="$(printf 'Authorization: token %s\n' "$jeton" | curl -sS -o /root/reponse-api.json -w '%{http_code}' \
+    -X "$methode" -H @- -H 'Content-Type: application/json' ${corps:+--data @"$corps"} \
+    "http://${ADRESSE}:${PORT_HTTP}/api/v1${chemin}")" || code=000
+  unset jeton
+  forgejo_cli admin user must-change-password "$compte" >/dev/null
+  requete_sql "delete from access_token where name='${nom}'"
+  printf '%s' "$code"
 }
 
 case "${1:-hote}" in
@@ -434,5 +540,6 @@ case "${1:-hote}" in
   conteneur) conteneur ;;
   creer-admin) creer_admin ;;
   enregistrer-runner) enregistrer_runner ;;
-  *) mourir "Sous-commande inconnue : $1 (hote | conteneur | creer-admin | enregistrer-runner)" ;;
+  amorcer) amorcer ;;
+  *) mourir "Sous-commande inconnue : $1 (hote | conteneur | creer-admin | enregistrer-runner | amorcer)" ;;
 esac

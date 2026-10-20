@@ -93,8 +93,10 @@ jobs:
         run: |
           set -eu
           if [ -z "$JETON_GITHUB" ]; then
-            echo "Secret GITHUB_STATUTS absent : statut non publié sur GitHub." >&2
-            exit 1
+            # Le résultat reste visible sur Forgejo ; sur GitHub, le commit n'a pas de statut et la
+            # protection de main (qui exige forgejo/ci) bloque donc la fusion.
+            echo "::warning::Secret GITHUB_STATUTS absent : statut non publié sur GitHub."
+            exit 0
           fi
           if [ "$SUITES" = success ] && [ "$PYTHON" = success ]; then
             etat=success; texte="suites et python au vert"
