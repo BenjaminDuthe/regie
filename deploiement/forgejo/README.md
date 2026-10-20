@@ -14,7 +14,7 @@ Dans le CT :
 
 - utilisateurs dédiés `git` (Forgejo) et `runner` (forgejo-runner) ;
 - binaires Forgejo et `forgejo-runner` téléchargés depuis les versions officielles (Codeberg et code.forgejo.org), installés seulement si la somme SHA-256 **et** la signature GPG (clé `EB114F5E6C0DC2BCDD183550A4B61A2DC5923710`) sont bonnes ;
-- Forgejo en SQLite (`/var/lib/forgejo`), unité systemd `forgejo` ; inscriptions fermées, connexion exigée pour lire ; miroirs synchronisés toutes les 5 minutes, depuis `github.com` seulement ;
+- Forgejo en SQLite (`/var/lib/forgejo`), unité systemd `forgejo` ; inscriptions fermées, connexion exigée pour lire ; miroirs synchronisés toutes les 5 minutes (tâche des miroirs chaque minute), depuis `github.com` seulement ;
 - secrets internes (`SECRET_KEY`, `INTERNAL_TOKEN`, `JWT_SECRET`) générés dans le CT : l'unité rend `/etc` en lecture seule, Forgejo ne peut pas les écrire lui-même ;
 - forgejo-runner sur Podman rootless (socket utilisateur, `linger`), unité systemd `forgejo-runner`, aucun socket monté dans les jobs.
 
@@ -40,26 +40,44 @@ Installé le 2026-10-03 sur `pve` : CT 130, http://192.168.20.130:3000/.
 
 L'installation du 2026-10-03 avait été faite par une version antérieure du script : `INSTALL_LOCK = false`, page d'installation ouverte au réseau local et au WireGuard. Aucune base n'existait, donc aucun compte n'avait été créé. Forgejo a été arrêté, l'ancien `app.ini` mis de côté dans `/root/app.ini.non-verrouille-2026-10-20` (dans le CT), puis le script actuel rejoué : `/install` redirige et toute page exige une connexion.
 
-## À faire par toi, Benjamin (jamais par Claude)
+## Amorçage sans saisie (fait le 2026-10-20)
 
-> La page d'installation web n'est jamais ouverte : `app.ini` est écrit avec `INSTALL_LOCK = true` et des clés internes générées dans le CT. Personne sur le réseau ne peut donc s'approprier le compte administrateur avant toi.
+```sh
+ssh root@192.168.20.200 pct exec 130 -- env COURRIEL=<adresse> /root/installer.sh amorcer
+```
 
-1. Crée le **compte administrateur** en ligne de commande. Forgejo tire un mot de passe au hasard et l'affiche une seule fois ; il est à changer à la première connexion sur `http://192.168.20.130:3000/` :
+La sous-commande `amorcer` est rejouable. Aucun secret n'y est saisi ni affiché :
+
+- **Compte administrateur** `BenjaminDuthe`, créé par la CLI. Son mot de passe aléatoire est jeté, et il doit le changer à la première connexion. La page d'installation web n'est jamais ouverte.
+- **Runner** `forgejo-ct130`, étiquette `docker` (image Node épinglée par empreinte). Le jeton d'enregistrement est tiré par `forgejo actions generate-runner-token` et passe par un tube.
+- **Dépôt `BenjaminDuthe/regie`**, privé, miroir de `https://github.com/BenjaminDuthe/regie.git` (sans jeton : le dépôt est public), synchronisé toutes les 5 minutes, Actions actives. Les appels d'API passent par des jetons à usage unique, supprimés juste après. Pendant chaque appel, l'obligation de changer de mot de passe est levée, puis remise.
+- **Code venu de forks.** GitHub publie chaque PR sous `refs/pull/*`, et Forgejo crée ses miroirs avec `+refs/*:refs/*` : la première synchronisation a tiré 3 refs de PR. Le dépôt ne garde désormais que `+refs/heads/*` et `+refs/tags/*`, et les refs de PR ont été supprimées. Sans ça, du code étranger aurait pu atteindre le runner (réseau de l'hôte) et le secret `GITHUB_STATUTS`. Un `if:` dans le workflow n'y aurait rien changé, puisque c'est le contenu poussé qui le définit. À recontrôler après une montée de version de Forgejo :
+  ```sh
+  pct exec 130 -- runuser -u git -- git -C /var/lib/forgejo/data/forgejo-repositories/benjaminduthe/regie.git for-each-ref refs/pull/
+  ```
+  La commande ne doit rien afficher.
+
+## Contrôles faits le 2026-10-20
+
+| Contrôle | Résultat |
+|----------|----------|
+| Commit 164f9e2 poussé sur GitHub | sur Forgejo 70 s après la relance de la tâche des miroirs, run lancé par l'événement `push` |
+| Run 1 : `suites`, `python`, `statut-github` | tous verts en 80 s ; `statut-github` avertit que le secret manque |
+| `refs/pull/*` après synchronisation | aucune |
+| Jetons d'API restants | aucun |
+
+Avant ce réglage, la tâche `update_mirrors` ne passait que toutes les 10 minutes. Elle passe désormais chaque minute (`[cron.update_mirrors]`), et un commit arrive donc en 6 minutes au plus.
+
+## Reste à faire par toi, Benjamin
+
+1. **Ton mot de passe Forgejo** : saisi au clavier, masqué, puis connecte-toi sur http://192.168.20.130:3000/ :
    ```sh
-   ssh root@192.168.20.200 -t pct exec 130 -- /root/installer.sh creer-admin
+   ssh -t root@192.168.20.200 pct exec 130 -- /root/installer.sh mot-de-passe
    ```
-2. *Administration du site → Actions → Runners → Créer un nouveau runner* : copie le **jeton d'enregistrement**.
-3. Enregistre le runner (le jeton est saisi au clavier, masqué) :
-   ```sh
-   ssh root@192.168.20.200 -t pct exec 130 -- /root/installer.sh enregistrer-runner
-   ```
-4. **Miroir tiré de GitHub.** *+ → Nouvelle migration → GitHub* : URL `https://github.com/BenjaminDuthe/regie.git`, aucun jeton (le dépôt est public), case **Ce dépôt sera un miroir** cochée, intervalle `5m`. Vérifie ensuite que *Paramètres → Unités → Actions* est actif.
-5. **Jeton de statut GitHub.** Sur GitHub, *Settings → Developer settings → Fine-grained tokens* : dépôt `BenjaminDuthe/regie` seulement, permission **Commit statuses: Read and write**, rien d'autre. Dans Forgejo, *dépôt regie → Paramètres → Actions → Secrets* : secret `GITHUB_STATUTS`. Range aussi le jeton dans Vaultwarden. Ne le colle ni dans le dépôt ni dans le chat.
-6. **Protection de `main` sur GitHub.** *Settings → Branches → main* : exige le statut `forgejo/ci` avant la fusion.
+2. **Jeton de statut GitHub.** Sur GitHub, *Settings → Developer settings → Fine-grained tokens* : dépôt `BenjaminDuthe/regie` seulement, permission **Commit statuses: Read and write**, rien d'autre. Dans Forgejo, *dépôt regie → Paramètres → Actions → Secrets* : secret `GITHUB_STATUTS`. Range aussi le jeton dans Vaultwarden. Ne le colle ni dans le dépôt ni dans le chat.
+3. **Protection de `main` sur GitHub.** *Settings → Branches → main* : exige le statut `forgejo/ci` avant la fusion.
 
-**Code venu de forks : à vérifier dès que le miroir existe.** Le dépôt GitHub est public : n'importe qui peut ouvrir une PR, et GitHub l'expose sous `refs/pull/*`. Si le miroir tirait ces refs et que Forgejo lançait leurs workflows, du code étranger s'exécuterait sur le runner (réseau de l'hôte) avec le secret `GITHUB_STATUTS`. Un `if:` dans le workflow n'y changerait rien : c'est le contenu poussé qui le définit. Contrôle à faire : `git ls-remote http://192.168.20.130:3000/<toi>/regie.git 'refs/pull/*'` doit être vide, ou aucun run ne doit apparaître pour ces refs. Sinon, coupe les Actions du dépôt jusqu'à ce que la synchronisation soit restreinte aux branches.
-
-Le job `statut-github` publie `success` seulement si `suites` et `python` passent ; sinon `failure`. Sans le secret, il échoue, et le commit GitHub reste sans statut : la protection de `main` bloque alors la fusion.
+Le job `statut-github` publie `success` seulement si `suites` et `python` passent ; sinon `failure`. Tant que le secret manque, il laisse un avertissement sur Forgejo et le commit GitHub reste sans statut. Une fois la protection de `main` en place, la fusion est alors bloquée.
 
 ## Vérifier le pare-feu
 

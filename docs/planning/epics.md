@@ -28,8 +28,8 @@ Le grill du 2026-10-18 recentre la V1 sur un seul utilisateur et une première t
 | 1 | 0.1 Réparer Authentik et créer l'application « regie » | nouvelle |
 | 2 | 0.2 Le LXC `regie` sur `pve-media` | nouvelle |
 | 3 | 0.3 `regie.etablia.fr` derrière nginx | nouvelle |
-| 4 | 0.4 La CI tourne sur Forgejo | nouvelle ; valide la CI de 1.1 |
-| 5 | 1.1 Amorcer le dépôt, la CI et la première page | **faite** (238c584) ; reste la CI verte sur Forgejo (0.4) |
+| 4 | 0.4 La CI tourne sur Forgejo | **faite** côté Forgejo (2026-10-20 : miroir, runner, premier run vert) ; reste à Benjamin le jeton de statut GitHub et la protection de `main` |
+| 5 | 1.1 Amorcer le dépôt, la CI et la première page | **faite** (238c584) ; CI verte sur Forgejo le 2026-10-20 |
 | 6 | 1.2 Une première page sûre, lisible et accessible | inchangée |
 | 7 | 1.3 Des suites de conformité qui bloquent chaque commit | inchangée |
 | 8 | 1.4 Migrations contrôlées, coffre et démarrage sûr | RLS par `marque_id` ; `regie_admin` fondu dans `regie_coeur` |

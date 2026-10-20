@@ -288,6 +288,11 @@ ENABLED = true
 MIN_INTERVAL = 5m
 DEFAULT_INTERVAL = 5m
 
+[cron.update_mirrors]
+; La tâche qui parcourt les miroirs passe toutes les 10 minutes par défaut : avec l'intervalle
+; de 5 minutes, un commit mettrait jusqu'à 15 minutes à arriver.
+SCHEDULE = @every 1m
+
 [migrations]
 ; Seul GitHub peut servir de source de miroir ou de migration.
 ALLOWED_DOMAINS = github.com
@@ -311,6 +316,11 @@ EOF
     secret_jwt="$(/usr/local/bin/forgejo generate secret JWT_SECRET)"
     printf '\n[oauth2]\nJWT_SECRET = %s\n' "$secret_jwt" >>/etc/forgejo/app.ini
     unset secret_jwt
+  fi
+  # Ajouté après l'installation du 2026-10-03 : app.ini n'est jamais réécrit, la section est
+  # donc ajoutée si elle manque.
+  if ! grep -q '^\[cron.update_mirrors\]' /etc/forgejo/app.ini; then
+    printf '\n[cron.update_mirrors]\nSCHEDULE = @every 1m\n' >>/etc/forgejo/app.ini
   fi
   chown root:"$UTILISATEUR_FORGEJO" /etc/forgejo/app.ini
   chmod 0660 /etc/forgejo/app.ini
@@ -535,11 +545,25 @@ appel_api() {
   printf '%s' "$code"
 }
 
+mot_de_passe() {
+  # Mot de passe saisi au clavier, masqué, dans le CT. La CLI de Forgejo ne le lit que sur sa
+  # ligne de commande : il y reste le temps de l'appel, visible seulement de root dans ce CT.
+  local admin="${ADMIN:-BenjaminDuthe}" mdp confirmation
+  read -r -s -p "Nouveau mot de passe Forgejo de ${admin} : " mdp; echo
+  read -r -s -p "Encore une fois : " confirmation; echo
+  [[ -n "$mdp" && "$mdp" == "$confirmation" ]] || mourir "Mots de passe vides ou différents."
+  unset confirmation
+  forgejo_cli admin user change-password --username "$admin" --password "$mdp" >/dev/null
+  unset mdp
+  dire "Mot de passe de « $admin » changé : connecte-toi sur http://${ADRESSE}:${PORT_HTTP}/."
+}
+
 case "${1:-hote}" in
   hote) hote ;;
   conteneur) conteneur ;;
   creer-admin) creer_admin ;;
   enregistrer-runner) enregistrer_runner ;;
   amorcer) amorcer ;;
-  *) mourir "Sous-commande inconnue : $1 (hote | conteneur | creer-admin | enregistrer-runner | amorcer)" ;;
+  mot-de-passe) mot_de_passe ;;
+  *) mourir "Sous-commande inconnue : $1 (hote | conteneur | creer-admin | enregistrer-runner | amorcer | mot-de-passe)" ;;
 esac
