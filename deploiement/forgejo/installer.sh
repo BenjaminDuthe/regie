@@ -529,10 +529,10 @@ appel_api() {
   # Appel d'API avec un jeton à usage unique, créé par la CLI et supprimé aussitôt. Le jeton passe
   # par l'entrée standard de curl, jamais par une ligne de commande. Affiche le code HTTP ; le
   # corps de la réponse est dans /root/reponse-api.json.
-  local compte="$1" methode="$2" chemin="$3" corps="${4:-}" jeton nom code
+  local compte="$1" methode="$2" chemin="$3" corps="${4:-}" portees="${5:-write:repository,write:user}" jeton nom code
   nom="amorce-$(date +%s%N)"
   jeton="$(forgejo_cli admin user generate-access-token --username "$compte" --token-name "$nom" \
-    --scopes write:repository,write:user --raw)"
+    --scopes "$portees" --raw)"
   # Un compte qui doit changer son mot de passe n'a droit à aucune action : l'obligation est
   # levée le temps de l'appel, puis remise.
   forgejo_cli admin user must-change-password --unset "$compte" >/dev/null
@@ -546,15 +546,25 @@ appel_api() {
 }
 
 mot_de_passe() {
-  # Mot de passe saisi au clavier, masqué, dans le CT. La CLI de Forgejo ne le lit que sur sa
-  # ligne de commande : il y reste le temps de l'appel, visible seulement de root dans ce CT.
-  local admin="${ADMIN:-BenjaminDuthe}" mdp confirmation
+  # Mot de passe saisi au clavier, masqué, dans le CT. Il ne passe sur aucune ligne de commande
+  # (dans le CT, /proc montre les arguments de chaque processus à tous les utilisateurs, dont
+  # « runner ») : python le lit sur son entrée standard et l'écrit dans un corps JSON lisible
+  # par root seul, envoyé à l'API d'administration puis supprimé.
+  local admin="${ADMIN:-BenjaminDuthe}" mdp confirmation code
   read -r -s -p "Nouveau mot de passe Forgejo de ${admin} : " mdp; echo
   read -r -s -p "Encore une fois : " confirmation; echo
   [[ -n "$mdp" && "$mdp" == "$confirmation" ]] || mourir "Mots de passe vides ou différents."
   unset confirmation
-  forgejo_cli admin user change-password --username "$admin" --password "$mdp" >/dev/null
+  (umask 077 && python3 -I -c 'import json, sys; json.dump({"login_name": sys.argv[1], "source_id": 0,
+    "password": sys.stdin.readline().rstrip("\n"), "must_change_password": False}, open("/root/mdp.json", "w"))' \
+    "$admin" <<<"$mdp")
   unset mdp
+  code="$(appel_api "$admin" PATCH "/admin/users/${admin}" /root/mdp.json write:admin)"
+  rm -f /root/mdp.json
+  [[ "$code" == 200 ]] || mourir "Changement refusé (HTTP $code) : $(head -c 300 /root/reponse-api.json)"
+  rm -f /root/reponse-api.json
+  # appel_api remet l'obligation de changer de mot de passe : elle n'a plus lieu d'être.
+  forgejo_cli admin user must-change-password --unset "$admin" >/dev/null
   dire "Mot de passe de « $admin » changé : connecte-toi sur http://${ADRESSE}:${PORT_HTTP}/."
 }
 
