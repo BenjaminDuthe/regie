@@ -1,0 +1,30 @@
+{
+  "$commentaire": "Licences des composants hors npm (AD-17, NFR-26). npm se lit dans package-lock.json ; pip se déclare ici, paquet par paquet, car requirements.lock ne porte pas les licences. Polices, modèles et musiques n'entrent qu'avec une licence libre et une source vérifiable. outils/ci/verifier-licences.mjs contrôle ce fichier et régénère LICENCES-TIERS.md.",
+  "pip": {
+    "annotated-types": "MIT",
+    "argcomplete": "Apache-2.0",
+    "black": "MIT",
+    "click": "BSD-3-Clause",
+    "datamodel-code-generator": "MIT",
+    "genson": "MIT",
+    "inflect": "MIT",
+    "isort": "MIT",
+    "jinja2": "BSD-3-Clause",
+    "markupsafe": "BSD-3-Clause",
+    "more-itertools": "MIT",
+    "mypy-extensions": "MIT",
+    "packaging": "Apache-2.0 OR BSD-2-Clause",
+    "pathspec": "MPL-2.0",
+    "platformdirs": "MIT",
+    "pydantic": "MIT",
+    "pydantic-core": "MIT",
+    "pytokens": "MIT",
+    "pyyaml": "MIT",
+    "typeguard": "MIT",
+    "typing-extensions": "PSF-2.0",
+    "typing-inspection": "MIT"
+  },
+  "polices": [],
+  "modeles": [],
+  "musiques": []
+}

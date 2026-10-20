@@ -1,0 +1,13 @@
+{
+  "$commentaire": "Fichier de chaînes unique : tout texte lu par une personne (interface, messages d'erreur, courriels) vient d'ici (NFR-36, UX-DR23). outils/ci/verifier-chaines.mjs le confronte à deploiement/mots-interdits.json, au tutoiement et aux heures en clair. Une valeur peut contenir {nom} pour une variable.",
+  "marque": "regie",
+  "accueil": {
+    "titre": "regie — ton studio de vidéos verticales",
+    "intro": "Tu déposes tes rushes, Claude prépare tes brouillons, tu gardes ceux qui te plaisent."
+  },
+  "pied": {
+    "lienSource": "Code source de regie",
+    "version": "version {version}",
+    "versionDeveloppement": "de développement"
+  }
+}

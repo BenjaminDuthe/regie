@@ -1,15 +1,17 @@
 ---
 // Pied de page commun : lien vers le code source de la version en service (FR-67, AGPL-3.0),
 // discret, sur chaque page.
+import chaines from '../chaines.json' with { type: 'json' };
 import { env } from '../env.ts';
 import { lienSource } from '../source.ts';
 
 const version = env.REGIE_VERSION;
+const numero = version?.slice(0, 7) ?? chaines.pied.versionDeveloppement;
 ---
 
 <footer class="pied">
-  <a href={lienSource(version)} rel="noopener">Code source de regie</a>
-  <span>· version {version?.slice(0, 7) ?? 'de développement'}</span>
+  <a href={lienSource(version)} rel="noopener">{chaines.pied.lienSource}</a>
+  <span>· {chaines.pied.version.replace('{version}', numero)}</span>
 </footer>
 
 <style>

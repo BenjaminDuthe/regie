@@ -1,0 +1,18 @@
+{
+  "$commentaire": "Sorties réseau autorisées (AD-17, AR-23), versionnées. outils/ci/verifier-sorties.mjs compare le dépôt à cette liste. Ajouter une ligne ici est une décision visible en revue, jamais un effet de bord.",
+  "conteneurs": {
+    "publication": "envoi vers les réseaux sociaux choisis par la personne",
+    "proxy-capture": "hôtes autorisés de la capture d'application",
+    "coeur": "relais SMTP réglé par l'administrateur seulement",
+    "proxy-tls": "ACME (certificats)"
+  },
+  "hotes": [
+    {
+      "hote": "github.com",
+      "raison": "lien vers le code source de la version en service (FR-67, AGPL-3.0), lien cliqué par la personne, jamais chargé",
+      "fichiers": ["coeur/src/source.ts"]
+    }
+  ],
+  "espacesDeNoms": ["www.w3.org"],
+  "fichiersReseau": []
+}

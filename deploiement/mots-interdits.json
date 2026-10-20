@@ -1,0 +1,19 @@
+{
+  "$commentaire": "Mots interdits dans le fichier de chaînes (NFR-36, UX-DR23) : le vocabulaire d'un monteur, pas celui d'une créatrice. Comparaison sans tenir compte de la casse ni des accents, sur des mots entiers. La liste est à compléter au fil des tests avec les créatrices ; outils/ci/verifier-chaines.mjs la lit.",
+  "mots": [
+    "timeline",
+    "keyframe",
+    "image clé",
+    "codec",
+    "bitrate",
+    "débit binaire",
+    "transcodage",
+    "transcoder",
+    "muxer",
+    "démuxer",
+    "container",
+    "conteneur vidéo",
+    "framerate",
+    "rendering"
+  ]
+}
