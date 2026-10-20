@@ -1,0 +1,27 @@
+---
+// Pied de page commun : lien vers le code source de la version en service (FR-67, AGPL-3.0),
+// discret, sur chaque page.
+import { env } from '../env.ts';
+import { lienSource } from '../source.ts';
+
+const version = env.REGIE_VERSION;
+---
+
+<footer class="pied">
+  <a href={lienSource(version)} rel="noopener">Code source de regie</a>
+  <span>· version {version?.slice(0, 7) ?? 'de développement'}</span>
+</footer>
+
+<style>
+  .pied {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+    color: var(--doux);
+    font-size: 12px;
+    border-top: 1px solid var(--trait);
+  }
+  .pied a {
+    color: var(--doux);
+  }
+</style>

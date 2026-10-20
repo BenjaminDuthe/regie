@@ -1,19 +1,10 @@
 ---
-// En-tête collant commun (UX-DR4) : nom regie, puis le lien vers le code source de la version
-// en service (FR-67, AGPL-3.0). L'espace actif et la navigation (Relire, Démos d'app) s'y
-// ajoutent avec les pages qui les portent (histoires 1.9, 2.12 et 4.x).
-import { env } from '../env.ts';
-import { lienSource } from '../source.ts';
-
-const version = env.REGIE_VERSION;
+// En-tête collant commun (UX-DR4) : nom regie. L'espace actif et la navigation (Relire,
+// Démos d'app) s'y ajoutent avec les pages qui les portent (histoires 1.9, 2.12 et 4.x).
 ---
 
 <header class="entete">
   <a class="nom" href="/">regie</a>
-  <a class="source" href={lienSource(version)} rel="noopener">
-    Code source<span class="visuellement-cache"> de regie, version</span>
-    <code>{version?.slice(0, 7) ?? 'main'}</code>
-  </a>
 </header>
 
 <style>
@@ -35,16 +26,5 @@ const version = env.REGIE_VERSION;
     font-size: 17px;
     letter-spacing: -0.01em;
     text-decoration: none;
-  }
-  .source {
-    color: var(--doux);
-    font-size: 13px;
-    display: inline-flex;
-    gap: 6px;
-    align-items: baseline;
-  }
-  .source code {
-    color: var(--texte);
-    font-size: 12px;
   }
 </style>

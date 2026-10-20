@@ -54,11 +54,11 @@ describe('page d’accueil', () => {
     expect(page.html).toMatch(/@media \(prefers-reduced-motion:reduce\)\{[^}]*animation-duration:\.01ms!important/);
   });
 
-  it('montre l’en-tête commun avec le lien vers le code source en service', () => {
+  it('montre l’en-tête commun et, en pied de page, le lien vers le code source en service', () => {
     expect(page.html).toMatch(/<html lang="fr">/);
     expect(page.html).toContain('name="viewport" content="width=device-width, initial-scale=1');
     expect(page.html).toMatch(/<header class="entete"/);
-    expect(page.html).toContain(`href="${lienSource(undefined)}"`);
+    expect(page.html).toMatch(new RegExp(`<footer class="pied"[^]*href="${lienSource(undefined)}"`));
     expect(page.html).toContain('<main');
   });
 });

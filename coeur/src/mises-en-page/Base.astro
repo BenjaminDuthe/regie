@@ -1,7 +1,8 @@
 ---
-// Squelette commun à toutes les pages : thème, en-tête collant, lien vers le code source.
+// Squelette commun à toutes les pages : thème, en-tête collant, pied de page avec le lien source.
 // Rien n'est chargé d'un tiers : la CSP posée par Astro (security.csp) l'interdit.
 import EnTete from '../composants/EnTete.astro';
+import PiedDePage from '../composants/PiedDePage.astro';
 import '../styles/theme.css';
 
 interface Props {
@@ -26,5 +27,6 @@ const { titre } = Astro.props;
     <main class="contenu">
       <slot />
     </main>
+    <PiedDePage />
   </body>
 </html>
