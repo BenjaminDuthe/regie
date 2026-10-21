@@ -3,7 +3,8 @@
 // immuable : on le lit, on ne le modifie pas (la modification crée une version, histoire 3.10).
 
 import { z } from 'zod';
-import { IdScene, OperationsEdition, SCENES_MAX, appliquerOperations, dureeTotaleMs, sousTitres, versSrt } from '@regie/contrats';
+import { IdScene, OperationsEdition, SCENES_MAX, VARIANTES_COUVERTURE, appliquerOperations, dureeTotaleMs, sousTitres, versSrt } from '@regie/contrats';
+import { dessinerCouverture, varianteChoisie } from '../domaine/couverture.ts';
 import { signerAdresse } from '../auth/adresses-signees.ts';
 import { evaluerMontage, figerGabarit } from '../domaine/montage.ts';
 import type { Violation } from '../domaine/gardes.ts';
@@ -165,7 +166,7 @@ export const montageDefinirVoix = definirAction({
 export const montageEditer = definirAction({
   domaine: 'montage',
   verbe: 'editer',
-  description: 'Modifie un montage par une liste d’opérations appliquées dans l’ordre : `texte` (accroche, texteEcran, voix d’une scène), `duree` (dureeMs d’une scène), `deplacer` (monter ou descendre), `dupliquer`, `retirer`, `carte_fin` (titre, sousTitre, dureeMs, ou retirer), `animation` (entree, sortie, dureeMs, delaiMs des textes d’une scène ; catalogue : aucune, fondu, glisse_haut, glisse_bas, zoom en entrée ; aucune, fondu, zoom en sortie), `transition` (coupe ou fondu avec la scène précédente), `zoom` (actif, niveau de 1,1 à 3, decalageMs par rapport au clic) et `animation_carte` (la même chose pour la carte de fin). Crée une NOUVELLE version du montage (l’ancienne ne change pas, les publications déjà parties restent liées à elle) à partir de la version donnée, sans lancer de rendu. Rend les violations des gardes de la nouvelle version, scène par scène : un texte hors zone sûre ou illisible n’empêche pas l’enregistrement, mais la vidéo ne passera pas « prête » tant qu’il n’est pas corrigé. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).',
+  description: 'Modifie un montage par une liste d’opérations appliquées dans l’ordre : `texte` (accroche, texteEcran, voix d’une scène), `duree` (dureeMs d’une scène), `deplacer` (monter ou descendre), `dupliquer`, `retirer`, `carte_fin` (titre, sousTitre, dureeMs, ou retirer), `animation` (entree, sortie, dureeMs, delaiMs des textes d’une scène ; catalogue : aucune, fondu, glisse_haut, glisse_bas, zoom en entrée ; aucune, fondu, zoom en sortie), `transition` (coupe ou fondu avec la scène précédente), `zoom` (actif, niveau de 1,1 à 3, decalageMs par rapport au clic) et `animation_carte` (la même chose pour la carte de fin) et `couverture` (variante : titre, ecran ou bandeau). Crée une NOUVELLE version du montage (l’ancienne ne change pas, les publications déjà parties restent liées à elle) à partir de la version donnée, sans lancer de rendu. Rend les violations des gardes de la nouvelle version, scène par scène : un texte hors zone sûre ou illisible n’empêche pas l’enregistrement, mais la vidéo ne passera pas « prête » tant qu’il n’est pas corrigé. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).',
   portee: 'ecriture',
   entree: z.strictObject({ id: identifiant, operations: OperationsEdition }),
   executer: async (ctx, entree) => {
@@ -237,4 +238,38 @@ export const montageRegenererGabarit = definirAction({
   objet: (entree) => `montage:${entree.id}`,
 });
 
-export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, montageRegenerer, montageRegenererGabarit, renduLire, renduAdresse] as const;
+export const montageCouvertures = definirAction({
+  domaine: 'montage',
+  verbe: 'couvertures',
+  description: 'Donne les trois couvertures d’un montage (variantes `titre`, `ecran` et `bandeau`), au style du gabarit figé du montage, chacune en image SVG 1080×1920, et dit laquelle est choisie (la première par défaut). Rien n’est écrit.',
+  portee: 'lecture',
+  entree: z.strictObject({ id: identifiant }),
+  executer: async (ctx, entree) => {
+    const m = await montageAccessible(ctx, entree.id);
+    const choisie = varianteChoisie(m.timeline);
+    return { montageId: m.id, variantes: VARIANTES_COUVERTURE.map((variante) => ({ variante, choisie: variante === choisie, svg: dessinerCouverture(m.timeline, m.gabarit.definition, variante) })) };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+export const montageCouvrir = definirAction({
+  domaine: 'montage',
+  verbe: 'couvrir',
+  description: 'Choisit la couverture d’un montage parmi `titre`, `ecran` et `bandeau`. Crée une NOUVELLE version du montage (l’ancienne ne change pas) avec la couverture choisie ; le film n’est pas rendu de nouveau. Si la variante est déjà celle du montage, rien n’est créé (`inchange`). Refusé avec SEANCE_PURGEE si les rushes ont été purgés (la date de purge est dans le message). Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant, variante: z.enum(VARIANTES_COUVERTURE) }),
+  executer: async (ctx, entree) => {
+    const base = await montageAccessible(ctx, entree.id);
+    await exigerFilm(ctx, base);
+    if (varianteChoisie(base.timeline) === entree.variante && base.timeline.couverture !== undefined) return { montage: montageVisible(base), inchange: true };
+    const resultat = appliquerOperations(base.timeline, [{ op: 'couverture', variante: entree.variante }]);
+    if (!resultat.ok) throw new ErreurMetier(resultat.code, 422, { sceneId: resultat.sceneId ?? '', detail: resultat.detail ?? '' });
+    const r = await ctx.services.montages.creerVersion({ marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId, parentId: base.id, origine: 'edition', timeline: resultat.timeline });
+    if (r.etat === 'introuvable') throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
+    if (r.etat === 'perimee') throw new ErreurMetier('MONTAGE_VERSION_PERIMEE', 409, { derniere: r.derniere });
+    return { montage: montageVisible(r.montage), inchange: false };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, montageRegenerer, montageRegenererGabarit, montageCouvertures, montageCouvrir, renduLire, renduAdresse] as const;

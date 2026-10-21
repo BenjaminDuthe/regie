@@ -2264,7 +2264,7 @@ Corps de la demande (schéma JSON) :
 
 ## `montage.editer`
 
-Modifie un montage par une liste d’opérations appliquées dans l’ordre : `texte` (accroche, texteEcran, voix d’une scène), `duree` (dureeMs d’une scène), `deplacer` (monter ou descendre), `dupliquer`, `retirer`, `carte_fin` (titre, sousTitre, dureeMs, ou retirer), `animation` (entree, sortie, dureeMs, delaiMs des textes d’une scène ; catalogue : aucune, fondu, glisse_haut, glisse_bas, zoom en entrée ; aucune, fondu, zoom en sortie), `transition` (coupe ou fondu avec la scène précédente), `zoom` (actif, niveau de 1,1 à 3, decalageMs par rapport au clic) et `animation_carte` (la même chose pour la carte de fin). Crée une NOUVELLE version du montage (l’ancienne ne change pas, les publications déjà parties restent liées à elle) à partir de la version donnée, sans lancer de rendu. Rend les violations des gardes de la nouvelle version, scène par scène : un texte hors zone sûre ou illisible n’empêche pas l’enregistrement, mais la vidéo ne passera pas « prête » tant qu’il n’est pas corrigé. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).
+Modifie un montage par une liste d’opérations appliquées dans l’ordre : `texte` (accroche, texteEcran, voix d’une scène), `duree` (dureeMs d’une scène), `deplacer` (monter ou descendre), `dupliquer`, `retirer`, `carte_fin` (titre, sousTitre, dureeMs, ou retirer), `animation` (entree, sortie, dureeMs, delaiMs des textes d’une scène ; catalogue : aucune, fondu, glisse_haut, glisse_bas, zoom en entrée ; aucune, fondu, zoom en sortie), `transition` (coupe ou fondu avec la scène précédente), `zoom` (actif, niveau de 1,1 à 3, decalageMs par rapport au clic) et `animation_carte` (la même chose pour la carte de fin) et `couverture` (variante : titre, ecran ou bandeau). Crée une NOUVELLE version du montage (l’ancienne ne change pas, les publications déjà parties restent liées à elle) à partir de la version donnée, sans lancer de rendu. Rend les violations des gardes de la nouvelle version, scène par scène : un texte hors zone sûre ou illisible n’empêche pas l’enregistrement, mais la vidéo ne passera pas « prête » tant qu’il n’est pas corrigé. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).
 
 - API : `POST /api/v1/montage/editer` · outil MCP : `montage_editer`
 - Portée requise : `ecriture`
@@ -2552,6 +2552,28 @@ Corps de la demande (schéma JSON) :
             "properties": {
               "op": {
                 "type": "string",
+                "const": "couverture"
+              },
+              "variante": {
+                "type": "string",
+                "enum": [
+                  "titre",
+                  "ecran",
+                  "bandeau"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "variante"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
                 "const": "carte_fin"
               },
               "titre": {
@@ -2645,6 +2667,69 @@ Corps de la demande (schéma JSON) :
   },
   "required": [
     "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `montage.couvertures`
+
+Donne les trois couvertures d’un montage (variantes `titre`, `ecran` et `bandeau`), au style du gabarit figé du montage, chacune en image SVG 1080×1920, et dit laquelle est choisie (la première par défaut). Rien n’est écrit.
+
+- API : `POST /api/v1/montage/couvertures` · outil MCP : `montage_couvertures`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `montage.couvrir`
+
+Choisit la couverture d’un montage parmi `titre`, `ecran` et `bandeau`. Crée une NOUVELLE version du montage (l’ancienne ne change pas) avec la couverture choisie ; le film n’est pas rendu de nouveau. Si la variante est déjà celle du montage, rien n’est créé (`inchange`). Refusé avec SEANCE_PURGEE si les rushes ont été purgés (la date de purge est dans le message). Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).
+
+- API : `POST /api/v1/montage/couvrir` · outil MCP : `montage_couvrir`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "variante": {
+      "type": "string",
+      "enum": [
+        "titre",
+        "ecran",
+        "bandeau"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "variante"
   ],
   "additionalProperties": false
 }

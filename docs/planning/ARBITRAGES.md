@@ -171,3 +171,11 @@ Question : que devient une vidéo déjà produite quand le gabarit de la marque 
 1. **Version nouvelle, jamais de modification** — option A : réécrire le montage en place ; option B : créer une version (origine « gabarit ») qui fige le gabarit actuel, l'ancienne version et son film restent intacts. Retenu : B. **Recommandation** : B, c'est la seule qui respecte « sans toucher au passé ».
 2. **Publications déjà parties** — restent liées à l'ancienne version ; le lien visible arrive avec l'épopée 7 (non codée).
 3. **Séance purgée** — la régénération est refusée (409) avec la date de purge, comme pour 3.11 : sans film source, rien à rendre.
+
+## 3.5 Choisir ma couverture
+
+Question : sous quelle forme livrer la couverture, et que couvre l'histoire ?
+
+1. **SVG, pas PNG ni JPEG** — option A : rastériser (bibliothèque tierce ou ffmpeg dans un conteneur) ; option B : image SVG dessinée sur le serveur, échappée, servie en `<img>` sous CSP restrictive. Retenu : B (aucune dépendance nouvelle). **Recommandation** : B pour le choix ; la rastérisation PNG/JPEG se fera avec le rendu complet (3.8, téléchargement).
+2. **La couverture est dans la timeline** — le champ `couverture.variante` fait que choisir crée une version immuable (FR-37), sans rendu : la couverture est une image, pas un plan de la vidéo.
+3. **Réduit à la couverture** (ajustement du 2026-10-18) — l'accroche se règle dans l'éditeur (3.10) ; musique et prise sont reportées.

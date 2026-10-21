@@ -556,6 +556,19 @@
     "regenererGabaritAide": "Crée une nouvelle version avec le gabarit actuel de l’espace. Cette version reste dans l’historique.",
     "regenereLance": "Rendu lancé : la vidéo se régénère, cette page se rafraîchit toute seule.",
     "gabaritLance": "Nouvelle version créée avec le gabarit actuel : son rendu est lancé.",
+    "variantes": {
+      "titre": "Variantes de la vidéo",
+      "intro": "Trois couvertures au style de ton gabarit. Choisir en crée une nouvelle version de la vidéo : l’ancienne ne bouge pas, et la vidéo n’est pas refaite.",
+      "onglets": "Variantes à choisir",
+      "couverture": "Couverture",
+      "libelles": { "titre": "Titre centré", "ecran": "Texte à l’écran", "bandeau": "Bandeau en bas" },
+      "apercu": "Couverture « {variante} »",
+      "choisir": "Choisir cette couverture",
+      "choisie": "Couverture choisie",
+      "enregistre": "Couverture choisie : une nouvelle version de la vidéo est enregistrée.",
+      "aide": "L’accroche se règle dans l’éditeur de scènes. La couverture reprend l’accroche et le texte à l’écran de tes scènes."
+    },
+    "choisirCouverture": "Choisir la couverture",
     "editeur": {
       "titre": "Éditer la vidéo",
       "intro": "Change les textes, les durées et l’ordre des scènes. L’aperçu de chaque scène se met à jour tout de suite, sans rendu. Enregistrer crée une nouvelle version : l’ancienne ne bouge pas, et ce qui a déjà été publié reste lié à elle.",

@@ -8,6 +8,7 @@ import {
   ANIMATIONS_SORTIE,
   TRANSITIONS,
   CarteFin,
+  VARIANTES_COUVERTURE,
   IdScene,
   SCENES_MAX,
   Timeline,
@@ -60,6 +61,8 @@ export const OperationEdition = z.discriminatedUnion('op', [
     dureeMs: z.number().int().min(100).max(2000).optional(),
     delaiMs: z.number().int().min(0).max(5000).optional(),
   }),
+  /** Choisit la couverture parmi les trois variantes (histoire 3.5). */
+  z.strictObject({ op: z.literal('couverture'), variante: z.enum(VARIANTES_COUVERTURE) }),
   /** Pose ou change la carte de fin ; `null` la retire. */
   z.strictObject({
     op: z.literal('carte_fin'),
@@ -136,6 +139,9 @@ export function appliquerOperations(base: Timeline, operations: readonly Operati
         break;
       case 'zoom':
         suite = changerScene(t, o.sceneId, (s) => ({ ...s, zoom: { actif: o.actif ?? s.zoom.actif, niveau: o.niveau ?? s.zoom.niveau, decalageMs: o.decalageMs ?? s.zoom.decalageMs } }));
+        break;
+      case 'couverture':
+        suite = { ...t, couverture: { variante: o.variante } };
         break;
       case 'animation_carte': {
         if (t.carteFin === null) return { ok: false, code: 'TIMELINE_INVALIDE', detail: 'il n’y a pas de carte de fin à animer' };

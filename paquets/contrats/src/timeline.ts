@@ -87,9 +87,16 @@ export const CarteFin = z.strictObject({
 });
 export type CarteFin = z.infer<typeof CarteFin>;
 
+/** Les trois couvertures proposées (histoire 3.5) : toutes au style du gabarit, sans autre image que le texte. */
+export const VARIANTES_COUVERTURE = ['titre', 'ecran', 'bandeau'] as const;
+export type VarianteCouverture = (typeof VARIANTES_COUVERTURE)[number];
+export const VARIANTE_COUVERTURE_PAR_DEFAUT: VarianteCouverture = 'titre';
+
 export const Timeline = z
   .strictObject({
     version: z.literal(1),
+    /** La couverture choisie ; absente = la première variante. */
+    couverture: z.strictObject({ variante: z.enum(VARIANTES_COUVERTURE) }).optional(),
     /** Durée du film tourné : aucune scène ne montre au-delà. */
     sourceDureeMs: z.number().int().min(1).max(3_600_000),
     scenes: z.array(SceneMontage).min(1).max(SCENES_MAX),
