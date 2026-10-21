@@ -215,3 +215,75 @@ Corps de la demande (schéma JSON) :
   "additionalProperties": false
 }
 ```
+
+## `tache.relancer`
+
+Relance une de tes étapes en échec, sans renvoyer tes rushes. Seule une tâche échouée se relance.
+
+- API : `POST /api/v1/tache/relancer` · outil MCP : `tache_relancer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `notification.lister`
+
+Liste tes notifications (étape en échec, journal rompu), les plus récentes d’abord, acquittées ou non.
+
+- API : `POST /api/v1/notification/lister` · outil MCP : `notification_lister`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+## `notification.acquitter`
+
+Marque une de tes notifications comme vue.
+
+- API : `POST /api/v1/notification/acquitter` · outil MCP : `notification_acquitter`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```

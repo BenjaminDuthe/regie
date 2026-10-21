@@ -6,6 +6,7 @@ import type { Coffre } from '../infra/coffre.ts';
 import type { Espaces } from '../infra/espaces.ts';
 import type { File } from '../infra/file.ts';
 import type { JetonsApi } from '../infra/jetons.ts';
+import type { Notifications } from '../infra/notifications.ts';
 import type { Oauth } from '../infra/oauth.ts';
 import type { Marques } from '../infra/marques.ts';
 import type { FournisseurOidc } from '../infra/oidc.ts';
@@ -32,5 +33,7 @@ export type Services = Readonly<{
   oauth: Oauth;
   /** File de traitement durable (histoire 2.1). */
   file: File;
+  /** Notifications d'interface : étape en échec, journal rompu (histoire 2.6). */
+  notifications: Notifications;
   maintenant: () => number;
 }>;

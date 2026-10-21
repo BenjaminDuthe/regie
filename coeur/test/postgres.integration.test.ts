@@ -24,6 +24,7 @@ import { programmerEcheance } from '../src/services/echeances.ts';
 import { Planificateur, decider as decideur } from '../src/services/planificateur.ts';
 import { gestionnairesDuSocle, verifierJournal } from '../src/services/gestionnaires.ts';
 import { MarquesPg } from '../src/infra/marques.ts';
+import { NotificationsPg } from '../src/infra/notifications.ts';
 import { OauthPg } from '../src/infra/oauth.ts';
 import { MagasinSessionsPg } from '../src/infra/sessions.ts';
 
@@ -551,6 +552,63 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       await expect(verifierJournal(audit, journal, marqueA)).rejects.toMatchObject({ cause_: 'CHAINE_ROMPUE' });
     } finally {
       await superutilisateur.end();
+      await contexte.fermer();
+    }
+  });
+
+  it('notifications : créées par le déclencheur à l’échec définitif, une seule fois, par personne et par marque ; relance sans renvoi', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const file = new FilePg(contexte.pool);
+      const notifications = new NotificationsPg(contexte.pool);
+      const marqueA = await marques.creer(`Notif A ${suffixe}`);
+      const marqueB = await marques.creer(`Notif B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-na', undefined, 'Établia');
+      const a2 = await espaces.assurer(marqueA, 'sub-na2', undefined, 'Autre');
+      const b = await espaces.assurer(marqueB, 'sub-nb', undefined, 'Autre');
+
+      // Un échec définitif crée la notification, dans la même transaction que le changement d'état.
+      const t = await file.enfiler(marqueA, a.utilisateurId, 'rendu', {});
+      expect((await file.prendre(marqueA, 'svc'))?.id).toBe(t.id);
+      // Une tâche qui sera retentée ne prévient personne.
+      expect(await file.echouer(marqueA, t.id, 'svc', 'ECHEC', 'relancer', true)).toBe('prete');
+      expect(await notifications.lister(marqueA, a.utilisateurId, 50)).toHaveLength(0);
+      expect(await file.echouer(marqueA, t.id, 'svc', 'ECHEC', 'relancer', false)).toBeUndefined();
+      const reprise = await file.enfiler(marqueA, a.utilisateurId, 'reseau', {});
+      await file.prendre(marqueA, 'svc');
+      expect(await file.echouer(marqueA, reprise.id, 'svc', 'ECHEC', 'verifier', true)).toBe('echouee');
+      const vues = await notifications.lister(marqueA, a.utilisateurId, 50);
+      expect(vues).toHaveLength(1);
+      expect(vues[0]).toMatchObject({ genre: 'etape_echouee', etape: 'reseau', cause: 'ECHEC', action: 'verifier', tacheId: reprise.id, acquitteeLe: undefined });
+
+      // Cloisonnement : ni une autre personne de la marque, ni une autre marque.
+      expect(await notifications.lister(marqueA, a2.utilisateurId, 50)).toHaveLength(0);
+      expect(await notifications.lister(marqueB, b.utilisateurId, 50)).toHaveLength(0);
+      expect(await notifications.lister(marqueB, a.utilisateurId, 50)).toHaveLength(0);
+      expect(await notifications.acquitter(marqueA, a2.utilisateurId, vues[0]!.id)).toBe(false);
+      expect(await notifications.acquitter(marqueB, a.utilisateurId, vues[0]!.id)).toBe(false);
+
+      // Relance : l'étape repart, son historique reste, la notification s'acquitte une fois.
+      expect(await file.relancer(marqueA, a.utilisateurId, reprise.id)).toBe(true);
+      expect((await file.lire(marqueA, a.utilisateurId, reprise.id))?.etat).toBe('prete');
+      expect(await file.relancer(marqueA, a.utilisateurId, reprise.id)).toBe(false);
+      expect((await file.historique(marqueA, a.utilisateurId, reprise.id)).length).toBeGreaterThanOrEqual(1);
+      expect(await notifications.acquitter(marqueA, a.utilisateurId, vues[0]!.id)).toBe(true);
+      expect(await notifications.acquitter(marqueA, a.utilisateurId, vues[0]!.id)).toBe(false);
+
+      // Un nouvel échec de la même tâche (autre tentative) prévient de nouveau ; la clé empêche seulement les doublons.
+      await file.prendre(marqueA, 'svc');
+      expect(await file.echouer(marqueA, reprise.id, 'svc', 'ECHEC', 'relancer', true)).toBe('echouee');
+      expect((await notifications.lister(marqueA, a.utilisateurId, 50)).filter((n) => n.tacheId === reprise.id)).toHaveLength(2);
+
+      // Une notification d'administration se crée une fois par clé.
+      const alerte = { utilisateurId: a.utilisateurId, genre: 'chaine_rompue', cle: 'chaine_rompue:2026-10-21' };
+      await notifications.creer(marqueA, alerte);
+      await notifications.creer(marqueA, alerte);
+      expect((await notifications.lister(marqueA, a.utilisateurId, 50)).filter((n) => n.genre === 'chaine_rompue')).toHaveLength(1);
+    } finally {
       await contexte.fermer();
     }
   });

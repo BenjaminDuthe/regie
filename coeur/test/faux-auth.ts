@@ -11,6 +11,7 @@ import { DUREE_MAX_JETON_JOURS, composerJeton, hacherJeton, marqueDuJeton, type 
 import { ACCES_VIE_S, CONNEXION_VIE_MAX_JOURS, CLIENTS_MAX, CODE_VIE_S, REFRESH_VIE_JOURS, composerIdentifiantClient, composerSecret, marqueDuClient, marqueDuSecret, type ClientOauth, type CodeConsomme, type ConnexionClaude, type Emission, type NouveauCode, type Oauth, type Rafraichissement } from '../src/infra/oauth.ts';
 import { Coffre } from '../src/infra/coffre.ts';
 import { FileMemoire } from './faux-file.ts';
+import { NotificationsMemoire } from './faux-notifications.ts';
 import type { Marques, MarqueUnique } from '../src/infra/marques.ts';
 import { composerCookie, decomposerCookie, hacherIdentifiant, nouvelIdentifiant, type MagasinSessions, type NouvelleSession, type Session } from '../src/infra/sessions.ts';
 
@@ -322,7 +323,7 @@ export class AuditMemoire implements Audit {
   }
 }
 
-export type BancDeTest = { services: Services; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; horloge: { t: number } };
+export type BancDeTest = { services: Services; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
 
 export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
@@ -337,6 +338,9 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
   oauth.maintenant = () => horloge.t;
   const file = new FileMemoire();
   file.maintenant = () => horloge.t;
+  const notifications = new NotificationsMemoire();
+  notifications.maintenant = () => horloge.t;
+  file.surEchec = notifications.surEchec;
   const services: Services = {
     oidc,
     sessions,
@@ -350,7 +354,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     jetons,
     oauth,
     file,
+    notifications,
     maintenant: () => horloge.t,
   };
-  return { services, file, sessions, marques, espaces, audit, jetons, oauth, horloge };
+  return { services, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
 }

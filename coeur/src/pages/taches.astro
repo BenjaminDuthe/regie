@@ -6,7 +6,10 @@
 import chaines from '../chaines.json' with { type: 'json' };
 import { decrire, estActive } from '../composants/vue-taches.ts';
 import Base from '../mises-en-page/Base.astro';
+import { notificationAcquitter, notificationLister, tacheRelancer } from '../services/actions.ts';
 import { contexteInterface } from '../services/contextes.ts';
+import { ErreurMetier } from '../services/erreurs.ts';
+import { executerAction } from '../services/registre.ts';
 import { suivreTaches } from '../services/suivi.ts';
 
 const services = Astro.locals.regie;
@@ -15,8 +18,32 @@ if (services === undefined || session === undefined) return new Response(null, {
 
 const t = chaines.taches;
 const ctx = contexteInterface(services, session);
+let erreur: string | undefined;
+
+// Relancer une étape ou acquitter une notification : les mêmes actions que l'API et le MCP (mêmes règles, même journal).
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const id = typeof form.get('id') === 'string' ? (form.get('id') as string) : '';
+  try {
+    if (form.get('geste') === 'acquitter') await executerAction(ctx, notificationAcquitter, { id });
+    else await executerAction(ctx, tacheRelancer, { id });
+    return Astro.redirect('/taches', 303);
+  } catch (e) {
+    if (!(e instanceof ErreurMetier)) throw e;
+    erreur = e.message;
+  }
+}
+
 // L'affichage n'est pas une action (rien n'est écrit au journal) : la vue est lue directement.
 const vues = await suivreTaches(services, ctx.marqueId, ctx.utilisateurId);
+type Notif = { id: string; genre: string; etape: string | null; cause: string | null; action: string | null };
+const nouvelles = ((await notificationLister.executer(ctx, {})) as { notifications: (Notif & { acquitteeLe: string | null })[] }).notifications.filter((n) => n.acquitteeLe === null);
+const n = chaines.notifications;
+const texteNotification = (x: Notif): string => {
+  const modele = (n as Record<string, string>)[x.genre] ?? n.defaut;
+  const base = modele.replace('{etape}', t.types[x.etape as keyof typeof t.types] ?? x.etape ?? '');
+  return x.genre === 'etape_echouee' ? `${base} ${t.causes[(x.cause ?? 'defaut') as keyof typeof t.causes] ?? t.causes.defaut} ${t.actions[(x.action ?? 'defaut') as keyof typeof t.actions] ?? t.actions.defaut}` : base;
+};
 const actives = vues.filter(estActive).map((v) => decrire(v, t));
 const recentes = vues.filter((v) => !estActive(v)).slice(0, 20).map((v) => decrire(v, t));
 ---
@@ -25,7 +52,28 @@ const recentes = vues.filter((v) => !estActive(v)).slice(0, 20).map((v) => decri
   <noscript slot="tete"><meta http-equiv="refresh" content="30" /></noscript>
   <h1>{t.titre}</h1>
   <p class="intro">{t.intro}</p>
+  {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
   <p id="etat-flux" class="doux" role="status" aria-live="polite"></p>
+
+  {
+    nouvelles.length > 0 && (
+      <section aria-labelledby="titre-notifications">
+        <h2 id="titre-notifications">{t.sections.notifications}</h2>
+        <ul class="liste">
+          {nouvelles.map((x) => (
+            <li class="notification" data-genre={x.genre}>
+              <span>{texteNotification(x)}</span>
+              <form method="post" action="/taches">
+                <input type="hidden" name="geste" value="acquitter" />
+                <input type="hidden" name="id" value={x.id} />
+                <button type="submit" class="bouton">{n.acquitter}</button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
 
   <div id="suivi" data-flux="/flux/taches" data-libelles={JSON.stringify(t)}>
     <h2>{t.sections.actives}</h2>
@@ -49,6 +97,15 @@ const recentes = vues.filter((v) => !estActive(v)).slice(0, 20).map((v) => decri
           <span class="etat" data-etat={d.codeEtat}>{d.etat}</span>
           <span class="doux detail">{[d.tentative].filter((x) => x !== undefined).join(' · ')}</span>
           {d.probleme !== undefined && <p class="probleme" role="alert">{d.probleme}</p>}
+          {d.historique.length > 1 && <ul class="historique" aria-label={t.historiqueTitre}>{d.historique.map((l) => <li>{l}</li>)}</ul>}
+          {d.relancable && (
+            <form method="post" action="/taches" class="relance">
+              <input type="hidden" name="geste" value="relancer" />
+              <input type="hidden" name="id" value={d.id} />
+              <button type="submit" class="bouton">{t.relancer}</button>
+              <span class="doux">{t.relanceSansRenvoi}</span>
+            </form>
+          )}
         </li>
       ))}
     </ul>
@@ -62,7 +119,7 @@ const recentes = vues.filter((v) => !estActive(v)).slice(0, 20).map((v) => decri
   const racine = document.getElementById('suivi');
   const statut = document.getElementById('etat-flux');
   if (racine !== null && statut !== null && 'EventSource' in window) {
-    const libelles = JSON.parse(racine.dataset['libelles'] ?? '{}') as LibellesTaches & { fluxCoupe: string; fluxRepris: string };
+    const libelles = JSON.parse(racine.dataset['libelles'] ?? '{}') as LibellesTaches & { fluxCoupe: string; fluxRepris: string; historiqueTitre: string; relanceSansRenvoi: string };
     const dessiner = (idListe: string, idVide: string, vues: VueTache[]): void => {
       const liste = document.getElementById(idListe)!;
       document.getElementById(idVide)!.hidden = vues.length > 0;
@@ -85,6 +142,21 @@ const recentes = vues.filter((v) => !estActive(v)).slice(0, 20).map((v) => decri
             p.setAttribute('role', 'alert');
             li.append(p);
           }
+          if (d.historique.length > 1) {
+            const ul = document.createElement('ul');
+            ul.className = 'historique';
+            ul.setAttribute('aria-label', libelles.historiqueTitre);
+            ul.append(...d.historique.map((l) => Object.assign(document.createElement('li'), { textContent: l })));
+            li.append(ul);
+          }
+          if (d.relancable) {
+            const form = Object.assign(document.createElement('form'), { method: 'post', action: '/taches', className: 'relance' });
+            const champ = (nom: string, valeur: string) => Object.assign(document.createElement('input'), { type: 'hidden', name: nom, value: valeur });
+            const bouton = Object.assign(document.createElement('button'), { type: 'submit', className: 'bouton', textContent: libelles.relancer });
+            const note = Object.assign(document.createElement('span'), { className: 'doux', textContent: libelles.relanceSansRenvoi });
+            form.append(champ('geste', 'relancer'), champ('id', d.id), bouton, note);
+            li.append(form);
+          }
           return li;
         }),
       );
@@ -106,7 +178,7 @@ const recentes = vues.filter((v) => !estActive(v)).slice(0, 20).map((v) => decri
   }
 </script>
 
-<style>
+<style is:global>
   h1 { font-size: clamp(24px, 6vw, 32px); line-height: 1.15; margin: 8px 0 12px; }
   h2 { font-size: 18px; margin: 28px 0 10px; }
   .intro, .doux { color: var(--doux); }
@@ -117,5 +189,11 @@ const recentes = vues.filter((v) => !estActive(v)).slice(0, 20).map((v) => decri
   .etat[data-etat='en_cours'] { border-color: var(--accent); }
   .etat[data-etat='echouee'] { color: var(--jeter); border-color: var(--jeter); }
   .detail { font-size: 14px; }
+  .bouton { padding: 8px 16px; border-radius: var(--rayon); border: 1px solid var(--trait); background: none; color: inherit; font: inherit; cursor: pointer; }
+  .relance { flex-basis: 100%; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0; }
+  .historique { flex-basis: 100%; list-style: none; margin: 0; padding: 0; font-size: 14px; color: var(--doux); }
+  .historique li { border: 0; padding: 0; display: list-item; }
+  .notification { justify-content: space-between; align-items: center; }
+  .notification form { margin: 0; }
   .probleme { flex-basis: 100%; margin: 0; color: var(--jeter); background: var(--jeter-fond); border-radius: var(--rayon); padding: 8px 12px; }
 </style>

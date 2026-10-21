@@ -4,6 +4,7 @@
 // exceptions-parite.ts, avec sa raison.
 
 import { z } from 'zod';
+import type { Notification } from '../infra/notifications.ts';
 import type { ConnexionClaude } from '../infra/oauth.ts';
 import { DUREE_MAX_JETON_JOURS, PORTEES, type JetonApi } from '../infra/jetons.ts';
 import { ErreurMetier } from './erreurs.ts';
@@ -147,5 +148,64 @@ export const tacheLire = definirAction({
   objet: (entree) => `tache:${entree.id}`,
 });
 
-export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer, connexionLister, connexionRevoquer, tacheLister, tacheLire]);
+/**
+ * Relance une étape en échec (histoire 2.6, FR-33) : la tâche repart avec ses données, sans renvoi des rushes, et son
+ * historique de tentatives continue. regie ne relance jamais seul : c'est le seul chemin (interface, API, MCP).
+ */
+export const tacheRelancer = definirAction({
+  domaine: 'tache',
+  verbe: 'relancer',
+  description: 'Relance une de tes étapes en échec, sans renvoyer tes rushes. Seule une tâche échouée se relance.',
+  portee: 'ecriture',
+  entree: z.object({ id: identifiant }).strict(),
+  executer: async (ctx, entree) => {
+    const tache = await ctx.services.file.lire(ctx.marqueId, ctx.utilisateurId, entree.id);
+    if (tache === undefined) throw new ErreurMetier('TACHE_INTROUVABLE', 404, { id: entree.id });
+    if (tache.etat !== 'echouee' || !(await ctx.services.file.relancer(ctx.marqueId, ctx.utilisateurId, entree.id))) {
+      throw new ErreurMetier('TACHE_NON_RELANCABLE', 409, { id: entree.id, etat: tache.etat });
+    }
+    const vue = await suivreUneTache(ctx.services, ctx.marqueId, ctx.utilisateurId, entree.id);
+    return { tache: vue! };
+  },
+  objet: (entree) => `tache:${entree.id}`,
+});
+
+const notificationVisible = (n: Notification) => ({
+  id: n.id,
+  genre: n.genre,
+  etape: n.etape ?? null,
+  tacheId: n.tacheId ?? null,
+  cause: n.cause ?? null,
+  action: n.action ?? null,
+  creeLe: n.creeLe.toISOString(),
+  acquitteeLe: n.acquitteeLe?.toISOString() ?? null,
+});
+
+/** Nombre de notifications affichées : les dernières de la personne. */
+export const LIMITE_NOTIFICATIONS = 50;
+
+export const notificationLister = definirAction({
+  domaine: 'notification',
+  verbe: 'lister',
+  description: 'Liste tes notifications (étape en échec, journal rompu), les plus récentes d’abord, acquittées ou non.',
+  portee: 'lecture',
+  entree: z.object({}).strict(),
+  executer: async (ctx) => ({ notifications: (await ctx.services.notifications.lister(ctx.marqueId, ctx.utilisateurId, LIMITE_NOTIFICATIONS)).map(notificationVisible) }),
+  objet: () => 'notification',
+});
+
+export const notificationAcquitter = definirAction({
+  domaine: 'notification',
+  verbe: 'acquitter',
+  description: 'Marque une de tes notifications comme vue.',
+  portee: 'ecriture',
+  entree: z.object({ id: identifiant }).strict(),
+  executer: async (ctx, entree) => {
+    if (!(await ctx.services.notifications.acquitter(ctx.marqueId, ctx.utilisateurId, entree.id))) throw new ErreurMetier('NOTIFICATION_INTROUVABLE', 404, { id: entree.id });
+    return { id: entree.id, acquittee: true as const };
+  },
+  objet: (entree) => `notification:${entree.id}`,
+});
+
+export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer, connexionLister, connexionRevoquer, tacheLister, tacheLire, tacheRelancer, notificationLister, notificationAcquitter]);
 export const REGISTRE = new Registre(ACTIONS);

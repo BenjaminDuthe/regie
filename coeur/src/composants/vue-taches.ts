@@ -12,6 +12,9 @@ export type LibellesTaches = Readonly<{
   tentative: string;
   causes: Readonly<Record<string, string>>;
   actions: Readonly<Record<string, string>>;
+  issues: Readonly<Record<string, string>>;
+  historiqueLigne: string;
+  relancer: string;
 }>;
 
 export type DescriptionTache = Readonly<{
@@ -25,6 +28,8 @@ export type DescriptionTache = Readonly<{
   /** Cause puis action, nommées en clair (UX-DR25) ; seulement pour une tâche échouée. */
   probleme: string | undefined;
   relancable: boolean;
+  /** Une ligne par tentative : « Tentative 1 : échouée (cause) ». */
+  historique: string[];
 }>;
 
 const ACTIVES = new Set(['prete', 'en_cours', 'gelee']);
@@ -46,5 +51,8 @@ export function decrire(v: VueTache, t: LibellesTaches): DescriptionTache {
     tentative: v.tentative > 0 ? t.tentative.replace('{n}', String(v.tentative)).replace('{max}', String(v.tentativesMax)) : undefined,
     probleme: v.etat === 'echouee' ? `${t.causes[v.cause ?? ''] ?? t.causes['defaut']!} ${t.actions[v.action ?? ''] ?? t.actions['defaut']!}` : undefined,
     relancable: v.etat === 'echouee',
+    historique: (v.tentatives ?? []).map((x) =>
+      t.historiqueLigne.replace('{n}', String(x.numero)).replace('{issue}', t.issues[x.issue] ?? x.issue).replace('{cause}', x.cause === null ? '' : ` (${t.causes[x.cause] ?? x.cause})`),
+    ),
   };
 }

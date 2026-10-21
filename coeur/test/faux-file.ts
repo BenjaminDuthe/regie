@@ -13,6 +13,8 @@ export class FileMemoire implements File {
   maintenant: () => number = Date.now;
   /** Appels de NOTIFY (un par tâche terminée). */
   readonly notifications: string[] = [];
+  /** Imite le déclencheur SQL de la migration 0008 : appelé à chaque passage en échec définitif. */
+  surEchec: (t: Tache) => void = () => undefined;
 
   async enfiler(marqueId: string, utilisateurId: string, type: string, entree: Readonly<Record<string, unknown>>, options: OptionsEnfiler = {}): Promise<Tache> {
     const d = TACHES[type];
@@ -77,6 +79,7 @@ export class FileMemoire implements File {
     }
     Object.assign(t, { etat: 'echouee', cause, action, bailJusqua: undefined, termineeLe: new Date(this.maintenant()) });
     this.#tentative(id, t.tentatives, 'echouee', cause);
+    this.surEchec({ ...t });
     return 'echouee';
   }
 
@@ -97,12 +100,14 @@ export class FileMemoire implements File {
       if (delai) {
         Object.assign(t, { etat: 'echouee', cause: 'DELAI_DEPASSE', action: 'relancer', bailJusqua: undefined, termineeLe: new Date(maintenant) });
         this.#tentative(t.id, t.tentatives, 'delai', 'DELAI_DEPASSE');
+        this.surEchec({ ...t });
       } else if (t.reprise === 'permise' && !t.pointDeNonRetour && t.reprises === 0) {
         Object.assign(t, { etat: 'prete', reprises: t.reprises + 1, verrouPar: undefined, bailJusqua: undefined, disponibleLe: new Date(maintenant) });
         this.#tentative(t.id, t.tentatives, 'perdue', 'RESULTAT_INCONNU');
       } else {
         Object.assign(t, { etat: 'echouee', cause: 'RESULTAT_INCONNU', action: 'verifier', bailJusqua: undefined, termineeLe: new Date(maintenant) });
         this.#tentative(t.id, t.tentatives, 'perdue', 'RESULTAT_INCONNU');
+        this.surEchec({ ...t });
       }
     }
     return n;

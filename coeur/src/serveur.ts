@@ -16,6 +16,7 @@ import { calculerSante } from './infra/sante.ts';
 import { AuditPg } from './infra/audit.ts';
 import { EspacesPg } from './infra/espaces.ts';
 import { JetonsApiPg } from './infra/jetons.ts';
+import { NotificationsPg } from './infra/notifications.ts';
 import { OauthPg } from './infra/oauth.ts';
 import { FilePg, ecouterResultats } from './infra/file.ts';
 import { MarquesPg } from './infra/marques.ts';
@@ -61,6 +62,7 @@ export function construireServices(contexte: Contexte): Services {
     jetons: new JetonsApiPg(contexte.pool),
     oauth: new OauthPg(contexte.pool),
     file: new FilePg(contexte.pool),
+    notifications: new NotificationsPg(contexte.pool),
     maintenant: Date.now,
   };
 }
@@ -111,6 +113,7 @@ function servicesSansBase(): Services {
       instantane: async () => [],
       durees: async () => ({}),
     },
+    notifications: { creer: refus, lister: async () => [], acquitter: async () => false },
     maintenant: Date.now,
   };
 }
@@ -189,7 +192,7 @@ if (import.meta.main) {
   const planificateur = new Planificateur({
     echeances: new EcheancesPg(contexte.pool),
     marques: () => services.marques.lister(),
-    gestionnaires: gestionnairesDuSocle({ pool: contexte.pool, audit: services.audit, journal: app.log }),
+    gestionnaires: gestionnairesDuSocle({ pool: contexte.pool, audit: services.audit, journal: app.log, alerte: { notifications: services.notifications, adminSub: services.admin.sub } }),
     journal: app.log,
   });
   let arreterEcoute: () => void = () => undefined;

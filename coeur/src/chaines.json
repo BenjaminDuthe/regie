@@ -167,7 +167,8 @@
     "MCP_ORIGINE_REFUSEE": "Cette demande vient d’une origine que regie n’accepte pas.",
     "MCP_METHODE_REFUSEE": "Le point d’entrée MCP n’accepte que des requêtes POST.",
     "TACHE_INTROUVABLE": "Cette tâche n’existe pas, ou elle n’est pas à toi.",
-    "TACHE_NON_RELANCABLE": "Cette tâche ne peut pas être relancée : seule une tâche échouée se relance."
+    "TACHE_NON_RELANCABLE": "Cette tâche ne peut pas être relancée : seule une tâche échouée se relance.",
+    "NOTIFICATION_INTROUVABLE": "Cette notification n’existe pas, ou elle n’est pas à toi."
   },
   "jetons": {
     "titre": "Jetons d’API",
@@ -292,7 +293,8 @@
     "fluxRepris": "Suivi en direct actif.",
     "sections": {
       "actives": "En cours et en attente",
-      "recentes": "Terminées récemment"
+      "recentes": "Terminées récemment",
+      "notifications": "Notifications"
     },
     "etats": {
       "prete": "En attente",
@@ -332,6 +334,27 @@
       "relancer": "Tu peux la relancer.",
       "verifier": "Vérifie d’abord le résultat à l’extérieur, puis relance si besoin.",
       "defaut": "Tu peux la relancer."
+    },
+    "relancer": "Relancer",
+    "relanceSansRenvoi": "Tes rushes ne sont pas renvoyés.",
+    "historiqueTitre": "Tentatives",
+    "historiqueLigne": "Tentative {n} : {issue}{cause}",
+    "issues": {
+      "en_cours": "en cours",
+      "terminee": "terminée",
+      "echouee": "échouée",
+      "reprogrammee": "reprogrammée",
+      "perdue": "interrompue",
+      "annulee": "annulée",
+      "delai": "arrêtée, trop longue"
     }
+  },
+  "notifications": {
+    "vide": "Rien de nouveau.",
+    "acquitter": "Compris",
+    "etape_echouee": "L’étape « {etape} » a échoué.",
+    "chaine_rompue": "Le journal d’audit ne se vérifie plus : une ligne a été modifiée ou retirée. Regarde le journal.",
+    "defaut": "Un événement demande ton attention.",
+    "voirTache": "Voir la tâche"
   }
 }
