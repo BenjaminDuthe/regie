@@ -1,0 +1,17 @@
+# Dump nocturne chiffré par age, dans le CT regie (histoire 9.2). Installé par Benjamin, jamais par la CI.
+[Unit]
+Description=regie : dump PostgreSQL chiffré par age
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Chemins et noms seulement, aucun secret : SAUVEGARDE_DESTINATION, AGE_DESTINATAIRES, PGHOST, PGDATABASE, PGUSER, PGPASSFILE.
+EnvironmentFile=/etc/regie/sauvegarde.env
+ExecStart=/usr/local/lib/regie/sauvegarde.sh base
+User=regie
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/regie/sauvegarde
+PrivateTmp=true

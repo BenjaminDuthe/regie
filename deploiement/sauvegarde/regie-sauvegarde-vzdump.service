@@ -1,0 +1,9 @@
+# vzdump hebdomadaire du CT regie, SUR l'hôte Proxmox (histoire 9.2). Installé par Benjamin, jamais par la CI.
+[Unit]
+Description=regie : vzdump du CT sans ses secrets
+
+[Service]
+Type=oneshot
+# CTID, STOCKAGE_VZDUMP (stockage Proxmox qui pointe vers pve-nipogi) : des noms, aucun secret.
+EnvironmentFile=/etc/regie/sauvegarde-hote.env
+ExecStart=/usr/local/lib/regie/sauvegarde.sh vzdump

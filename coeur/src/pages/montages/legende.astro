@@ -1,0 +1,136 @@
+---
+// Feuille « Légende et hashtags » d'une vidéo (histoire 3.7, FR-38, UX-DR13) : le réseau visé (`radiogroup`), la
+// légende avec son compteur, les hashtags en puces. Lire et enregistrer passent par les actions `montage.legende` et
+// `montage.legender` (les mêmes que l'API et le MCP) : les bornes du réseau (deploiement/bornes.json) s'appliquent là,
+// un dépassement est refusé en nommant la borne (`role="alert"`). Sans script : chaque geste recharge la feuille,
+// le compteur est calculé par le serveur à chaque affichage.
+import chaines from '../../chaines.json' with { type: 'json' };
+import { RESEAUX, type Reseau } from '../../domaine/bornes.ts';
+import { bornesDuReseau, longueur, normaliserHashtag } from '../../domaine/legende.ts';
+import Base from '../../mises-en-page/Base.astro';
+import { montageAccessible, montageLegende, montageLegender } from '../../services/actions-montage.ts';
+import { contexteInterface } from '../../services/contextes.ts';
+import { ErreurMetier } from '../../services/erreurs.ts';
+import { executerAction } from '../../services/registre.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.montages;
+const l = t.legende;
+const ctx = contexteInterface(services, session);
+const MOTIF_ID = /^[0-9a-f-]{36}$/;
+const unReseau = (v: unknown): Reseau => ((RESEAUX as readonly unknown[]).includes(v) ? (v as Reseau) : 'instagram');
+const separer = (texte: string): string[] => texte.split(/[\s,]+/).filter((x) => x !== '');
+
+let id = Astro.url.searchParams.get('id') ?? '';
+let reseau = unReseau(Astro.url.searchParams.get('reseau'));
+let brouillon: { legende: string; hashtags: string[] } | undefined;
+let erreur: string | undefined;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const lu = (nom: string): string => (typeof form.get(nom) === 'string' ? (form.get(nom) as string) : '');
+  id = lu('id');
+  reseau = unReseau(lu('reseau'));
+  const geste = lu('geste');
+  let tags = separer(lu('hashtags'));
+  if (geste === 'ajouter') tags = [...tags, ...separer(lu('nouveau'))];
+  else if (geste.startsWith('retirer:')) tags = tags.filter((x) => normaliserHashtag(x) !== geste.slice('retirer:'.length));
+  brouillon = { legende: lu('legende'), hashtags: tags };
+  if (geste === 'enregistrer' && MOTIF_ID.test(id)) {
+    try {
+      await executerAction(ctx, montageLegender, { id, reseau, legende: brouillon.legende, hashtags: brouillon.hashtags });
+      return Astro.redirect(`/montages/legende?id=${encodeURIComponent(id)}&reseau=${reseau}&ok=1`, 303);
+    } catch (err) {
+      if (!(err instanceof ErreurMetier)) throw err;
+      erreur = err.message;
+    }
+  }
+}
+
+let base;
+let lue;
+if (MOTIF_ID.test(id)) {
+  try {
+    base = await montageAccessible(ctx, id);
+    lue = (await executerAction(ctx, montageLegende, { id, reseau })) as { legende: string; hashtags: string[]; enregistree: boolean };
+  } catch (err) {
+    if (!(err instanceof ErreurMetier)) throw err;
+  }
+}
+if (base === undefined || lue === undefined) return new Response(chaines.erreurs.MONTAGE_INTROUVABLE, { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+
+const valeur = brouillon ?? { legende: lue.legende, hashtags: lue.hashtags };
+const bornes = bornesDuReseau(reseau);
+const nombre = longueur(valeur.legende);
+const tags = [...new Set(valeur.hashtags.map(normaliserHashtag).filter((x) => x !== ''))];
+const libelles = l.reseaux as Record<string, string>;
+const depasse = nombre > bornes.legendeMaxCaracteres || tags.length > bornes.hashtagsMax;
+const enregistre = Astro.url.searchParams.get('ok') === '1';
+---
+
+<Base titre={l.titre}>
+  <h1>{l.titre}</h1>
+  <p class="intro">{l.intro}</p>
+  <p><a href={`/montages?id=${base.id}`}>{t.editeur.retourVideo}</a></p>
+  {enregistre && <p class="succes" role="status">{l.enregistree}</p>}
+  {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
+
+  <form method="get" action="/montages/legende">
+    <input type="hidden" name="id" value={base.id} />
+    <fieldset role="radiogroup" aria-labelledby="legende-reseau">
+      <legend id="legende-reseau">{l.reseau}</legend>
+      {
+        RESEAUX.map((r) => (
+          <label class="choix">
+            <input type="radio" name="reseau" value={r} checked={r === reseau} /> {libelles[r] ?? r}
+          </label>
+        ))
+      }
+      <button type="submit" class="bouton">{l.afficher}</button>
+    </fieldset>
+  </form>
+
+  <form method="post" action="/montages/legende">
+    <input type="hidden" name="id" value={base.id} />
+    <input type="hidden" name="reseau" value={reseau} />
+    <input type="hidden" name="hashtags" value={tags.join(' ')} />
+    <p>
+      <label for="legende-texte">{l.legende}</label><br />
+      <textarea id="legende-texte" name="legende" rows="8" cols="60" aria-describedby="legende-compteur">{valeur.legende}</textarea>
+    </p>
+    <p id="legende-compteur" aria-live="polite" class={nombre > bornes.legendeMaxCaracteres ? 'probleme' : 'doux'}>
+      {l.compteur.replace('{actuel}', String(nombre)).replace('{max}', String(bornes.legendeMaxCaracteres))}
+    </p>
+    <p>
+      <label for="legende-nouveau">{l.nouveau}</label><br />
+      <input id="legende-nouveau" type="text" name="nouveau" autocomplete="off" />
+      <button type="submit" name="geste" value="ajouter" class="bouton">{l.ajouter}</button>
+    </p>
+    <p class={tags.length > bornes.hashtagsMax ? 'probleme' : 'doux'} aria-live="polite">{l.compteurHashtags.replace('{actuel}', String(tags.length)).replace('{max}', String(bornes.hashtagsMax))}</p>
+    <ul class="puces" aria-label={l.hashtags}>
+      {
+        tags.map((h) => (
+          <li>
+            #{h} <button type="submit" name="geste" value={`retirer:${h}`} aria-label={l.retirer.replace('{hashtag}', h)}>×</button>
+          </li>
+        ))
+      }
+    </ul>
+    {depasse && <p class="probleme" role="alert">{l.depasse}</p>}
+    <p>
+      <button type="submit" name="geste" value="actualiser" class="bouton">{l.actualiser}</button>
+      <button type="submit" name="geste" value="enregistrer" class="bouton principal">{l.enregistrer}</button>
+    </p>
+  </form>
+</Base>
+
+<style is:global>
+  .puces { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .puces li { border: 1px solid var(--trait); border-radius: 999px; padding: 4px 12px; }
+  .puces button { background: none; border: 0; cursor: pointer; font-size: 1rem; }
+  fieldset[role='radiogroup'] { border: 1px solid var(--trait); border-radius: var(--rayon); }
+  .choix { margin-right: 16px; }
+</style>

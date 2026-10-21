@@ -1,0 +1,9 @@
+---
+// Conditions d'utilisation, publiques (Meta les exige pour la publication Instagram, FR-51).
+import chaines from '../chaines.json' with { type: 'json' };
+import PageLegale from '../composants/PageLegale.astro';
+
+const page = chaines.conditions;
+---
+
+<PageLegale titre={page.titre} intro={page.intro} sections={page.sections} miseAJour={page.miseAJour} />

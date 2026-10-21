@@ -9,9 +9,13 @@ const SUITES = [
   ['lecteur d’environnement', 'node', ['outils/ci/verifier-env.mjs']],
   ['épinglage des dépendances', 'node', ['outils/ci/verifier-epinglage.mjs']],
   ['scan de secrets', 'node', ['outils/ci/scanner-secrets.mjs']],
+  ['licences (npm, pip, polices, modèles, musiques)', 'node', ['outils/ci/verifier-licences.mjs']],
+  ['mots interdits (fichier de chaînes)', 'node', ['outils/ci/verifier-chaines.mjs']],
   ['types Astro (astro check)', 'npm', ['run', 'check', '--workspace', 'coeur']],
   ['types TypeScript (tsc -b)', 'npm', ['exec', '--no', '--', 'tsc', '-b']],
   ['construction (astro build)', 'npm', ['run', 'build']],
+  // Après la construction : la suite lit aussi coeur/dist pour y chercher les ressources tierces.
+  ['appels sortants', 'node', ['outils/ci/verifier-sorties.mjs']],
   ['tests (vitest)', 'npm', ['exec', '--no', '--', 'vitest', 'run']],
 ];
 

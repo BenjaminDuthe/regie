@@ -1,0 +1,10 @@
+[Unit]
+Description=regie : dump PostgreSQL chaque nuit
+
+[Timer]
+OnCalendar=*-*-* 03:10:00 Europe/Paris
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

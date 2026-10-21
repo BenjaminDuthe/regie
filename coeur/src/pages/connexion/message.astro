@@ -1,0 +1,37 @@
+---
+// Explication d'un refus, d'un échec ou d'une déconnexion (histoire 1.14). Le motif vient de l'adresse :
+// seules les clés de chaines.json sont reconnues, tout le reste donne le message générique.
+import chaines from '../../chaines.json' with { type: 'json' };
+import Base from '../../mises-en-page/Base.astro';
+
+const messages: Record<string, { titre: string; texte: string }> = chaines.connexion.messages;
+const motif = Astro.url.searchParams.get('motif') ?? '';
+const message = Object.hasOwn(messages, motif) ? messages[motif]! : messages['inconnu']!;
+---
+
+<Base titre={message.titre}>
+  <h1>{message.titre}</h1>
+  <p class="texte">{message.texte}</p>
+  <p><a class="bouton" href="/connexion">{chaines.connexion.reconnecter}</a></p>
+</Base>
+
+<style>
+  h1 {
+    font-size: clamp(24px, 6vw, 32px);
+    line-height: 1.15;
+    margin: 8px 0 12px;
+  }
+  .texte {
+    color: var(--doux);
+    max-width: 60ch;
+  }
+  .bouton {
+    display: inline-block;
+    padding: 10px 16px;
+    border-radius: var(--rayon);
+    background: var(--accent);
+    color: #17171a;
+    font-weight: 700;
+    text-decoration: none;
+  }
+</style>

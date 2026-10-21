@@ -1,6 +1,6 @@
 # regie — environnement de développement sur Mac (profil « cpu », aucun secret réel).
 # Lancé par `npm run dev` : podman compose s'il est installé, sinon docker compose.
-# PostgreSQL rejoint ce profil avec l'histoire 1.4.
+# PostgreSQL et ses secrets de développement rejoindront ce profil avec l'installation (reporté de l'histoire 1.4).
 
 name: regie-dev
 

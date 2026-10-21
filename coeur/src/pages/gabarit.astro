@@ -1,0 +1,193 @@
+---
+// Gabarit (histoires 2.7 et 2.8, FR-55, FR-6) : l'espace reçoit un gabarit de départ ; la personne règle couleurs, polices,
+// style des sous-titres, carte de fin, légende et mots-clics, voit un aperçu sur un brouillon d'exemple et peut créer autant
+// de gabarits qu'elle veut. Les enregistrements passent par les mêmes actions que l'API et le MCP (`gabarit.definir`,
+// `gabarit.creer`) : mêmes gardes, même journal. L'aperçu est servi par /gabarit/apercu.svg (dessiné sur le serveur).
+import chaines from '../chaines.json' with { type: 'json' };
+import { IDS_POLICES } from '../domaine/polices.ts';
+import { STYLES_SOUS_TITRES, roles, type DefinitionGabarit } from '../domaine/gabarit.ts';
+import Base from '../mises-en-page/Base.astro';
+import { gabaritCreer, gabaritDefinir, gabaritLister } from '../services/actions-gabarit.ts';
+import { contexteInterface } from '../services/contextes.ts';
+import { ErreurMetier } from '../services/erreurs.ts';
+import { definitionDepuisFormulaire } from '../services/formulaire-gabarit.ts';
+import { executerAction } from '../services/registre.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.gabarit;
+const ctx = contexteInterface(services, session);
+let erreur: string | undefined;
+let brouillon: DefinitionGabarit | undefined;
+let nomBrouillon: string | undefined;
+let idDemande: string | undefined = Astro.url.searchParams.get('id') ?? undefined;
+
+// L'affichage n'est pas une action (rien n'est écrit au journal) : la liste est lue directement.
+type Vue = { id: string; espaceId: string; nom: string; definition: DefinitionGabarit };
+const { gabarits } = (await gabaritLister.executer(ctx, {})) as { gabarits: Vue[] };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const champ = (nom: string): string | null => (typeof form.get(nom) === 'string' ? (form.get(nom) as string) : null);
+  const definition = definitionDepuisFormulaire(champ);
+  idDemande = champ('id') ?? idDemande;
+  try {
+    if (champ('geste') === 'creer') {
+      const { gabarit } = (await executerAction(ctx, gabaritCreer, { espaceId: champ('espaceId') ?? '', nom: champ('nouveauNom') ?? '', definition })) as { gabarit: Vue };
+      return Astro.redirect(`/gabarit?id=${encodeURIComponent(gabarit.id)}&ok=1`, 303);
+    }
+    const id = champ('id') ?? '';
+    const nom = champ('nom')?.trim();
+    await executerAction(ctx, gabaritDefinir, nom === undefined || nom === '' ? { id, definition } : { id, nom, definition });
+    return Astro.redirect(`/gabarit?id=${encodeURIComponent(id)}&ok=1`, 303);
+  } catch (e) {
+    if (!(e instanceof ErreurMetier)) throw e;
+    erreur = e.message;
+    brouillon = definition;
+    nomBrouillon = champ('nom') ?? undefined;
+  }
+}
+
+const choisi = gabarits.find((g) => g.id === idDemande) ?? gabarits[0];
+// Sans script, « Actualiser l'aperçu » renvoie les champs dans l'adresse : le brouillon s'affiche sans rien enregistrer.
+if (brouillon === undefined && choisi !== undefined && Astro.url.searchParams.has('apercu')) brouillon = definitionDepuisFormulaire((nom) => Astro.url.searchParams.get(nom));
+const enregistre = Astro.url.searchParams.get('ok') === '1';
+const d = brouillon ?? choisi?.definition;
+const r = d === undefined ? undefined : roles(d);
+const parametresApercu = d === undefined || r === undefined
+  ? ''
+  : new URLSearchParams({
+      couleurPrincipale: r.principale, couleurTexte: r.texte, couleurFond: r.fond, couleurAccent: r.accent,
+      policeTitres: d.policeTitres, policeSousTitres: d.policeSousTitres, styleSousTitres: d.styleSousTitres,
+      carteFinTitre: d.carteFin.titre, carteFinSousTitre: d.carteFin.sousTitre, legende: d.legende, hashtags: d.hashtags.join(' '),
+    }).toString();
+const hex = (c: string): string => c.toLowerCase();
+---
+
+<Base titre={t.titre}>
+  <h1>{t.titre}</h1>
+  <p class="intro">{t.intro}</p>
+  {enregistre && <p class="succes" role="status">{t.enregistre}</p>}
+  {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
+  <p class="doux">{t.gardesNote}</p>
+
+  {choisi === undefined && <p class="doux">{t.vide}</p>}
+  {
+    gabarits.length > 1 && (
+      <nav aria-label={t.titre}>
+        <ul class="liste">
+          {gabarits.map((g) => (
+            <li>{g.id === choisi?.id ? <strong aria-current="true">{g.nom}</strong> : <a href={`/gabarit?id=${g.id}`}>{g.nom}</a>}</li>
+          ))}
+        </ul>
+      </nav>
+    )
+  }
+  {
+    choisi !== undefined && d !== undefined && r !== undefined && (
+      <div class="editeur">
+        <form method="post" action="/gabarit" class="choix" id="formulaire-gabarit">
+          <input type="hidden" name="id" value={choisi.id} />
+          <input type="hidden" name="espaceId" value={choisi.espaceId} />
+          <label>{t.nom}<input type="text" name="nom" value={nomBrouillon ?? choisi.nom} maxlength="80" required /></label>
+
+          <fieldset>
+            <legend>{t.sections.couleurs}</legend>
+            <p class="doux">{t.aide.couleurs}</p>
+            <label>{t.couleur}<input type="color" name="couleurPrincipale" value={hex(r.principale)} required /></label>
+            <label>{t.couleurTexte}<input type="color" name="couleurTexte" value={hex(r.texte)} required /></label>
+            <label>{t.couleurFond}<input type="color" name="couleurFond" value={hex(r.fond)} required /></label>
+            <label>{t.couleurAccent}<input type="color" name="couleurAccent" value={hex(r.accent)} required /></label>
+          </fieldset>
+
+          <fieldset>
+            <legend>{t.sections.polices}</legend>
+            <label>
+              {t.policeTitres}
+              <select name="policeTitres">{IDS_POLICES.map((p) => <option value={p} selected={p === d.policeTitres}>{t.polices[p]}</option>)}</select>
+            </label>
+            <label>
+              {t.policeSousTitres}
+              <select name="policeSousTitres">{IDS_POLICES.map((p) => <option value={p} selected={p === d.policeSousTitres}>{t.polices[p]}</option>)}</select>
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>{t.sections.sousTitres}</legend>
+            <label>
+              {t.style}
+              <select name="styleSousTitres">{STYLES_SOUS_TITRES.map((s) => <option value={s} selected={s === d.styleSousTitres}>{t.styles[s]}</option>)}</select>
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>{t.sections.carteFin}</legend>
+            <label>{t.carteFinTitre}<input type="text" name="carteFinTitre" value={d.carteFin.titre} maxlength="60" /></label>
+            <label>{t.carteFinSousTitre}<input type="text" name="carteFinSousTitre" value={d.carteFin.sousTitre} maxlength="80" /></label>
+          </fieldset>
+
+          <fieldset>
+            <legend>{t.sections.publication}</legend>
+            <label>{t.legende}<textarea name="legende" rows="3" maxlength="2200">{d.legende}</textarea></label>
+            <label>{t.hashtags}<textarea name="hashtags" rows="2">{d.hashtags.join(' ')}</textarea></label>
+          </fieldset>
+
+          <p class="doux">{t.logo}</p>
+          <div class="gestes">
+            <button type="submit" name="geste" value="enregistrer" class="bouton">{t.enregistrer}</button>
+            <button type="submit" formmethod="get" formaction="/gabarit" name="apercu" value="1" class="bouton" id="actualiser">{t.actualiser}</button>
+          </div>
+
+          <fieldset>
+            <legend>{t.nouveau}</legend>
+            <label>{t.nom}<input type="text" name="nouveauNom" maxlength="80" /></label>
+            <button type="submit" name="geste" value="creer" class="bouton">{t.creer}</button>
+          </fieldset>
+        </form>
+
+        <section aria-labelledby="titre-apercu" class="apercu">
+          <h2 id="titre-apercu">{t.apercu}</h2>
+          <img id="image-apercu" src={`/gabarit/apercu.svg?${parametresApercu}`} alt={t.apercuAlt} width="900" />
+        </section>
+      </div>
+    )
+  }
+</Base>
+
+<script>
+  // Aperçu en direct : à chaque réglage, l'image est redemandée au serveur (même origine). Sans script, le bouton
+  // « Actualiser l'aperçu » fait la même chose en rechargeant la page.
+  const formulaire = document.getElementById('formulaire-gabarit') as HTMLFormElement | null;
+  const image = document.getElementById('image-apercu') as HTMLImageElement | null;
+  const bouton = document.getElementById('actualiser');
+  if (formulaire !== null && image !== null) {
+    bouton?.setAttribute('hidden', '');
+    const champs = ['couleurPrincipale', 'couleurTexte', 'couleurFond', 'couleurAccent', 'policeTitres', 'policeSousTitres', 'styleSousTitres', 'carteFinTitre', 'carteFinSousTitre', 'legende', 'hashtags'];
+    let minuteur: ReturnType<typeof setTimeout> | undefined;
+    const rafraichir = (): void => {
+      const donnees = new FormData(formulaire);
+      const q = new URLSearchParams();
+      for (const nom of champs) q.set(nom, String(donnees.get(nom) ?? ''));
+      image.src = `/gabarit/apercu.svg?${q.toString()}`;
+    };
+    formulaire.addEventListener('input', () => {
+      clearTimeout(minuteur);
+      minuteur = setTimeout(rafraichir, 250);
+    });
+  }
+</script>
+
+<style is:global>
+  .editeur { display: grid; gap: 24px; margin-top: 16px; }
+  @media (min-width: 960px) { .editeur { grid-template-columns: minmax(280px, 420px) 1fr; align-items: start; } }
+  .choix { display: grid; gap: 16px; max-width: 420px; }
+  .choix fieldset { display: grid; gap: 12px; border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px; margin: 0; }
+  .choix label { display: grid; gap: 6px; }
+  .choix select, .choix input[type='color'], .choix input[type='text'], .choix textarea { font: inherit; padding: 6px; border-radius: var(--rayon); border: 1px solid var(--trait); background: none; color: inherit; min-height: 44px; }
+  .bouton { padding: 8px 16px; border-radius: var(--rayon); border: 1px solid var(--trait); background: none; color: inherit; font: inherit; cursor: pointer; min-height: 44px; }
+  .gestes { display: flex; gap: 12px; flex-wrap: wrap; }
+  .apercu img { max-width: 100%; height: auto; border: 1px solid var(--trait); border-radius: var(--rayon); }
+  .succes { color: var(--accent); }
+</style>

@@ -12,10 +12,16 @@ RUN npm ci --ignore-scripts
 
 COPY tsconfig.base.json tsconfig.json ./
 COPY paquets/ paquets/
+# Bornes des gardes (FR-28) : lues par le cœur à la construction et au démarrage.
+COPY deploiement/bornes.json deploiement/bornes.json
 COPY coeur/ coeur/
 RUN npm run build
 
+# Commit construit, pour le lien « Code source » de chaque page (FR-67) :
+#   podman build --build-arg REGIE_VERSION=$(git rev-parse HEAD) ...
+# Vide, le lien pointe sur main.
+ARG REGIE_VERSION
 USER node
-ENV NODE_ENV=production HOTE=0.0.0.0 PORT=4321
+ENV NODE_ENV=production HOTE=0.0.0.0 PORT=4321 REGIE_VERSION=${REGIE_VERSION}
 EXPOSE 4321
 CMD ["node", "coeur/src/serveur.ts"]

@@ -4,9 +4,21 @@
     {
       "name": "maquette-regie",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["maquette/serveur.mjs"],
+      "runtimeArgs": [
+        "maquette/serveur.mjs"
+      ],
       "port": 4310,
       "autoPort": true
+    },
+    {
+      "name": "coeur-regie",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "coeur",
+        "start"
+      ],
+      "port": 4321
     }
   ]
 }

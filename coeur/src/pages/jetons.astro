@@ -1,0 +1,146 @@
+---
+// Jetons d'API personnels (histoire 1.11, FR-45) : créer (réauthentification récente exigée, valeur montrée une
+// seule fois), lister et révoquer. Les actions passent par le registre : mêmes règles et même journal que l'API.
+import chaines from '../chaines.json' with { type: 'json' };
+import { exigerAuthRecente } from '../auth/auth-recente.ts';
+import Base from '../mises-en-page/Base.astro';
+import { jetonCreer, jetonLister, jetonRevoquer } from '../services/actions.ts';
+import { contexteInterface } from '../services/contextes.ts';
+import { ErreurMetier } from '../services/erreurs.ts';
+import { executerAction } from '../services/registre.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const ctx = contexteInterface(services, session);
+const espaces = Astro.locals.espaces;
+const libelleEspace = (e: { genre: string; nom: string }) => (e.genre === 'personnel' ? chaines.espaces.personnel : chaines.espaces.marque.replace('{nom}', e.nom));
+const jours = [7, 30, 90];
+const formatDate = (iso: string) => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+
+let clair: string | undefined;
+let nomCree: string | undefined;
+let erreur: string | undefined;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const champ = (cle: string) => (typeof form.get(cle) === 'string' ? (form.get(cle) as string) : '');
+  try {
+    if (champ('action') === 'revoquer') {
+      await executerAction(ctx, jetonRevoquer, { id: champ('id') });
+      return Astro.redirect('/jetons', 303);
+    }
+    // Créer un jeton exige une connexion de moins de 10 minutes : sinon on repasse par Authentik.
+    const aRefaire = exigerAuthRecente(session, '/jetons');
+    if (aRefaire !== undefined) return Astro.redirect(aRefaire, 303);
+    const portees = champ('portee') === 'ecriture' ? ['lecture', 'ecriture'] : ['lecture'];
+    const choisis = form.getAll('espace').filter((v): v is string => typeof v === 'string');
+    if (champ('nom').trim() === '' || champ('nom').trim().length > 80) throw new ErreurMetier('ENTREE_INVALIDE', 400, { champs: chaines.jetons.erreurs.nom });
+    if (choisis.length === 0) throw new ErreurMetier('ENTREE_INVALIDE', 400, { champs: chaines.jetons.erreurs.espaces });
+    const sortie = (await executerAction(ctx, jetonCreer, { nom: champ('nom'), portees, espaceIds: choisis, dureeJours: Number(champ('duree')) })) as { clair: string; jeton: { nom: string } };
+    clair = sortie.clair;
+    nomCree = sortie.jeton.nom;
+  } catch (e) {
+    if (!(e instanceof ErreurMetier)) throw e;
+    erreur = e.message;
+  }
+}
+
+// L'affichage de la liste n'est pas une action (rien n'est écrit au journal) : on appelle l'exécutant directement.
+const jetons = ((await jetonLister.executer(ctx, {})) as { jetons: { id: string; nom: string; portees: string[]; creeLe: string; expireLe: string; revoqueLe: string | null }[] }).jetons;
+const maintenant = Date.now();
+---
+
+<Base titre={chaines.jetons.titre}>
+  <h1>{chaines.jetons.titre}</h1>
+  <p class="intro">{chaines.jetons.intro}</p>
+
+  {erreur !== undefined && <p class="erreur" role="alert">{erreur}</p>}
+
+  {
+    clair !== undefined && (
+      <section class="nouveau" aria-live="polite">
+        <h2>{chaines.jetons.nouveau.titre}</h2>
+        <p class="doux">{nomCree}</p>
+        <code class="valeur">{clair}</code>
+        <p class="doux">{chaines.jetons.nouveau.consigne}</p>
+      </section>
+    )
+  }
+
+  <section>
+    <h2>{chaines.jetons.creer.titre}</h2>
+    <form method="post" action="/jetons" class="formulaire">
+      <input type="hidden" name="action" value="creer" />
+      <label>{chaines.jetons.creer.nom}<input type="text" name="nom" maxlength="80" required /></label>
+      <label>
+        {chaines.jetons.creer.duree}
+        <select name="duree">
+          {jours.map((j) => <option value={j} selected={j === 30}>{chaines.jetons.creer.jours.replace('{jours}', String(j))}</option>)}
+        </select>
+      </label>
+      <fieldset>
+        <legend>{chaines.jetons.creer.portee}</legend>
+        <label class="choix"><input type="radio" name="portee" value="lecture" checked />{chaines.jetons.creer.porteeLecture}</label>
+        <label class="choix"><input type="radio" name="portee" value="ecriture" />{chaines.jetons.creer.porteeEcriture}</label>
+      </fieldset>
+      <fieldset>
+        <legend>{chaines.jetons.creer.espaces}</legend>
+        {espaces.map((e) => <label class="choix"><input type="checkbox" name="espace" value={e.id} checked={e.genre === 'personnel'} />{libelleEspace(e)}</label>)}
+      </fieldset>
+      <button type="submit" class="bouton">{chaines.jetons.creer.bouton}</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>{chaines.jetons.liste.titre}</h2>
+    {jetons.length === 0 && <p class="doux">{chaines.jetons.liste.vide}</p>}
+    <ul class="liste">
+      {
+        jetons.map((j) => (
+          <li>
+            <div>
+              <strong>{j.nom}</strong>
+              <span class="doux">
+                {j.portees.includes('ecriture') ? chaines.jetons.creer.porteeEcriture : chaines.jetons.creer.porteeLecture} · {chaines.jetons.liste.cree.replace('{date}', formatDate(j.creeLe))} ·{' '}
+                {j.revoqueLe !== null
+                  ? chaines.jetons.liste.revoque.replace('{date}', formatDate(j.revoqueLe))
+                  : new Date(j.expireLe).getTime() <= maintenant
+                    ? chaines.jetons.liste.expire_deja
+                    : chaines.jetons.liste.expire.replace('{date}', formatDate(j.expireLe))}
+              </span>
+            </div>
+            {j.revoqueLe === null && new Date(j.expireLe).getTime() > maintenant && (
+              <form method="post" action="/jetons">
+                <input type="hidden" name="action" value="revoquer" />
+                <input type="hidden" name="id" value={j.id} />
+                <button type="submit" class="bouton secondaire">{chaines.jetons.liste.revoquer}</button>
+              </form>
+            )}
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</Base>
+
+<style>
+  h1 { font-size: clamp(24px, 6vw, 32px); line-height: 1.15; margin: 8px 0 12px; }
+  h2 { font-size: 18px; margin: 28px 0 10px; }
+  .intro, .doux { color: var(--doux); }
+  .intro { max-width: 60ch; margin: 0; }
+  .erreur { color: var(--jeter); background: var(--jeter-fond); border-radius: var(--rayon); padding: 10px 14px; }
+  .nouveau { background: var(--garder-fond); border-radius: var(--rayon); padding: 4px 16px 12px; }
+  .valeur { display: block; overflow-wrap: anywhere; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; user-select: all; }
+  .formulaire { display: grid; gap: 14px; max-width: 460px; }
+  label { display: grid; gap: 4px; font-size: 14px; }
+  input[type='text'], select { font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--trait); background: var(--surface); color: var(--texte); }
+  fieldset { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 8px 14px 12px; display: grid; gap: 6px; }
+  .choix { display: flex; align-items: center; gap: 8px; }
+  .bouton { justify-self: start; padding: 10px 16px; border-radius: var(--rayon); border: 0; background: var(--accent); color: #17171a; font: inherit; font-weight: 700; cursor: pointer; }
+  .bouton.secondaire { background: none; border: 1px solid var(--trait); color: var(--doux); font-weight: 400; }
+  .liste { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .liste li { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--trait); padding-bottom: 10px; }
+  .liste li div { display: grid; gap: 2px; font-size: 14px; }
+</style>

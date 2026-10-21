@@ -1,0 +1,12 @@
+{
+  "$commentaire": "Réseaux de publication (histoire 7.1, FR-39, AR-23), versionné. Pour chaque réseau : les portées demandées à la personne et le chemin FIXE de retour OAuth (adresse publique + chemin = redirect_uri déclaré chez le réseau ; jamais construit à partir d'une entrée). V1 : Instagram seul (ajustement du 2026-10-18). Les hôtes de chaque réseau figurent dans sorties-autorisees.json. Les portées sont à confirmer à la revue d'application de Meta (docs/planning/ARBITRAGES.md, histoire 7.1).",
+  "version": 1,
+  "reseaux": {
+    "instagram": {
+      "nom": "Instagram",
+      "service": "publication",
+      "portees": ["instagram_business_basic", "instagram_business_content_publish"],
+      "cheminRetour": "/reseaux/instagram/retour"
+    }
+  }
+}

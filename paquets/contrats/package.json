@@ -2,10 +2,13 @@
   "name": "@regie/contrats",
   "version": "0.0.0",
   "private": true,
-  "description": "Contrats partagés de regie (schémas zod versionnés).",
+  "description": "Contrats partag\u00e9s de regie (sch\u00e9mas zod versionn\u00e9s).",
   "license": "AGPL-3.0-only",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
   }
 }

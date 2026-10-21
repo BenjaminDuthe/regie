@@ -4,6 +4,11 @@
 
 import { z } from 'zod';
 
+/** Une adresse IP, ou un bloc CIDR (IPv4 ou IPv6), validé par zod. */
+function adresseOuBloc(valeur: string): boolean {
+  return [z.ipv4(), z.ipv6(), z.cidrv4(), z.cidrv6()].some((forme) => forme.safeParse(valeur).success);
+}
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
   HOTE: z.string().min(1, 'doit être une adresse non vide').default('127.0.0.1'),
@@ -13,6 +18,87 @@ const schema = z.object({
     .default('4321')
     .transform(Number)
     .refine((port) => port >= 1 && port <= 65535, 'doit être un entier entre 1 et 65535'),
+  // Commit en service, posé à la construction de l'image : chaque page renvoie vers son code
+  // source (FR-67, AGPL-3.0). Absent en développement : le lien mène alors à `main`.
+  REGIE_VERSION: z
+    .string()
+    .regex(/^[0-9a-f]{7,40}$/, 'doit être une empreinte de commit (7 à 40 caractères hexadécimaux)')
+    .optional(),
+  // Dossier des secrets montés en fichiers (secrets Podman : /run/secrets). Jamais de secret dans
+  // l'environnement lui-même : ici, seulement l'emplacement des fichiers (AD-9, NFR-14).
+  DOSSIER_SECRETS: z.string().min(1, 'doit être un chemin non vide').default('/run/secrets'),
+  BASE_HOTE: z.string().min(1, 'doit être une adresse non vide').default('127.0.0.1'),
+  BASE_PORT: z
+    .string()
+    .regex(/^\d{1,5}$/, 'doit être un entier entre 1 et 65535')
+    .default('5432')
+    .transform(Number)
+    .refine((port) => port >= 1 && port <= 65535, 'doit être un entier entre 1 et 65535'),
+  BASE_NOM: z.string().regex(/^[a-z_][a-z0-9_]{0,62}$/, 'doit être un nom PostgreSQL simple').default('regie'),
+  BASE_UTILISATEUR: z.string().regex(/^[a-z_][a-z0-9_]{0,62}$/, 'doit être un nom de rôle simple').default('regie_coeur'),
+  BASE_MIGRATIONS_UTILISATEUR: z
+    .string()
+    .regex(/^[a-z_][a-z0-9_]{0,62}$/, 'doit être un nom de rôle simple')
+    .default('regie_migrations'),
+  // Connexion par Authentik (histoire 1.14). Les trois premières vont ensemble ; le secret du client OIDC est
+  // un fichier de DOSSIER_SECRETS (regie_oidc_client), jamais une variable. Sans elles, personne ne peut se connecter.
+  REGIE_URL_PUBLIQUE: z.url({ message: 'doit être une adresse https (http seulement sur la machine locale)' }).optional(),
+  REGIE_OIDC_EMETTEUR: z.url({ message: 'doit être l’émetteur OIDC d’Authentik (https)' }).optional(),
+  REGIE_OIDC_CLIENT_ID: z.string().regex(/^[\w.-]{1,128}$/, 'doit être l’identifiant du client OIDC').optional(),
+  // L'utilisateur Authentik autorisé : son `sub` (recommandé) ; si REGIE_ADMIN_SUB est défini, seul le sub compte.
+  // REGIE_ADMIN_EMAIL est un repli opt-in, utilisé seulement sans REGIE_ADMIN_SUB : il suppose qu'Authentik garantit
+  // `email_verified` (inscription et changement d'e-mail contrôlés), voir deploiement/infra/authentik.md.
+  REGIE_ADMIN_SUB: z.string().min(1).max(255).optional(),
+  REGIE_ADMIN_EMAIL: z.email('doit être une adresse e-mail').optional(),
+  // Proxys inverses de confiance (adresses IP ou blocs CIDR, séparés par des virgules), typiquement nginx : seul
+  // leur X-Forwarded-For donne l'IP réelle du client pour les limites de débit. Absente : aucune confiance, l'IP
+  // vue est celle de la connexion (un X-Forwarded-For envoyé par un client n'est alors jamais lu).
+  REGIE_PROXYS_DE_CONFIANCE: z
+    .string()
+    .transform((liste) => liste.split(',').map((element) => element.trim()).filter((element) => element !== ''))
+    .refine((liste) => liste.length > 0 && liste.every(adresseOuBloc), 'doit être une liste d’adresses IP ou de blocs CIDR séparés par des virgules')
+    .optional(),
+  // Capture des applications (histoire 4.2). Sans le socket, la tâche « capture » n'a pas d'exécutant. Le socket est
+  // celui de l'utilisateur Podman dédié ; la clé partagée avec le proxy est le fichier regie_capture_cle.
+  REGIE_CAPTURE_SOCKET: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu de socket').optional(),
+  REGIE_CAPTURE_PROXY: z
+    .string()
+    .regex(/^\d{1,3}(\.\d{1,3}){3}:\d{1,5}$/, 'doit être ip:port du proxy de sortie')
+    .default('10.89.77.2:3128'),
+  REGIE_CAPTURE_IMAGE: z.string().regex(/^[\w./:@-]{1,200}$/, 'doit être un nom d’image').default('localhost/regie-capture:local'),
+  // Films, voix et rendus (histoire 4.6) : un dossier par marque. Le rendu réutilise le socket Podman de la capture ;
+  // l'encodeur matériel donne aussi le périphérique de rendu au conteneur (sans réseau).
+  REGIE_DONNEES: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu').default('/var/lib/regie/fichiers'),
+  REGIE_RENDU_IMAGE: z.string().regex(/^[\w./:@-]{1,200}$/, 'doit être un nom d’image').default('localhost/regie-rendu:local'),
+  REGIE_RENDU_ENCODEUR: z.enum(['libx264', 'h264_vaapi']).default('libx264'),
+  // Voix de synthèse locale (histoire 4.7). Sans REGIE_MODELES (dossier des modèles, monté en lecture seule dans le
+  // conteneur de voix), il n'y a pas de voix : les vidéos sont rendues sans voix. Le lock donne l'empreinte du modèle.
+  REGIE_MODELES: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu').optional(),
+  REGIE_MODELES_LOCK: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu').default('/etc/regie/modeles.lock'),
+  // Sauvegarde (histoire 9.2). Le dossier d'état (base_le, vzdump_le) est écrit par les scripts de deploiement/sauvegarde/ ; regie
+  // n'en lit que les dates, pour /sante. Le mode « restauration » démarre regie sans file de travail, sans planificateur et sans connecteur de
+  // réseau : on y vérifie une sauvegarde restaurée sans qu'aucune publication puisse partir.
+  REGIE_SAUVEGARDE_ETAT: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu').optional(),
+  REGIE_MODE: z.enum(['normal', 'restauration']).default('normal'),
+  REGIE_VOIX: z.string().regex(/^[\w.-]{1,80}$/, 'doit être le nom d’une voix de modeles.lock').default('fr_FR-gilles-low'),
+}).superRefine((valeurs, contexte) => {
+  const adresseSure = (valeur: string) => {
+    const url = new URL(valeur);
+    return url.protocol === 'https:' || (url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname));
+  };
+  for (const variable of ['REGIE_URL_PUBLIQUE', 'REGIE_OIDC_EMETTEUR'] as const) {
+    const valeur = valeurs[variable];
+    if (valeur !== undefined && !adresseSure(valeur)) {
+      contexte.addIssue({ code: 'custom', path: [variable], message: 'doit être une adresse https (http seulement sur la machine locale)' });
+    }
+  }
+  const oidc = ['REGIE_URL_PUBLIQUE', 'REGIE_OIDC_EMETTEUR', 'REGIE_OIDC_CLIENT_ID'] as const;
+  const poses = oidc.filter((variable) => valeurs[variable] !== undefined);
+  if (poses.length > 0 && poses.length < oidc.length) {
+    for (const variable of oidc.filter((v) => valeurs[v] === undefined)) {
+      contexte.addIssue({ code: 'custom', path: [variable], message: 'requise dès qu’une autre variable de la connexion Authentik est posée' });
+    }
+  }
 });
 
 export type Environnement = Readonly<z.infer<typeof schema>>;
@@ -36,6 +122,31 @@ export function lireEnvironnement(source: Readonly<Record<string, string | undef
     NODE_ENV: source['NODE_ENV'],
     HOTE: source['HOTE'],
     PORT: source['PORT'],
+    // Vide quand l'image est construite sans --build-arg : même sens qu'absente.
+    REGIE_VERSION: source['REGIE_VERSION'] || undefined,
+    DOSSIER_SECRETS: source['DOSSIER_SECRETS'],
+    BASE_HOTE: source['BASE_HOTE'],
+    BASE_PORT: source['BASE_PORT'],
+    BASE_NOM: source['BASE_NOM'],
+    BASE_UTILISATEUR: source['BASE_UTILISATEUR'],
+    BASE_MIGRATIONS_UTILISATEUR: source['BASE_MIGRATIONS_UTILISATEUR'],
+    REGIE_URL_PUBLIQUE: source['REGIE_URL_PUBLIQUE'] || undefined,
+    REGIE_OIDC_EMETTEUR: source['REGIE_OIDC_EMETTEUR'] || undefined,
+    REGIE_OIDC_CLIENT_ID: source['REGIE_OIDC_CLIENT_ID'] || undefined,
+    REGIE_ADMIN_SUB: source['REGIE_ADMIN_SUB'] || undefined,
+    REGIE_ADMIN_EMAIL: source['REGIE_ADMIN_EMAIL'] || undefined,
+    REGIE_PROXYS_DE_CONFIANCE: source['REGIE_PROXYS_DE_CONFIANCE'] || undefined,
+    REGIE_CAPTURE_SOCKET: source['REGIE_CAPTURE_SOCKET'] || undefined,
+    REGIE_CAPTURE_PROXY: source['REGIE_CAPTURE_PROXY'] || undefined,
+    REGIE_CAPTURE_IMAGE: source['REGIE_CAPTURE_IMAGE'] || undefined,
+    REGIE_DONNEES: source['REGIE_DONNEES'] || undefined,
+    REGIE_RENDU_IMAGE: source['REGIE_RENDU_IMAGE'] || undefined,
+    REGIE_RENDU_ENCODEUR: source['REGIE_RENDU_ENCODEUR'] || undefined,
+    REGIE_MODELES: source['REGIE_MODELES'] || undefined,
+    REGIE_MODELES_LOCK: source['REGIE_MODELES_LOCK'] || undefined,
+    REGIE_SAUVEGARDE_ETAT: source['REGIE_SAUVEGARDE_ETAT'] || undefined,
+    REGIE_MODE: source['REGIE_MODE'] || undefined,
+    REGIE_VOIX: source['REGIE_VOIX'] || undefined,
   });
   if (!resultat.success) {
     throw new ErreurEnvironnement(

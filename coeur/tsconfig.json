@@ -4,6 +4,6 @@
     "composite": true,
     "tsBuildInfoFile": "../node_modules/.cache/tsc/coeur.tsbuildinfo"
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", ".astro/types.d.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts", ".astro/types.d.ts", "../deploiement/bornes.json"],
   "exclude": ["dist"]
 }

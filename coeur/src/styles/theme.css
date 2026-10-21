@@ -1,0 +1,103 @@
+/* regie — thème commun (UX-DR1 à UX-DR3), repris de la maquette « Relire ».
+   Contraste vérifié (coeur/test/theme.test.ts) : texte et texte doux ≥ 4,5:1 sur le fond et les surfaces. */
+
+:root {
+  color-scheme: dark;
+  --noir: #000;
+  --fond: #0c0c0d;
+  --surface: #17171a;
+  --surface-2: #222226;
+  --trait: #34343a;
+  --texte: #f4f3f0;
+  --doux: #b3b1aa;
+  --garder: #3ddc84;
+  --garder-fond: rgba(61, 220, 132, 0.16);
+  --jeter: #ff6b5e;
+  --jeter-fond: rgba(255, 107, 94, 0.16);
+  --doute: #ffc94d;
+  --doute-fond: rgba(255, 201, 77, 0.14);
+  --accent: #ff8fb1;
+  --rayon: 14px;
+  --focus: 0 0 0 3px #fff, 0 0 0 5px #3b82f6;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--fond);
+  color: var(--texte);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: anywhere;
+}
+
+img,
+video,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  color: var(--accent);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: 6px;
+}
+
+.visuellement-cache {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.contenu {
+  flex: 1;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.pied {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

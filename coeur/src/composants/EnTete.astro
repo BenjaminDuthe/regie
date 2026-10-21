@@ -1,0 +1,103 @@
+---
+// En-tête collant commun (UX-DR4) : nom regie. L'espace actif et la navigation (Relire,
+// Démos d'app) s'y ajoutent avec les pages qui les portent (histoires 1.9, 2.12 et 4.x).
+import chaines from '../chaines.json' with { type: 'json' };
+
+const connecte = Astro.locals.session !== undefined;
+const espaces = Astro.locals.espaces ?? [];
+const actif = Astro.locals.espaceActif;
+const libelle = (e: { genre: string; nom: string }) => (e.genre === 'personnel' ? chaines.espaces.personnel : chaines.espaces.marque.replace('{nom}', e.nom));
+const retour = encodeURIComponent(Astro.url.pathname + Astro.url.search);
+---
+
+<header class="entete">
+  <a class="nom" href="/">regie</a>
+  {
+    connecte && espaces.length > 0 && (
+      <nav class="espaces" aria-label={chaines.entete.espaces}>
+        {espaces.map((e) =>
+          e.id === actif?.id ? (
+            <span class="espace actif" aria-current="true" title={chaines.entete.espaceActif}>{libelle(e)}</span>
+          ) : (
+            <form method="post" action={`/espaces/${e.id}/activer?retour=${retour}`}>
+              <button type="submit" class="espace" title={chaines.espaces.changer.replace('{nom}', libelle(e))}>{libelle(e)}</button>
+            </form>
+          ),
+        )}
+      </nav>
+    )
+  }
+  {connecte && <a class="lien" href="/taches">{chaines.entete.taches}</a>}
+  {connecte && <a class="lien" href="/demos">{chaines.entete.demos}</a>}
+  {connecte && <a class="lien" href="/scripts">{chaines.entete.scripts}</a>}
+  {connecte && <a class="lien" href="/montages">{chaines.entete.montages}</a>}
+  {connecte && <a class="lien" href="/reseaux">{chaines.entete.reseaux}</a>}
+  {connecte && <a class="lien" href="/gabarit">{chaines.entete.gabarit}</a>}
+  {connecte && <a class="lien" href="/jetons">{chaines.entete.jetons}</a>}
+  {connecte && <a class="lien" href="/connexions">{chaines.entete.connexions}</a>}
+  {connecte && <a class="lien" href="/journal">{chaines.entete.journal}</a>}
+  {
+    connecte && (
+      <form method="post" action="/deconnexion">
+        <button type="submit" class="deconnexion">{chaines.entete.deconnexion}</button>
+      </form>
+    )
+  }
+</header>
+
+<style>
+  .entete {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: max(10px, env(safe-area-inset-top)) 16px 10px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--trait);
+  }
+  .nom {
+    color: var(--texte);
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+  }
+  .espaces {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .espace {
+    background: none;
+    border: 1px solid var(--trait);
+    border-radius: var(--rayon);
+    color: var(--doux);
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  .espace.actif {
+    color: var(--texte);
+    border-color: var(--accent);
+    cursor: default;
+  }
+  .lien {
+    color: var(--doux);
+    font-size: 13px;
+    text-decoration: none;
+  }
+  .deconnexion {
+    background: none;
+    border: 1px solid var(--trait);
+    border-radius: var(--rayon);
+    color: var(--doux);
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+</style>

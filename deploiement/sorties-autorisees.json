@@ -1,0 +1,60 @@
+{
+  "$commentaire": "Sorties réseau autorisées (AD-17, AR-23), versionnées. outils/ci/verifier-sorties.mjs compare le dépôt à cette liste. Ajouter une ligne ici est une décision visible en revue, jamais un effet de bord.",
+  "conteneurs": {
+    "publication": "envoi vers les réseaux sociaux choisis par la personne",
+    "proxy-capture": "hôtes autorisés de la capture d'application",
+    "coeur": "relais SMTP réglé par l'administrateur seulement",
+    "proxy-tls": "ACME (certificats)",
+    "rendu": "aucune : `--network none`, le film et les voix arrivent par l'entrée standard"
+  },
+  "hotes": [
+    {
+      "hote": "www.instagram.com",
+      "raison": "autorisation OAuth de la personne (redirection de son navigateur) et lien vers la publication ; appelé par le connecteur Instagram, service « publication » (histoires 7.1, 7.6)",
+      "fichiers": [
+        "coeur/src/publication/connecteur-instagram.ts"
+      ]
+    },
+    {
+      "hote": "api.instagram.com",
+      "raison": "échange du code d'autorisation contre un jeton (connecteur Instagram, service « publication », histoire 7.6)",
+      "fichiers": [
+        "coeur/src/publication/connecteur-instagram.ts"
+      ]
+    },
+    {
+      "hote": "graph.instagram.com",
+      "raison": "jeton long, quota et publication des Reels (connecteur Instagram, service « publication », histoires 7.3 et 7.6)",
+      "fichiers": [
+        "coeur/src/publication/connecteur-instagram.ts"
+      ]
+    },
+    {
+      "hote": "graph.facebook.com",
+      "raison": "test de la clé d'application Meta (connecteur Instagram, service « publication », histoire 7.1)",
+      "fichiers": [
+        "coeur/src/publication/connecteur-instagram.ts"
+      ]
+    },
+    {
+      "hote": "github.com",
+      "raison": "lien vers le code source de la version en service (FR-67, AGPL-3.0), lien cliqué par la personne, jamais chargé",
+      "fichiers": [
+        "coeur/src/source.ts"
+      ]
+    }
+  ],
+  "espacesDeNoms": [
+    "www.w3.org"
+  ],
+  "fichiersReseau": [
+    "coeur/src/infra/oidc.ts",
+    "coeur/src/pages/taches.astro",
+    "coeur/src/pages/scripts.astro",
+    "services/proxy-capture/src/adresses.ts",
+    "services/proxy-capture/src/proxy.ts",
+    "services/proxy-capture/src/principal.ts",
+    "coeur/src/services/capture.ts",
+    "coeur/src/publication/connecteur-instagram.ts"
+  ]
+}

@@ -1,0 +1,212 @@
+---
+// Éditeur par scènes d'une vidéo (histoire 3.10, FR-26) : les scènes dans l'ordre, avec durée, textes et un aperçu à jour
+// dessiné côté serveur (/montages/apercu.svg), sans rendu complet. Enregistrer passe par la même action que l'API et le
+// MCP (`montage.editer`) et crée une nouvelle version immuable. Les garde-fous sont évalués en direct sur ce qui est
+// saisi : une scène fautive est marquée, et la vidéo ne passera pas « prête » tant que ce n'est pas corrigé.
+import { ANIMATIONS, ANIMATIONS_SORTIE, TRANSITIONS } from '@regie/contrats';
+import chaines from '../../chaines.json' with { type: 'json' };
+import { evaluerMontage } from '../../domaine/montage.ts';
+import Base from '../../mises-en-page/Base.astro';
+import { montageAccessible, montageEditer, phrases } from '../../services/actions-montage.ts';
+import { contexteInterface } from '../../services/contextes.ts';
+import { ErreurMetier } from '../../services/erreurs.ts';
+import { brouillonDepuisChamps, type LireChamp } from '../../services/formulaire-montage.ts';
+import { executerAction } from '../../services/registre.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.montages;
+const e = t.editeur;
+const ctx = contexteInterface(services, session);
+const secondes = (ms: number): string => String(Math.round(ms / 100) / 10).replace('.', ',');
+// Pour les réglages d'animation, aucune valeur n'est arrondie : un champ non touché ne doit jamais créer de modification.
+const secondesExactes = (ms: number): string => String(ms / 1000).replace('.', ',');
+const noms = { animations: e.animations as Record<string, string>, transitions: e.transitions as Record<string, string> };
+
+let champs: LireChamp = (nom) => Astro.url.searchParams.get(nom);
+let id = Astro.url.searchParams.get('id') ?? '';
+let geste: string | undefined;
+let erreur: string | undefined;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const lu = (nom: string): string | null => (typeof form.get(nom) === 'string' ? (form.get(nom) as string) : null);
+  champs = lu;
+  id = lu('id') ?? id;
+  const demande = lu('geste');
+  geste = demande === null || demande === 'enregistrer' ? undefined : demande;
+}
+
+let base;
+try {
+  base = await montageAccessible(ctx, /^[0-9a-f-]{36}$/.test(id) ? id : '00000000-0000-0000-0000-000000000000');
+} catch (err) {
+  if (!(err instanceof ErreurMetier)) throw err;
+}
+if (base === undefined) return new Response(chaines.erreurs.MONTAGE_INTROUVABLE, { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+
+const calcul = brouillonDepuisChamps(base.timeline, champs, geste);
+if (Astro.request.method === 'POST') {
+  try {
+    if (calcul.operations.length === 0) erreur = e.rienAChanger;
+    else {
+      const { montage } = (await executerAction(ctx, montageEditer, { id: base.id, operations: calcul.operations })) as { montage: { id: string } };
+      return Astro.redirect(`/montages/editer?id=${encodeURIComponent(montage.id)}&ok=1`, 303);
+    }
+  } catch (err) {
+    if (!(err instanceof ErreurMetier)) throw err;
+    erreur = err.message;
+  }
+}
+
+const timeline = calcul.timeline;
+const violations = phrases(evaluerMontage(timeline, base.gabarit.definition));
+const fautives = new Set(violations.map((v) => v.segment));
+const enregistre = Astro.url.searchParams.get('ok') === '1';
+// Valeur à montrer : ce qui vient d'être saisi (même refusé), sinon la version affichée.
+const valeur = (nom: string, defaut: string): string => champs(nom) ?? defaut;
+const paramsApercu = (sceneId: string): string => {
+  const q = new URLSearchParams({ id: base.id, scene: sceneId });
+  const reglages = ['anim-entree', 'anim-sortie', 'anim-duree', 'anim-delai', 'transition', 'zoom-actif', 'zoom-niveau', 'zoom-decalage'].map((n) => `${n}-${sceneId}`);
+  for (const nom of [`accroche-${sceneId}`, `ecran-${sceneId}`, `voix-${sceneId}`, `duree-${sceneId}`, ...reglages, 'carte-titre', 'carte-soustitre', 'carte-duree', 'carte-anim-entree', 'carte-anim-sortie', 'carte-anim-duree', 'carte-anim-delai']) {
+    const v = champs(nom);
+    if (v !== null) q.set(nom, v);
+  }
+  return q.toString();
+};
+---
+
+<Base titre={`${e.titre} — ${t.version.replace('{numero}', String(base.numero))}`}>
+  <h1>{e.titre}</h1>
+  <p class="intro">{e.intro}</p>
+  <p class="doux">{e.apercuNote}</p>
+  <p><a href={`/montages?id=${base.id}`}>{e.retourVideo}</a> · {t.version.replace('{numero}', String(base.numero))}</p>
+  {enregistre && <p class="succes" role="status">{e.enregistre}</p>}
+  {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
+
+  <section aria-labelledby="titre-gardes" class={violations.length > 0 ? 'bloque' : ''}>
+    <h2 id="titre-gardes">{e.gardes}</h2>
+    {violations.length === 0 ? <p class="doux">{e.gardesOk}</p> : <><p>{e.gardesKo}</p><ul>{violations.map((v) => <li>{v.phrase}</li>)}</ul></>}
+  </section>
+
+  <form method="post" action="/montages/editer" id="formulaire-montage">
+    <input type="hidden" name="id" value={base.id} />
+    <ol class="scenes-editeur">
+      {timeline.scenes.map((s, i) => (
+        <li class={fautives.has(s.id) ? 'scene fautive' : 'scene'} id={`scene-${s.id}`} data-scene={s.id}>
+          <h3>
+            {e.scene.replace('{numero}', String(i + 1))}
+            {fautives.has(s.id) && <strong class="marque-fautive"> · {e.sceneFautive}</strong>}
+          </h3>
+          <div class="ligne-scene">
+            <img class="apercu-scene" src={`/montages/apercu.svg?${paramsApercu(s.id)}`} alt={e.apercu.replace('{numero}', String(i + 1))} width="180" height="320" loading="lazy" />
+            <div class="champs-scene">
+              <label>{e.accroche}<input type="text" name={`accroche-${s.id}`} value={valeur(`accroche-${s.id}`, s.accroche)} maxlength="80" /></label>
+              <label>{e.texteEcran}<input type="text" name={`ecran-${s.id}`} value={valeur(`ecran-${s.id}`, s.texteEcran)} maxlength="120" /></label>
+              <label>{e.voix}<textarea name={`voix-${s.id}`} rows="3" maxlength="500">{valeur(`voix-${s.id}`, s.voix)}</textarea></label>
+              <label>{e.duree}<input type="text" inputmode="decimal" name={`duree-${s.id}`} value={valeur(`duree-${s.id}`, secondes(s.dureeMs))} /></label>
+              <fieldset class="reglages">
+                <legend>{e.animation}</legend>
+                <label>{e.animEntree}<select name={`anim-entree-${s.id}`}>{ANIMATIONS.map((a) => <option value={a} selected={valeur(`anim-entree-${s.id}`, s.animation.entree) === a}>{noms.animations[a]}</option>)}</select></label>
+                <label>{e.animSortie}<select name={`anim-sortie-${s.id}`}>{ANIMATIONS_SORTIE.map((a) => <option value={a} selected={valeur(`anim-sortie-${s.id}`, s.animation.sortie) === a}>{noms.animations[a]}</option>)}</select></label>
+                <label>{e.animDuree}<input type="text" inputmode="decimal" name={`anim-duree-${s.id}`} value={valeur(`anim-duree-${s.id}`, secondesExactes(s.animation.dureeMs))} /></label>
+                <label>{e.animDelai}<input type="text" inputmode="decimal" name={`anim-delai-${s.id}`} value={valeur(`anim-delai-${s.id}`, secondesExactes(s.animation.delaiMs))} /></label>
+                {i > 0 && <label>{e.transition}<select name={`transition-${s.id}`}>{TRANSITIONS.map((a) => <option value={a} selected={valeur(`transition-${s.id}`, s.transition) === a}>{noms.transitions[a]}</option>)}</select></label>}
+              </fieldset>
+              <fieldset class="reglages">
+                <legend>{e.zoomTitre}</legend>
+                {s.points.length === 0 && <p class="doux">{e.zoomSansClic}</p>}
+                <label>{e.zoomActif}<select name={`zoom-actif-${s.id}`}><option value="oui" selected={valeur(`zoom-actif-${s.id}`, s.zoom.actif ? 'oui' : 'non') === 'oui'}>{e.zoomOui}</option><option value="non" selected={valeur(`zoom-actif-${s.id}`, s.zoom.actif ? 'oui' : 'non') === 'non'}>{e.zoomNon}</option></select></label>
+                <label>{e.zoomNiveau}<input type="text" inputmode="decimal" name={`zoom-niveau-${s.id}`} value={valeur(`zoom-niveau-${s.id}`, String(s.zoom.niveau).replace('.', ','))} /></label>
+                <label>{e.zoomDecalage}<input type="text" inputmode="decimal" name={`zoom-decalage-${s.id}`} value={valeur(`zoom-decalage-${s.id}`, secondesExactes(s.zoom.decalageMs))} /></label>
+              </fieldset>
+              {violations.filter((v) => v.segment === s.id).map((v) => <p class="probleme">{v.phrase}</p>)}
+              <div class="gestes">
+                <button type="submit" name="geste" value={`deplacer:${s.id}:monter`} class="bouton" disabled={i === 0}>{e.monter}</button>
+                <button type="submit" name="geste" value={`deplacer:${s.id}:descendre`} class="bouton" disabled={i === timeline.scenes.length - 1}>{e.descendre}</button>
+                <button type="submit" name="geste" value={`dupliquer:${s.id}`} class="bouton">{e.dupliquer}</button>
+                <button type="submit" name="geste" value={`retirer:${s.id}`} class="bouton" disabled={timeline.scenes.length <= 1}>{e.retirer}</button>
+              </div>
+            </div>
+          </div>
+        </li>
+      ))}
+    </ol>
+
+    <fieldset>
+      <legend>{e.carteFin}</legend>
+      {
+        timeline.carteFin === null ? (
+          <>
+            <p class="doux">{e.aucuneCarte}</p>
+            <button type="submit" name="geste" value="carte:ajouter" class="bouton">{e.carteAjouter}</button>
+          </>
+        ) : (
+          <>
+            <div class="ligne-scene">
+              <img class="apercu-scene" src={`/montages/apercu.svg?${paramsApercu('carte-fin')}`} alt={e.carteFin} width="180" height="320" loading="lazy" />
+              <div class="champs-scene">
+                <label>{e.carteTitre}<input type="text" name="carte-titre" value={valeur('carte-titre', timeline.carteFin.titre)} maxlength="60" /></label>
+                <label>{e.carteSousTitre}<input type="text" name="carte-soustitre" value={valeur('carte-soustitre', timeline.carteFin.sousTitre)} maxlength="80" /></label>
+                <label>{e.carteDuree}<input type="text" inputmode="decimal" name="carte-duree" value={valeur('carte-duree', secondes(timeline.carteFin.dureeMs))} /></label>
+                <fieldset class="reglages">
+                  <legend>{e.carteAnimation}</legend>
+                  <label>{e.animEntree}<select name="carte-anim-entree">{ANIMATIONS.map((a) => <option value={a} selected={valeur('carte-anim-entree', timeline.carteFin!.animation.entree) === a}>{noms.animations[a]}</option>)}</select></label>
+                  <label>{e.animSortie}<select name="carte-anim-sortie">{ANIMATIONS_SORTIE.map((a) => <option value={a} selected={valeur('carte-anim-sortie', timeline.carteFin!.animation.sortie) === a}>{noms.animations[a]}</option>)}</select></label>
+                  <label>{e.animDuree}<input type="text" inputmode="decimal" name="carte-anim-duree" value={valeur('carte-anim-duree', secondesExactes(timeline.carteFin.animation.dureeMs))} /></label>
+                  <label>{e.animDelai}<input type="text" inputmode="decimal" name="carte-anim-delai" value={valeur('carte-anim-delai', secondesExactes(timeline.carteFin.animation.delaiMs))} /></label>
+                </fieldset>
+                {violations.filter((v) => v.segment === 'carte-fin').map((v) => <p class="probleme">{v.phrase}</p>)}
+              </div>
+            </div>
+            <button type="submit" name="geste" value="carte:retirer" class="bouton">{e.carteRetirer}</button>
+          </>
+        )
+      }
+    </fieldset>
+
+    <div class="gestes">
+      <button type="submit" name="geste" value="enregistrer" class="bouton">{e.enregistrer}</button>
+      <button type="submit" formmethod="get" formaction="/montages/editer" class="bouton" id="actualiser">{e.actualiser}</button>
+    </div>
+  </form>
+</Base>
+
+<script>
+  // Aperçu en direct : à chaque saisie, l'image de la scène touchée est redemandée au serveur (même origine). Sans
+  // script, « Actualiser l'aperçu » fait la même chose en rechargeant la page.
+  const formulaire = document.getElementById('formulaire-montage') as HTMLFormElement | null;
+  if (formulaire !== null) {
+    document.getElementById('actualiser')?.setAttribute('hidden', '');
+    const minuteurs = new Map<Element, ReturnType<typeof setTimeout>>();
+    formulaire.addEventListener('input', (evenement) => {
+      const scene = (evenement.target as HTMLElement).closest('[data-scene]');
+      const image = scene?.querySelector('img');
+      if (scene === null || scene === undefined || image === null || image === undefined) return;
+      clearTimeout(minuteurs.get(scene));
+      minuteurs.set(
+        scene,
+        setTimeout(() => {
+          const adresse = new URL(image.src);
+          for (const champ of scene.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input[name], textarea[name], select[name]')) adresse.searchParams.set(champ.name, champ.value);
+          image.src = adresse.toString();
+        }, 250),
+      );
+    });
+  }
+</script>
+
+<style is:global>
+  .scenes-editeur { list-style: none; padding: 0; display: grid; gap: 16px; }
+  .ligne-scene { display: grid; gap: 12px; grid-template-columns: 1fr; }
+  @media (min-width: 700px) { .ligne-scene { grid-template-columns: 180px 1fr; align-items: start; } }
+  .champs-scene { display: grid; gap: 10px; min-width: 0; }
+  .champs-scene label { display: grid; gap: 4px; }
+  .champs-scene input, .champs-scene textarea, .champs-scene select { font: inherit; padding: 6px; border-radius: var(--rayon); border: 1px solid var(--trait); background: none; color: inherit; min-height: 44px; }
+  .apercu-scene { max-width: 100%; height: auto; border: 1px solid var(--trait); border-radius: var(--rayon); background: #111; }
+  #formulaire-montage fieldset { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px; margin: 16px 0; display: grid; gap: 12px; }
+  .reglages { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 8px 12px; display: grid; gap: 10px; }
+  .bouton:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>

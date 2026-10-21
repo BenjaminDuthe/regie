@@ -1,0 +1,27 @@
+// regie — fichier unique de ce qui est réservé à l'interface (histoire 1.11, AD-1, FR-45).
+// Règle : tout ce que l'interface sait faire, l'API et le MCP le savent aussi. Une action ne reste hors de l'API
+// qu'ici, avec sa raison ; le test de parité échoue sinon.
+
+import type { ExceptionParite } from './registre.ts';
+
+export const EXCEPTIONS_PARITE: readonly ExceptionParite[] = Object.freeze([
+  { action: 'jeton.creer', raison: 'un jeton ne se crée pas avec un jeton : la création exige ta connexion récente à Authentik (AD-15)' },
+  { action: 'compte.deposer', raison: 'un identifiant et un mot de passe ne se saisissent que dans l’interface, après une connexion récente à Authentik : aucun outil ni point d’API ne peut les déposer ni les lire (AD-9)' },
+  { action: 'reseau.deposer', raison: 'la clé d’application d’un réseau ne se saisit que dans l’interface, après une connexion récente à Authentik : aucun outil ni point d’API ne peut la déposer ni la lire (AD-9)' },
+  { action: 'reseau.connecter', raison: 'un compte ne se relie que par le parcours OAuth du navigateur (state lié à la session, retour vérifié) : aucun jeton de réseau ne se passe par l’API ni par le MCP (AD-9, AR-22)' },
+  { action: 'rejeu.activer', raison: 'la valeur du jeton de rejeu se montre une seule fois à une personne connectée récemment : un jeton ne crée pas de jeton (AD-15, AR-13)' },
+  {
+    action: 'script.proposer',
+    raison: 'créer un script à partir d’une phrase n’existe que par le MCP : c’est Claude qui écrit les étapes et regie les vérifie (FR-47) ; l’interface et l’API créent un script par script.creer',
+    seulement: 'mcp',
+  },
+]);
+
+/**
+ * Gestes de session (histoire 9.1) : les seuls gestes du navigateur qui n'ont pas d'action au registre, parce qu'ils lient
+ * ou délient la session elle-même et ne touchent à aucune donnée de la marque. Tout autre formulaire passe par `executerAction`
+ * (un test le vérifie page par page).
+ */
+export const GESTES_SESSION: readonly Readonly<{ page: string; raison: string }>[] = Object.freeze([
+  { page: 'oauth/autoriser.astro', raison: 'le consentement de Claude à ce compte est un geste de la personne connectée ; il émet un code, pas une donnée' },
+]);

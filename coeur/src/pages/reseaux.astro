@@ -1,0 +1,130 @@
+---
+// Réseaux de publication (histoire 7.1, FR-39) : la personne dépose, remplace ou teste la clé d'application de chaque
+// réseau. La clé va au coffre et ne se réaffiche jamais : seul son état est visible. Les gestes passent par les mêmes
+// actions que l'API et le MCP (`reseau.tester`) ; le dépôt est réservé à l'interface et exige une connexion récente.
+import chaines from '../chaines.json' with { type: 'json' };
+import { exigerAuthRecente } from '../auth/auth-recente.ts';
+import Base from '../mises-en-page/Base.astro';
+import { reseauComptes, reseauDeconnecter, reseauDeposer, reseauEtat, reseauTester, type VueCompte } from '../services/actions-reseau.ts';
+import { contexteInterface } from '../services/contextes.ts';
+import { ErreurMetier } from '../services/erreurs.ts';
+import { executerAction } from '../services/registre.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.reseaux;
+const ctx = contexteInterface(services, session);
+let erreur: string | undefined;
+let message: string | undefined;
+// Issue du parcours OAuth : une clé d'une liste fermée, jamais un texte venu de la requête.
+const issue = Astro.url.searchParams.get('connexion');
+const issues = t.connexion as Record<string, string>;
+if (issue !== null && Object.hasOwn(issues, issue)) (issue === 'ok' ? (message = issues[issue]) : (erreur = issues[issue]));
+let test: { reseau: string; valide: boolean; cause: string | null } | undefined;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const champ = (nom: string): string => (typeof form.get(nom) === 'string' ? (form.get(nom) as string) : '');
+  const geste = champ('geste');
+  try {
+    if (geste === 'cle') {
+      // Saisir une clé exige une connexion de moins de 10 minutes (AD-15). Rien n'est gardé du formulaire.
+      const aRefaire = exigerAuthRecente(session, '/reseaux');
+      if (aRefaire !== undefined) return Astro.redirect(aRefaire, 303);
+      if (champ('idApplication').trim() === '' || champ('secret').trim() === '') throw new ErreurMetier('ENTREE_INVALIDE', 400, { champs: t.cle.champsRequis });
+      await executerAction(ctx, reseauDeposer, { reseau: champ('reseau'), idApplication: champ('idApplication'), secret: champ('secret') });
+      return Astro.redirect('/reseaux?cle=1', 303);
+    }
+    if (geste === 'deconnecter') {
+      await executerAction(ctx, reseauDeconnecter, { compteId: champ('compteId') });
+      message = t.comptes.deconnecteOk;
+    }
+    if (geste === 'tester') {
+      test = (await executerAction(ctx, reseauTester, { reseau: champ('reseau') })) as { reseau: string; valide: boolean; cause: string | null };
+    }
+  } catch (e) {
+    if (!(e instanceof ErreurMetier)) throw e;
+    erreur = e.message;
+  }
+}
+
+// L'affichage n'est pas une action : la lecture passe directement par l'exécutant.
+const { reseaux } = (await reseauEtat.executer(ctx, {})) as { reseaux: { reseau: string; nom: string; portees: string[]; cleDeposee: boolean; cleModifieeLe: string | null; connecteur: boolean }[] };
+const { comptes } = (await reseauComptes.executer(ctx, {})) as { comptes: VueCompte[] };
+const formatDate = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' });
+const cause = (c: string | null): string => (c === null ? '' : ((t.causes as Record<string, string>)[c] ?? t.causes.RESEAU_REFUSE));
+---
+
+<Base titre={t.titre}>
+  <h1>{t.titre}</h1>
+  <p class="intro">{t.intro}</p>
+  {Astro.url.searchParams.get('cle') === '1' && <p class="succes" role="status">{t.cle.enregistree}</p>}
+  {message !== undefined && <p class="succes" role="status">{message}</p>}
+  {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
+  {reseaux.length === 0 && <p class="doux">{t.vide}</p>}
+  <ul class="grille-reseaux">
+    {
+      reseaux.map((r) => (
+        <li class="carte-reseau" id={`reseau-${r.reseau}`}>
+          <h2>{r.nom}</h2>
+          <p class="doux">{r.cleDeposee && r.cleModifieeLe !== null ? t.cle.deposee.replace('{date}', formatDate.format(new Date(r.cleModifieeLe))) : t.cle.absente}</p>
+          <p class="doux">{t.portees} : <code>{r.portees.join(', ')}</code></p>
+          <details>
+            <summary>{r.cleDeposee ? t.cle.remplacer : t.cle.deposer}</summary>
+            <form method="post" action="/reseaux" class="choix">
+              <input type="hidden" name="geste" value="cle" />
+              <input type="hidden" name="reseau" value={r.reseau} />
+              <label>{t.cle.identifiant}<input type="text" name="idApplication" autocomplete="off" maxlength="100" required /></label>
+              <label>{t.cle.secret}<input type="password" name="secret" autocomplete="new-password" maxlength="200" required /></label>
+              <p class="doux">{t.cle.aide}</p>
+              <button type="submit" class="bouton">{r.cleDeposee ? t.cle.remplacer : t.cle.deposer}</button>
+            </form>
+          </details>
+          {
+            r.cleDeposee && (
+              <form method="post" action="/reseaux" class="choix">
+                <input type="hidden" name="geste" value="tester" />
+                <input type="hidden" name="reseau" value={r.reseau} />
+                <button type="submit" class="bouton" disabled={!r.connecteur}>{t.tester.bouton}</button>
+              </form>
+            )
+          }
+          <h3>{t.comptes.titre}</h3>
+          {comptes.filter((c) => c.reseau === r.reseau).length === 0 && <p class="doux">{t.comptes.aucun}</p>}
+          {
+            comptes.filter((c) => c.reseau === r.reseau).map((c) => (
+              <div class="compte-reseau">
+                <p><strong>{c.nom}</strong> · {(t.comptes.etats as Record<string, string>)[c.etat] ?? c.etat}</p>
+                {c.etat === 'connecte' && <p class="doux">{t.comptes.expire.replace('{date}', formatDate.format(new Date(c.expireLe)))}{c.expireDansJ !== null && c.expireDansJ < 7 ? ` ${t.comptes.expireDansJ.replace('{jours}', String(Math.max(c.expireDansJ, 0)))}` : ''}</p>}
+                {c.etat === 'connecte' && (
+                  <form method="post" action="/reseaux" class="choix">
+                    <input type="hidden" name="geste" value="deconnecter" />
+                    <input type="hidden" name="compteId" value={c.id} />
+                    <button type="submit" class="bouton">{t.comptes.deconnecter}</button>
+                  </form>
+                )}
+              </div>
+            ))
+          }
+          {r.cleDeposee && r.connecteur && <a class="bouton" href={`/reseaux/${r.reseau}/depart`}>{comptes.some((c) => c.reseau === r.reseau) ? t.comptes.reconnecter : t.comptes.connecter}</a>}
+          {!r.connecteur && <p class="doux">{t.sansConnecteur}</p>}
+          {
+            test?.reseau === r.reseau && (
+              <p role="status" class={test.valide ? 'succes' : 'probleme'}>{test.valide ? t.tester.valide.replace('{reseau}', r.nom) : t.tester.refusee.replace('{cause}', cause(test.cause))}</p>
+            )
+          }
+        </li>
+      ))
+    }
+  </ul>
+</Base>
+
+<style is:global>
+  .grille-reseaux { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .grille-reseaux { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .carte-reseau { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 16px; min-width: 0; }
+  .carte-reseau h2 { margin: 0 0 8px; }
+  .carte-reseau summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+</style>

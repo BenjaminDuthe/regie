@@ -22,6 +22,17 @@ describe('env.ts', () => {
     expect(lireEnvironnement({ PORT: '8080' }).PORT).toBe(8080);
   });
 
+  it('accepte une empreinte de commit dans REGIE_VERSION et la laisse absente sinon', () => {
+    expect(lireEnvironnement({ REGIE_VERSION: '164f9e2' }).REGIE_VERSION).toBe('164f9e2');
+    expect(lireEnvironnement({}).REGIE_VERSION).toBeUndefined();
+    expect(lireEnvironnement({ REGIE_VERSION: '' }).REGIE_VERSION).toBeUndefined();
+  });
+
+  it('refuse un REGIE_VERSION qui n’est pas une empreinte, sans recopier la valeur', () => {
+    expect(() => lireEnvironnement({ REGIE_VERSION: 'main"><script>' })).toThrow(/REGIE_VERSION : /);
+    expect(() => lireEnvironnement({ REGIE_VERSION: 'main"><script>' })).not.toThrow(/script/);
+  });
+
   it('rend un environnement figé', () => {
     expect(Object.isFrozen(lireEnvironnement({}))).toBe(true);
   });
@@ -53,5 +64,41 @@ describe('env.ts', () => {
     const resultat = demarrerAvec({});
     expect(resultat.status).toBe(0);
     expect(resultat.stderr).toBe('');
+  });
+
+  describe('connexion Authentik (histoire 1.14)', () => {
+    const oidc = { REGIE_URL_PUBLIQUE: 'https://regie.exemple.test', REGIE_OIDC_EMETTEUR: 'https://auth.exemple.test/application/o/regie/', REGIE_OIDC_CLIENT_ID: 'regie' };
+
+    it('est facultative : sans variable, rien n’est posé', () => {
+      expect(lireEnvironnement({}).REGIE_OIDC_EMETTEUR).toBeUndefined();
+    });
+    it('accepte la configuration complète et l’utilisateur autorisé', () => {
+      const env = lireEnvironnement({ ...oidc, REGIE_ADMIN_SUB: 'abc', REGIE_ADMIN_EMAIL: 'benjamin@exemple.test' });
+      expect(env.REGIE_OIDC_CLIENT_ID).toBe('regie');
+      expect(env.REGIE_ADMIN_SUB).toBe('abc');
+    });
+    it('exige les trois variables ensemble', () => {
+      expect(() => lireEnvironnement({ REGIE_OIDC_CLIENT_ID: 'regie' })).toThrow(/REGIE_URL_PUBLIQUE/);
+    });
+    it('refuse http hors de la machine locale, accepte http en local', () => {
+      expect(() => lireEnvironnement({ ...oidc, REGIE_OIDC_EMETTEUR: 'http://auth.exemple.test/' })).toThrow(/REGIE_OIDC_EMETTEUR/);
+      expect(() => lireEnvironnement({ ...oidc, REGIE_URL_PUBLIQUE: 'http://regie.exemple.test' })).toThrow(/REGIE_URL_PUBLIQUE/);
+      expect(lireEnvironnement({ ...oidc, REGIE_URL_PUBLIQUE: 'http://127.0.0.1:4321' }).REGIE_URL_PUBLIQUE).toBe('http://127.0.0.1:4321');
+    });
+    it('refuse un e-mail administrateur invalide', () => {
+      expect(() => lireEnvironnement({ REGIE_ADMIN_EMAIL: 'pas-un-email' })).toThrow(/REGIE_ADMIN_EMAIL/);
+    });
+  });
+
+  describe('proxys de confiance (histoire 1.12)', () => {
+    it('est absente par défaut : aucune confiance', () => {
+      expect(lireEnvironnement({}).REGIE_PROXYS_DE_CONFIANCE).toBeUndefined();
+    });
+    it('accepte des adresses et des blocs CIDR, IPv4 et IPv6', () => {
+      expect(lireEnvironnement({ REGIE_PROXYS_DE_CONFIANCE: '10.0.0.1, 192.168.1.0/24,::1,fd00::/8' }).REGIE_PROXYS_DE_CONFIANCE).toEqual(['10.0.0.1', '192.168.1.0/24', '::1', 'fd00::/8']);
+    });
+    it.each(['nginx', '10.0.0.1/33', '10.0.0.1/', '::1/129', '10.0.0.1/8/8', ',', '10.0.0.1,pirate'])('refuse %s en nommant la variable', (valeur) => {
+      expect(() => lireEnvironnement({ REGIE_PROXYS_DE_CONFIANCE: valeur })).toThrow(/REGIE_PROXYS_DE_CONFIANCE : /);
+    });
   });
 });

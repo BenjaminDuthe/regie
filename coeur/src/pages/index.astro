@@ -1,20 +1,23 @@
 ---
-// Page d'accueil minimale : elle prouve que fastify sert Astro en middleware.
-// Thème, CSP et lien vers le code source arrivent avec l'histoire 1.2.
+// Page d'accueil.
+import chaines from '../chaines.json' with { type: 'json' };
+import Base from '../mises-en-page/Base.astro';
 ---
 
-<!doctype html>
-<html lang="fr">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>regie</title>
-  </head>
-  <body>
-    <main>
-      <h1>regie — ton studio de vidéos verticales</h1>
-      <p>Tu déposes tes rushes, Claude prépare tes brouillons, tu gardes ceux qui te plaisent.</p>
-    </main>
-  </body>
-</html>
+<Base titre={chaines.marque}>
+  <h1>{chaines.accueil.titre}</h1>
+  <p class="intro">{chaines.accueil.intro}</p>
+</Base>
+
+<style>
+  h1 {
+    font-size: clamp(24px, 6vw, 36px);
+    line-height: 1.15;
+    margin: 8px 0 12px;
+  }
+  .intro {
+    color: var(--doux);
+    max-width: 60ch;
+    margin: 0;
+  }
+</style>

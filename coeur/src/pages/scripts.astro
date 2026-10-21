@@ -1,0 +1,571 @@
+---
+// Scripts de démo (histoire 4.4, FR-14, FR-17, FR-47) : la liste des scripts avec leur origine et l'état du dernier jeu, et
+// l'éditeur d'étapes (monter, descendre, retirer, ajouter, viser autrement une étape en panne). Chaque geste passe par
+// les mêmes actions que l'API et le MCP (`script.*`). Le retrait d'une étape laisse un toast « Annuler » de 4 s : sans
+// JavaScript, c'est un formulaire qui remet l'étape retirée, que la CSS fait disparaître au bout de 4 s. L'étape retirée
+// voyage dans un cookie de 60 s (jamais dans l'adresse), lu puis effacé à l'affichage suivant.
+import { Buffer } from 'node:buffer';
+import { EtapeScript, VERBES_SCRIPT, type EtapeScript as Etape } from '@regie/contrats';
+import chaines from '../chaines.json' with { type: 'json' };
+import Base from '../mises-en-page/Base.astro';
+import { applicationLister } from '../services/actions-application.ts';
+import { exigerAuthRecente } from '../auth/auth-recente.ts';
+import { rejeuActiver, rejeuDesactiver, rejeuEtat, scriptAjouterEtape, scriptCreer, scriptDeplacerEtape, scriptJouer, scriptLister, scriptModifierEtape, scriptRetirerEtape } from '../services/actions-script.ts';
+import { contexteInterface } from '../services/contextes.ts';
+import { ErreurMetier } from '../services/erreurs.ts';
+import { executerAction } from '../services/registre.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.scripts;
+const d = t.demander;
+const ctx = contexteInterface(services, session);
+const NOM_COOKIE = 'regie_etape_retiree';
+const UUID = /^[0-9a-f-]{36}$/;
+let erreur: string | undefined;
+// Le jeton de rejeu qui vient d'être créé : montré une seule fois, dans la réponse à ce geste (jamais redirigé, jamais gardé).
+let jetonRejeu: string | undefined;
+// Le jeu en cours à suivre : la tâche rendue par `script.jouer`, passée dans l'adresse après le geste.
+const tacheJeu = UUID.test(Astro.url.searchParams.get('jeu') ?? '') ? Astro.url.searchParams.get('jeu')! : undefined;
+
+const idDemande = Astro.url.searchParams.get('id') ?? '';
+type VueApp = { id: string; nom: string; hotes: string[] };
+const { applications } = (await applicationLister.executer(ctx, {})) as { applications: VueApp[] };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const champ = (nom: string): string => (typeof form.get(nom) === 'string' ? (form.get(nom) as string) : '');
+  const geste = champ('geste');
+  const id = champ('id');
+  const version = Number(champ('version'));
+  const position = Number(champ('position'));
+  const nombre = (s: string): number | undefined => (s.trim() === '' ? undefined : Number(s.trim().replace(',', '.')));
+  try {
+    if (geste === 'jouer') {
+      const r = (await executerAction(ctx, scriptJouer, { id })) as { tacheId: string };
+      return Astro.redirect(`/scripts?id=${id}&jeu=${r.tacheId}`, 303);
+    }
+    if (geste === 'rejeu_activer') {
+      // Créer un jeton exige une connexion de moins de 10 minutes, comme pour les jetons personnels.
+      const aRefaire = exigerAuthRecente(session, `/scripts?id=${id}`);
+      if (aRefaire !== undefined) return Astro.redirect(aRefaire, 303);
+      jetonRejeu = ((await executerAction(ctx, rejeuActiver, { id })) as { clair: string }).clair;
+    } else if (geste === 'rejeu_desactiver') {
+      await executerAction(ctx, rejeuDesactiver, { id });
+      return Astro.redirect(`/scripts?id=${id}&ok=1`, 303);
+    } else if (geste === 'creer') {
+      const r = (await executerAction(ctx, scriptCreer, { applicationId: champ('applicationId'), nom: champ('nom'), origine: 'claude', etapes: [] })) as { script: { id: string } };
+      return Astro.redirect(`/scripts?id=${r.script.id}`, 303);
+    }
+    else if (geste === 'monter' || geste === 'descendre') await executerAction(ctx, scriptDeplacerEtape, { id, version, position, sens: geste });
+    else if (geste === 'retirer') {
+      const r = (await executerAction(ctx, scriptRetirerEtape, { id, version, position })) as { retiree: Etape };
+      const valeur = Buffer.from(JSON.stringify({ id, position, etape: r.retiree })).toString('base64url');
+      // Un cookie dépasse vite 4 Ko avec une longue narration : sans lui, le retrait reste valable mais sans « Annuler ».
+      if (valeur.length < 3500) Astro.cookies.set(NOM_COOKIE, valeur, { path: '/scripts', maxAge: 60, httpOnly: true, sameSite: 'lax', secure: Astro.url.protocol === 'https:' });
+    } else if (geste === 'annuler') {
+      let etape: unknown;
+      try {
+        etape = JSON.parse(champ('etape'));
+      } catch {
+        etape = undefined;
+      }
+      await executerAction(ctx, scriptAjouterEtape, { id, version, position, etape });
+    } else if (geste === 'ajouter') {
+      const verbe = champ('verbe');
+      const etape: Record<string, unknown> = { verbe };
+      if (verbe === 'aller') etape['url'] = champ('url');
+      if (['cliquer', 'saisir', 'attendre', 'survoler'].includes(verbe)) etape['cible'] = champ('cible');
+      if (verbe === 'saisir') etape['valeur'] = champ('valeur');
+      if (verbe === 'filmer') etape['mode'] = champ('mode');
+      if (verbe === 'defiler') {
+        if (champ('cible').trim() !== '') etape['cible'] = champ('cible');
+        const pixels = nombre(champ('pixels'));
+        if (pixels !== undefined) etape['pixels'] = pixels;
+      }
+      if (verbe === 'pause') etape['secondes'] = nombre(champ('secondes')) ?? Number.NaN;
+      if (verbe === 'narration') etape['texte'] = champ('texte');
+      const apres = champ('apres') === '' ? undefined : Number(champ('apres')) + 1;
+      await executerAction(ctx, scriptAjouterEtape, { id, version, etape, ...(apres === undefined ? {} : { position: apres }) });
+    } else if (geste === 'viser') {
+      const script = ((await scriptLister.executer(ctx, {})) as { scripts: { id: string; etapes: Etape[] }[] }).scripts.find((s) => s.id === id);
+      const actuelle = script?.etapes[position - 1];
+      const nouvelle = actuelle?.verbe === 'aller' ? { ...actuelle, url: champ('nouvelle') } : actuelle !== undefined && 'cible' in actuelle ? { ...actuelle, cible: champ('nouvelle') } : actuelle;
+      await executerAction(ctx, scriptModifierEtape, { id, version, position, etape: nouvelle });
+    }
+    if (jetonRejeu === undefined) return Astro.redirect(UUID.test(id) ? `/scripts?id=${id}&ok=1` : '/scripts', 303);
+  } catch (e) {
+    if (!(e instanceof ErreurMetier)) throw e;
+    erreur = e.message;
+  }
+}
+
+// L'affichage n'est pas une action : la liste est lue directement.
+const adresseMcp = `${Astro.url.origin}/mcp`;
+const modeleInitial = d.modele.replace('{application}', applications[0]?.nom ?? '').replace('{nom}', d.nomExemple).replace('{demande}', d.demandeExemple);
+const scripts = await services.scripts.lister(session.marqueId, ctx.utilisateurId, undefined);
+const courant = UUID.test(idDemande) ? await services.scripts.lire(session.marqueId, ctx.utilisateurId, idDemande) : undefined;
+const etatRejeu = courant === undefined ? undefined : ((await rejeuEtat.executer(ctx, { id: courant.id })) as { actif: boolean; expireLe: string | null });
+const application = courant === undefined ? undefined : applications.find((a) => a.id === courant.applicationId);
+const formatDate = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' });
+const date = (iso: string): string => formatDate.format(new Date(iso));
+
+const libelleJeu = (j: NonNullable<typeof courant>['dernierJeu']): string => {
+  if (j === null) return t.jeu.jamais;
+  if (j.etat === 'reussi') return t.jeu.reussi.replace('{date}', date(j.jouLe));
+  if (j.etat === 'echec') return t.jeu.echec.replace('{etape}', String(j.etape)).replace('{date}', date(j.jouLe));
+  return (j.etape === undefined ? t.jeu.hote_refuse : t.jeu.hote_refuse_etape.replace('{etape}', String(j.etape))).replace('{hote}', j.hote);
+};
+const citer = (texte: string): string => t.format.citation.replace('{texte}', texte);
+const verbes = t.verbes as Record<string, string>;
+const resume = (e: Etape): string => {
+  const base = verbes[e.verbe] ?? e.verbe;
+  switch (e.verbe) {
+    case 'aller': return `${base} ${e.url}`;
+    case 'cliquer': case 'attendre': case 'survoler': return `${base} ${citer(e.cible)}`;
+    case 'saisir': return `${base} ${t.format.saisie.replace('{valeur}', citer(e.valeur)).replace('{cible}', citer(e.cible))}`;
+    case 'filmer': return `${base} : ${t.modes[e.mode]}`;
+    case 'defiler': return [base, e.cible === undefined ? '' : citer(e.cible), e.pixels === undefined ? '' : t.format.pixels.replace('{pixels}', String(e.pixels))].filter((x) => x !== '').join(' ');
+    case 'pause': return `${base} ${t.format.secondes.replace('{secondes}', String(e.secondes).replace('.', ','))}`;
+    case 'narration': return `${base} ${citer(e.texte)}`;
+    default: return base;
+  }
+};
+
+// Toast « Annuler » : le cookie est lu puis effacé, et ne vaut que pour le script ouvert.
+let retiree: { position: number; etape: Etape } | undefined;
+const brut = Astro.cookies.get(NOM_COOKIE)?.value;
+if (brut !== undefined) {
+  Astro.cookies.delete(NOM_COOKIE, { path: '/scripts' });
+  try {
+    const lu = JSON.parse(Buffer.from(brut, 'base64url').toString('utf8')) as { id?: unknown; position?: unknown; etape?: unknown };
+    const etape = EtapeScript.safeParse(lu.etape);
+    if (lu.id === courant?.id && typeof lu.position === 'number' && Number.isInteger(lu.position) && lu.position >= 1 && etape.success) retiree = { position: lu.position, etape: etape.data };
+  } catch {
+    retiree = undefined;
+  }
+}
+
+const jeu = courant?.dernierJeu ?? null;
+const enPanne = jeu !== null && (jeu.etat === 'echec' || (jeu.etat === 'hote_refuse' && jeu.etape !== undefined)) ? jeu.etape : undefined;
+const capture = jeu?.etat === 'echec' && jeu.capture !== undefined && /^[A-Za-z0-9+/]+={0,2}$/.test(jeu.capture) ? jeu.capture : undefined;
+const champCible = (e: Etape): 'url' | 'cible' | undefined => (e.verbe === 'aller' ? 'url' : 'cible' in e && e.cible !== undefined ? 'cible' : undefined);
+---
+
+<Base titre={t.titre}>
+  <h1>{t.titre}</h1>
+  {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
+  {Astro.url.searchParams.get('ok') === '1' && <p class="succes" role="status">{t.enregistre}</p>}
+
+  {
+    courant === undefined ? (
+      <>
+        <p class="intro">{t.intro}</p>
+        {scripts.length === 0 && <p class="doux">{t.vide}</p>}
+        {
+          applications.map((a) => {
+            const siens = scripts.filter((s) => s.applicationId === a.id);
+            return (
+              siens.length > 0 && (
+                <section aria-label={a.nom}>
+                  <h2>{a.nom}</h2>
+                  <ul class="liste-scripts">
+                    {
+                      siens.map((complet) => (
+                        <li class="carte-script">
+                          <h3><a href={`/scripts?id=${complet.id}`}>{complet.nom}</a></h3>
+                          <p class="doux">{(t.origines as Record<string, string>)[complet.origine]} · {t.etapesNombre.replace('{n}', String(complet.etapes.length))}</p>
+                          <p class:list={['jeu', complet.dernierJeu !== null && complet.dernierJeu.etat !== 'reussi' && 'probleme']}>{libelleJeu(complet.dernierJeu)}</p>
+                          <a class="bouton" href={`/scripts?id=${complet.id}`}>{t.ouvrir}</a>
+                        </li>
+                      ))
+                    }
+                  </ul>
+                </section>
+              )
+            );
+          })
+        }
+        <section aria-labelledby="titre-demander" id="demander-claude">
+          <h2 id="titre-demander">{d.titre}</h2>
+          <p class="intro">{d.intro}</p>
+          <details>
+            <summary>{d.connexionTitre}</summary>
+            <p>{d.connexion}</p>
+            <p>{d.adresse} : <code>{adresseMcp}</code></p>
+            <p class="doux">{d.securite}</p>
+          </details>
+          {
+            applications.length > 0 && (
+              <div class="demande-claude" data-modele={d.modele} data-copie={d.copie} data-exemple={d.demandeExemple} data-nom={d.nomExemple}>
+                <label>{d.application}<select id="demande-application">{applications.map((a) => <option value={a.nom}>{a.nom}</option>)}</select></label>
+                <label for="demande-texte">{d.modeleTitre}</label>
+                <textarea id="demande-texte" readonly rows="6">{modeleInitial}</textarea>
+                <button type="button" class="bouton" id="demande-copier">{d.copier}</button>
+                <p class="doux" id="demande-etat" role="status"></p>
+              </div>
+            )
+          }
+        </section>
+        <section aria-labelledby="titre-creer">
+          <h2 id="titre-creer">{t.creer.titre}</h2>
+          {
+            applications.length === 0 ? (
+              <p class="doux">{t.aucuneApplication} <a href="/demos">{chaines.entete.demos}</a></p>
+            ) : (
+              <form method="post" action="/scripts" class="choix">
+                <input type="hidden" name="geste" value="creer" />
+                <label>{t.creer.application}<select name="applicationId">{applications.map((a) => <option value={a.id}>{a.nom}</option>)}</select></label>
+                <label>{t.creer.nom}<input type="text" name="nom" maxlength="80" required /></label>
+                <button type="submit" class="bouton">{t.creer.bouton}</button>
+              </form>
+            )
+          }
+        </section>
+      </>
+    ) : (
+      <>
+        <p><a href="/scripts">{t.retour}</a></p>
+        <h2>{courant.nom}</h2>
+        <p class="doux">{(t.origines as Record<string, string>)[courant.origine]} · {t.version.replace('{version}', String(courant.version))}</p>
+        <p class:list={['jeu', jeu !== null && jeu.etat !== 'reussi' && 'probleme']}>{libelleJeu(jeu)}</p>
+        {application !== undefined && <p class="doux">{t.editeur.hotesApplication.replace('{application}', application.nom).replace('{hotes}', application.hotes.join(', '))}</p>}
+
+        <form method="post" action="/scripts" class="jouer">
+          <input type="hidden" name="geste" value="jouer" />
+          <input type="hidden" name="id" value={courant.id} />
+          <button type="submit" class="bouton bouton-principal" disabled={courant.etapes.length === 0}>{t.jouer.bouton}</button>
+        </form>
+
+        <section class="rejeu" aria-labelledby="titre-rejeu">
+          <h3 id="titre-rejeu">{t.rejeu.interrupteur}</h3>
+          <p class="doux">{t.rejeu.aide}</p>
+          <form method="post" action={`/scripts?id=${courant.id}`} class="interrupteur-rejeu">
+            <input type="hidden" name="geste" value={etatRejeu?.actif === true ? 'rejeu_desactiver' : 'rejeu_activer'} />
+            <input type="hidden" name="id" value={courant.id} />
+            <button type="submit" role="switch" aria-checked={etatRejeu?.actif === true ? 'true' : 'false'} class="interrupteur" disabled={courant.etapes.length === 0 && etatRejeu?.actif !== true}>
+              <span class="curseur-interrupteur" aria-hidden="true"></span>
+              <span>{t.rejeu.interrupteur}</span>
+            </button>
+            <span class="doux">{etatRejeu?.actif === true && etatRejeu.expireLe !== null ? t.rejeu.actif.replace('{date}', date(etatRejeu.expireLe)) : t.rejeu.inactif}</span>
+          </form>
+          {
+            jetonRejeu !== undefined && (
+              <div class="jeton-rejeu" role="status" aria-live="polite">
+                <p><strong>{t.rejeu.nouveau}</strong></p>
+                <code class="valeur" id="valeur-rejeu">{jetonRejeu}</code>
+                <p><button type="button" class="bouton secondaire" id="copier-rejeu" data-copie={t.rejeu.copie}>{t.rejeu.copier}</button> <span id="etat-copie" class="doux" role="status"></span></p>
+                <p class="avertissement" role="alert">{t.rejeu.avertissement}</p>
+                <p class="doux">{t.rejeu.appel}</p>
+                <pre class="appel-rejeu">{`curl -X POST ${Astro.url.origin}/api/v1/script/rejouer \\\n  -H "Authorization: Bearer $REGIE_JETON_REJEU" \\\n  -H "Content-Type: application/json" \\\n  -d '{"id":"${courant.id}"}'`}</pre>
+              </div>
+            )
+          }
+          <p class="doux">{t.rejeu.echec}</p>
+        </section>
+
+        {
+          tacheJeu !== undefined && (
+            <section
+              id="panneau-jeu"
+              class="panneau-jeu"
+              aria-labelledby="titre-jeu"
+              data-flux={`/flux/jeu?tache=${tacheJeu}`}
+              data-libelles={JSON.stringify({ ...t.jouer, causes: t.causesJeu, etapesConnexion: t.etapesConnexion })}
+            >
+              <h3 id="titre-jeu">{t.jouer.titre}</h3>
+              <p class="doux">{t.jouer.lance}</p>
+              <div class="jeu-corps">
+                <figure class="apercu-jeu">
+                  <div class="telephone" id="telephone" role="img" aria-label={t.jouer.apercu}>
+                    <span class="badge-capture">{t.jouer.badge}</span>
+                    <span class="curseur" id="curseur" hidden></span>
+                    <span class="onde" id="onde" hidden></span>
+                  </div>
+                  <figcaption class="doux">{t.jouer.apercu}</figcaption>
+                </figure>
+                <div class="journal-jeu">
+                  <h4>{t.jouer.journalTitre}</h4>
+                  <p id="statut-jeu" role="status" aria-live="polite" class="doux">{t.jouer.journalVide}</p>
+                  <ol id="journal-jeu" aria-live="off"></ol>
+                  <p id="annonce-jeu" role="status" class="succes" hidden></p>
+                  <p id="probleme-jeu" role="alert" class="probleme" hidden></p>
+                </div>
+              </div>
+            </section>
+          )
+        }
+
+        <section aria-labelledby="titre-etapes">
+          <h3 id="titre-etapes">{t.editeur.titre}</h3>
+          {courant.etapes.length === 0 && <p class="doux">{t.sansEtape}</p>}
+          <ol class="etapes">
+            {
+              courant.etapes.map((e, i) => {
+                const panne = enPanne === i + 1;
+                const champVise = champCible(e);
+                return (
+                  <li class:list={['etape', panne && 'etape-panne']} id={`etape-${i + 1}`}>
+                    <p class="etape-texte"><strong>{t.editeur.numero.replace('{n}', String(i + 1))}</strong> — {resume(e)}</p>
+                    {
+                      panne && jeu !== null && (
+                        <div class="panne" role="group" aria-label={t.panne.titre}>
+                          <p class="probleme"><strong>{t.panne.titre}</strong></p>
+                          {jeu.etat === 'echec' && <p>{t.panne.cause.replace('{cause}', jeu.cause)}</p>}
+                          {jeu.etat === 'hote_refuse' && <p>{t.panne.hoteRefuse.replace('{hote}', jeu.hote)}</p>}
+                          {capture !== undefined ? <img src={`data:image/png;base64,${capture}`} alt={t.panne.capture} class="capture-panne" /> : jeu.etat === 'echec' && <p class="doux">{t.panne.pasDeCapture}</p>}
+                          {
+                            champVise !== undefined && (
+                              <form method="post" action="/scripts" class="choix">
+                                <input type="hidden" name="geste" value="viser" />
+                                <input type="hidden" name="id" value={courant.id} />
+                                <input type="hidden" name="version" value={courant.version} />
+                                <input type="hidden" name="position" value={i + 1} />
+                                <label>{champVise === 'url' ? t.panne.nouvelleAdresse : t.panne.nouvelleCible}<input type="text" name="nouvelle" maxlength="2000" required /></label>
+                                <button type="submit" class="bouton">{champVise === 'url' ? t.panne.viserAdresse : t.panne.viserCible}</button>
+                              </form>
+                            )
+                          }
+                          <form method="post" action="/scripts">
+                            <input type="hidden" name="geste" value="retirer" />
+                            <input type="hidden" name="id" value={courant.id} />
+                            <input type="hidden" name="version" value={courant.version} />
+                            <input type="hidden" name="position" value={i + 1} />
+                            <button type="submit" class="bouton">{t.panne.retirer}</button>
+                          </form>
+                        </div>
+                      )
+                    }
+                    <div class="actions-etape">
+                      {
+                        (['monter', 'descendre', 'retirer'] as const).map((g) => (
+                          <form method="post" action="/scripts">
+                            <input type="hidden" name="geste" value={g} />
+                            <input type="hidden" name="id" value={courant.id} />
+                            <input type="hidden" name="version" value={courant.version} />
+                            <input type="hidden" name="position" value={i + 1} />
+                            <button type="submit" class="bouton" disabled={(g === 'monter' && i === 0) || (g === 'descendre' && i === courant.etapes.length - 1)}>{t.editeur[g]}</button>
+                          </form>
+                        ))
+                      }
+                    </div>
+                  </li>
+                );
+              })
+            }
+          </ol>
+        </section>
+
+        <section aria-labelledby="titre-ajout-etape">
+          <h3 id="titre-ajout-etape">{t.editeur.ajouter}</h3>
+          <form method="post" action="/scripts" class="choix">
+            <input type="hidden" name="geste" value="ajouter" />
+            <input type="hidden" name="id" value={courant.id} />
+            <input type="hidden" name="version" value={courant.version} />
+            <label>{t.editeur.verbe}<select name="verbe">{VERBES_SCRIPT.map((v) => <option value={v}>{verbes[v]}</option>)}</select></label>
+            <label>{t.champs.url}<input type="url" name="url" placeholder="https://" /></label>
+            <label>{t.champs.cible}<input type="text" name="cible" maxlength="300" /></label>
+            <label>{t.champs.valeur}<input type="text" name="valeur" maxlength="500" autocomplete="off" /></label>
+            <label>{t.champs.mode}<select name="mode"><option value="demarrer">{t.modes.demarrer}</option><option value="arreter">{t.modes.arreter}</option></select></label>
+            <label>{t.champs.secondes}<input type="text" name="secondes" inputmode="decimal" /></label>
+            <label>{t.champs.pixels}<input type="text" name="pixels" inputmode="numeric" /></label>
+            <label>{t.champs.texte}<input type="text" name="texte" maxlength="500" /></label>
+            <p class="doux">{t.editeur.aideCible}</p>
+            <label>{t.editeur.apres}
+              <select name="apres">
+                <option value="">{t.editeur.finDeScript}</option>
+                {courant.etapes.map((_, i) => <option value={i + 1}>{i + 1}</option>)}
+              </select>
+            </label>
+            <button type="submit" class="bouton">{t.editeur.ajouterBouton}</button>
+          </form>
+        </section>
+
+        {
+          retiree !== undefined && (
+            <div class="toast" role="status">
+              <span>{t.editeur.retiree.replace('{n}', String(retiree.position))}</span>
+              <form method="post" action="/scripts">
+                <input type="hidden" name="geste" value="annuler" />
+                <input type="hidden" name="id" value={courant.id} />
+                <input type="hidden" name="version" value={courant.version} />
+                <input type="hidden" name="position" value={retiree.position} />
+                <input type="hidden" name="etape" value={JSON.stringify(retiree.etape)} />
+                <button type="submit" class="bouton">{t.editeur.annuler}</button>
+              </form>
+            </div>
+          )
+        }
+      </>
+    )
+  }
+</Base>
+
+<script>
+  // Copie du jeton de rejeu (histoire 4.11) : une action de l'utilisateur, rien n'est envoyé nulle part.
+  document.getElementById('copier-rejeu')?.addEventListener('click', async (e) => {
+    const bouton = e.currentTarget as HTMLButtonElement;
+    const valeur = document.getElementById('valeur-rejeu')?.textContent ?? '';
+    const etat = document.getElementById('etat-copie');
+    try {
+      await navigator.clipboard.writeText(valeur);
+      if (etat) etat.textContent = bouton.dataset['copie'] ?? '';
+    } catch {
+      // Sans presse-papiers, la valeur reste sélectionnable d'un clic.
+    }
+  });
+</script>
+
+<script>
+  // Modèle de demande à copier : le texte est assemblé par textContent / value, jamais en HTML. Aucun appel réseau.
+  const zone = document.getElementById('demande-texte') as HTMLTextAreaElement | null;
+  const bloc = document.querySelector<HTMLElement>('.demande-claude');
+  if (zone !== null && bloc !== null) {
+    const choix = document.getElementById('demande-application') as HTMLSelectElement;
+    const etat = document.getElementById('demande-etat')!;
+    const modele = bloc.dataset['modele'] ?? '';
+    const refaire = (): void => {
+      zone.value = modele.replace('{application}', choix.value).replace('{nom}', bloc.dataset['nom'] ?? '').replace('{demande}', bloc.dataset['exemple'] ?? '');
+    };
+    choix.addEventListener('change', refaire);
+    document.getElementById('demande-copier')!.addEventListener('click', () => {
+      zone.select();
+      void navigator.clipboard.writeText(zone.value).then(() => {
+        etat.textContent = bloc.dataset['copie'] ?? '';
+      });
+    });
+  }
+</script>
+
+<script>
+  // Suivi en direct du jeu : tout est écrit par textContent, jamais interprété comme du HTML. Le journal ne contient
+  // que des verbes, des cibles et des positions : jamais une valeur saisie.
+  type Entree = { t: number; etape: number; genre: string; cible?: string; x?: number; y?: number };
+  type Fin = { etat: string; cause: string | null; secondes: number | null; pretVers: string | null; jeu: { etat: string; etape?: number | null; cause?: string; hote?: string } | null };
+  const racine = document.getElementById('panneau-jeu');
+  if (racine !== null && 'EventSource' in window) {
+    const L = JSON.parse(racine.dataset['libelles'] ?? '{}') as Record<string, unknown> & { genres: Record<string, string>; causes: Record<string, string>; etapesConnexion: Record<string, string> };
+    const texte = (modele: unknown, valeurs: Record<string, string>): string => Object.entries(valeurs).reduce((m, [k, v]) => m.replaceAll(`{${k}}`, v), String(modele));
+    const journal = document.getElementById('journal-jeu')!;
+    const statut = document.getElementById('statut-jeu')!;
+    const annonce = document.getElementById('annonce-jeu')!;
+    const probleme = document.getElementById('probleme-jeu')!;
+    const telephone = document.getElementById('telephone')!;
+    const curseur = document.getElementById('curseur')!;
+    const onde = document.getElementById('onde')!;
+    const dessinerPointeur = (e: Entree): void => {
+      if (e.x === undefined || e.y === undefined) return;
+      curseur.hidden = false;
+      curseur.style.left = `${e.x / 10}%`;
+      curseur.style.top = `${e.y / 10}%`;
+      if (e.genre === 'clic') {
+        onde.hidden = false;
+        onde.style.left = `${e.x / 10}%`;
+        onde.style.top = `${e.y / 10}%`;
+        // Un zoom bref sur le clic, comme dans le film monté.
+        telephone.style.transformOrigin = `${e.x / 10}% ${e.y / 10}%`;
+        telephone.classList.add('zoom');
+        onde.classList.remove('joue');
+        void onde.offsetWidth;
+        onde.classList.add('joue');
+        setTimeout(() => telephone.classList.remove('zoom'), 600);
+      }
+    };
+    const source = new EventSource(racine.dataset['flux'] ?? '');
+    source.addEventListener('journal', (ev) => {
+      const e = JSON.parse((ev as MessageEvent<string>).data) as Entree;
+      const modele = L.genres[e.genre] ?? e.genre;
+      const li = document.createElement('li');
+      const t = document.createElement('span');
+      t.className = 'doux';
+      t.textContent = `${(e.t / 1000).toFixed(1).replace('.', ',')} s `;
+      li.append(t, document.createTextNode(texte(modele, { cible: e.cible ?? '' })));
+      if (e.genre === 'refus' || e.genre === 'echec') li.className = 'probleme';
+      journal.append(li);
+      li.scrollIntoView({ block: 'nearest' });
+      dessinerPointeur(e);
+    });
+    source.addEventListener('etat', (ev) => {
+      const { tache } = JSON.parse((ev as MessageEvent<string>).data) as { tache: { etat: string; position: number | null; finEstimeeEnClair: string | null } };
+      if (tache.etat === 'en_cours') statut.textContent = String(L['enCours']);
+      else if (tache.etat === 'prete') {
+        const rang = tache.position === 0 ? String(L['enCours']) : tache.position === 1 ? '1' : String(tache.position ?? '');
+        statut.textContent = tache.finEstimeeEnClair === null ? texte(L['attente'], { position: rang }) : texte(L['attenteHeure'], { heure: tache.finEstimeeEnClair });
+      }
+    });
+    source.addEventListener('fin', (ev) => {
+      const f = JSON.parse((ev as MessageEvent<string>).data) as Fin;
+      source.close();
+      curseur.hidden = true;
+      if (f.etat === 'terminee' && f.jeu?.etat === 'reussi') {
+        statut.textContent = texte(L['termine'], { secondes: String(f.secondes ?? 0) });
+        annonce.hidden = false;
+        annonce.textContent = f.pretVers === null ? '' : texte(L['pret'], { heure: f.pretVers });
+        return;
+      }
+      statut.textContent = '';
+      probleme.hidden = false;
+      if (f.jeu?.etat === 'hote_refuse') probleme.textContent = texte(L['refus'], { hote: f.jeu.hote ?? '' });
+      else if (f.jeu?.etat === 'echec') {
+        const cause = L.causes[f.jeu.cause ?? ''] ?? f.jeu.cause ?? '';
+        probleme.textContent = texte(L['echec'], { etape: String(f.jeu.etape ?? ''), cause });
+      } else probleme.textContent = texte(L['interrompu'], { cause: f.cause ?? '' });
+    });
+    source.addEventListener('error', () => {
+      if (source.readyState === EventSource.CLOSED) {
+        probleme.hidden = false;
+        probleme.textContent = String(L['fluxCoupe']);
+      }
+    });
+  }
+</script>
+
+<style is:global>
+  .liste-scripts { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .liste-scripts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1240px) { .liste-scripts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .carte-script { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 16px; min-width: 0; }
+  .carte-script h3 { margin: 0 0 8px; overflow-wrap: anywhere; }
+  .etapes { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 12px; }
+  .etape { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px; min-width: 0; }
+  .etape-texte { margin: 0 0 8px; overflow-wrap: anywhere; }
+  .etape-panne { border-color: var(--erreur, #c0392b); border-width: 2px; }
+  .rejeu { margin: 20px 0; display: grid; gap: 8px; }
+  .interrupteur-rejeu { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .interrupteur { display: inline-flex; align-items: center; gap: 10px; background: none; border: 1px solid var(--trait); border-radius: 999px; padding: 6px 14px 6px 6px; font: inherit; color: var(--texte); cursor: pointer; }
+  .curseur-interrupteur { width: 36px; height: 20px; border-radius: 999px; background: var(--trait); position: relative; }
+  .curseur-interrupteur::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); transition: transform 0.15s; }
+  .interrupteur[aria-checked='true'] .curseur-interrupteur { background: var(--accent); }
+  .interrupteur[aria-checked='true'] .curseur-interrupteur::after { transform: translateX(16px); }
+  .interrupteur:disabled { opacity: 0.5; cursor: not-allowed; }
+  .jeton-rejeu { background: var(--garder-fond); border-radius: var(--rayon); padding: 4px 16px 12px; }
+  .jeton-rejeu .valeur { display: block; overflow-wrap: anywhere; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; user-select: all; }
+  .avertissement { color: var(--jeter); font-weight: 600; }
+  .appel-rejeu { overflow-x: auto; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+  .capture-panne { max-width: 100%; height: auto; border: 1px solid var(--trait); border-radius: var(--rayon); }
+  .actions-etape { display: flex; flex-wrap: wrap; gap: 8px; }
+  .actions-etape form { margin: 0; }
+  .actions-etape .bouton[disabled] { opacity: 0.4; cursor: default; }
+  .toast { position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); max-width: 480px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; background: var(--surface); border: 1px solid var(--accent); border-radius: var(--rayon); animation: toast-fin 0s linear 4s forwards; }
+  .toast form { margin: 0; }
+  @keyframes toast-fin { to { visibility: hidden; opacity: 0; pointer-events: none; } }
+  .jeu { margin: 0 0 8px; }
+  .jouer { margin: 12px 0; }
+  .bouton-principal { background: var(--accent); color: var(--sur-accent, #fff); border-color: var(--accent); }
+  .bouton-principal[disabled] { opacity: 0.4; cursor: default; }
+  .panneau-jeu { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 16px; margin: 16px 0; }
+  .jeu-corps { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 700px) { .jeu-corps { grid-template-columns: 220px minmax(0, 1fr); } }
+  .apercu-jeu { margin: 0; }
+  .telephone { position: relative; aspect-ratio: 9 / 16; width: 100%; max-width: 220px; border: 2px solid var(--trait); border-radius: 18px; background: var(--surface); overflow: hidden; transition: transform 0.3s ease; }
+  .telephone.zoom { transform: scale(1.12); }
+  .badge-capture { position: absolute; top: 8px; left: 8px; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--jeter, #c0392b); color: #fff; }
+  .curseur { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; transition: left 0.3s ease, top 0.3s ease; }
+  .onde { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; }
+  .onde.joue { animation: onde 0.6s ease-out; }
+  @keyframes onde { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(4); } }
+  @media (prefers-reduced-motion: reduce) { .telephone, .curseur { transition: none; } .onde.joue { animation: none; } }
+  #journal-jeu { list-style: none; padding: 0; margin: 8px 0; max-height: 320px; overflow-y: auto; display: grid; gap: 4px; font-size: 14px; }
+</style>

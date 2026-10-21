@@ -1,0 +1,9 @@
+[Unit]
+Description=regie : vzdump chaque dimanche
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00 Europe/Paris
+Persistent=true
+
+[Install]
+WantedBy=timers.target

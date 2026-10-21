@@ -1,0 +1,92 @@
+---
+// Feuille « Variantes » d'une vidéo (histoire 3.5, FR-25, FR-37, UX-DR12) : les trois couvertures au style du gabarit,
+// dessinées côté serveur (/montages/couverture.svg). Choisir passe par la même action que l'API et le MCP
+// (`montage.couvrir`) et crée une nouvelle version immuable, sans rendu. Après la purge des rushes, le choix est refusé.
+// Les onglets sont des liens (aucun script) : `role="tablist"`, l'onglet actif porte `aria-selected`.
+import { VARIANTES_COUVERTURE } from '@regie/contrats';
+import chaines from '../../chaines.json' with { type: 'json' };
+import { varianteChoisie } from '../../domaine/couverture.ts';
+import Base from '../../mises-en-page/Base.astro';
+import { montageAccessible, montageCouvrir } from '../../services/actions-montage.ts';
+import { contexteInterface } from '../../services/contextes.ts';
+import { ErreurMetier } from '../../services/erreurs.ts';
+import { executerAction } from '../../services/registre.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.montages;
+const v = t.variantes;
+const ctx = contexteInterface(services, session);
+let id = Astro.url.searchParams.get('id') ?? '';
+let erreur: string | undefined;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const brut = form.get('id');
+  const variante = form.get('variante');
+  id = typeof brut === 'string' ? brut : '';
+  if (/^[0-9a-f-]{36}$/.test(id) && typeof variante === 'string' && (VARIANTES_COUVERTURE as readonly string[]).includes(variante)) {
+    try {
+      const { montage } = (await executerAction(ctx, montageCouvrir, { id, variante: variante as (typeof VARIANTES_COUVERTURE)[number] })) as { montage: { id: string } };
+      return Astro.redirect(`/montages/variantes?id=${encodeURIComponent(montage.id)}&ok=1`, 303);
+    } catch (err) {
+      if (!(err instanceof ErreurMetier)) throw err;
+      erreur = err.message;
+    }
+  } else erreur = chaines.erreurs.MONTAGE_INTROUVABLE;
+}
+
+let base;
+try {
+  base = await montageAccessible(ctx, /^[0-9a-f-]{36}$/.test(id) ? id : '00000000-0000-0000-0000-000000000000');
+} catch (err) {
+  if (!(err instanceof ErreurMetier)) throw err;
+}
+if (base === undefined) return new Response(chaines.erreurs.MONTAGE_INTROUVABLE, { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+
+const choisie = varianteChoisie(base.timeline);
+const libelles = v.libelles as Record<string, string>;
+const enregistre = Astro.url.searchParams.get('ok') === '1';
+---
+
+<Base titre={`${v.titre} — ${t.version.replace('{numero}', String(base.numero))}`}>
+  <h1>{v.titre}</h1>
+  <p class="intro">{v.intro}</p>
+  <p><a href={`/montages?id=${base.id}`}>{t.editeur.retourVideo}</a> · {t.version.replace('{numero}', String(base.numero))}</p>
+  {enregistre && <p class="succes" role="status">{v.enregistre}</p>}
+  {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
+
+  <div role="tablist" aria-label={v.onglets} class="onglets">
+    <a role="tab" id="onglet-couverture" href={`/montages/variantes?id=${base.id}`} aria-selected="true" aria-controls="panneau-couverture">{v.couverture}</a>
+  </div>
+  <section role="tabpanel" id="panneau-couverture" aria-labelledby="onglet-couverture">
+    <form method="post" action="/montages/variantes">
+      <input type="hidden" name="id" value={base.id} />
+      <ul class="variantes">
+        {
+          VARIANTES_COUVERTURE.map((variante) => (
+            <li class={variante === choisie ? 'variante choisie' : 'variante'}>
+              <img src={`/montages/couverture.svg?id=${base.id}&variante=${variante}`} alt={v.apercu.replace('{variante}', libelles[variante] ?? variante)} width="180" height="320" loading="lazy" />
+              <h2>{libelles[variante] ?? variante}</h2>
+              {variante === choisie ? <p class="doux" aria-current="true">{v.choisie}</p> : <button type="submit" name="variante" value={variante} class="bouton">{v.choisir}</button>}
+            </li>
+          ))
+        }
+      </ul>
+    </form>
+    <p class="doux">{v.aide}</p>
+  </section>
+</Base>
+
+<style is:global>
+  .onglets { display: flex; gap: 8px; border-bottom: 1px solid var(--trait); margin: 16px 0; }
+  .onglets [role='tab'] { padding: 8px 16px; border: 1px solid var(--trait); border-bottom: 0; border-radius: var(--rayon) var(--rayon) 0 0; text-decoration: none; }
+  .onglets [role='tab'][aria-selected='true'] { font-weight: 700; border-width: 2px; }
+  .variantes { list-style: none; padding: 0; display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .variantes { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .variante { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px 16px; text-align: center; }
+  .variante.choisie { border: 2px solid #3ddc84; }
+  .variante img { max-width: 100%; height: auto; aspect-ratio: 9 / 16; }
+</style>
