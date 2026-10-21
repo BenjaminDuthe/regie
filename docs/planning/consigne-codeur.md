@@ -17,6 +17,8 @@ Tu codes **une seule histoire** de regie, dans le worktree courant (branche `cla
 - CSP stricte (`coeur/astro.config.mjs`) : aucun script ni style tiers, aucune ressource externe.
 - Tests vitest dans `coeur/test/` (ou à côté de l'outil) : un cas positif et au moins un négatif par critère. Ce qui exige PostgreSQL va dans un test `*.integration.test.ts` ignoré sans `REGIE_TEST_POSTGRES` (voir l'existant) ; lance `npm run test:postgres` pour le vérifier.
 - Ce qui dépend d'un service externe absent (Authentik, Meta, Claude, GPU, LXC) : code derrière une interface, testé contre un faux local ; rien n'appelle Internet pendant les tests.
+- **Ne sors jamais du worktree** : pas de `cd ..`, toutes les commandes git en `git -C <worktree>`. Le dépôt principal et sa branche `main` sont hors limites.
+- Revue de sécurité systématique avant commit : redirections ouvertes (valide la valeur normalisée), repli « fail-open » (une donnée absente doit refuser, pas autoriser), fuite d'informations entre lecteurs, limites de débit sur toute route publique qui écrit.
 - Ne touche ni à l'infrastructure (ssh, Proxmox), ni à `main`, ni au remote. **Ne pousse pas.**
 
 ## Pour finir
