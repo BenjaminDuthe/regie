@@ -28,6 +28,9 @@ import { enregistrerRoutesMcp } from './mcp/routes.ts';
 import type { Services } from './auth/services.ts';
 import { EXECUTANTS } from './services/executants.ts';
 import { Travailleur } from './services/travailleur.ts';
+import { EcheancesPg } from './infra/echeances.ts';
+import { Planificateur } from './services/planificateur.ts';
+import { gestionnairesDuSocle } from './services/gestionnaires.ts';
 
 type HandlerAstro = (
   requete: import('node:http').IncomingMessage,
@@ -171,7 +174,7 @@ if (import.meta.main) {
   const services = construireServices(contexte);
   const app = await construireServeur({ contexte, services });
   // Ordre de démarrage (AR-15) : le serveur écoute, puis la file (application des résultats laissés par un arrêt, puis
-  // reprise et prise des tâches). Le planificateur d'échéances viendra en dernier (histoire 2.2).
+  // reprise et prise des tâches). Le planificateur d'échéances vient en dernier (histoire 2.2).
   const travailleur = new Travailleur({
     file: services.file,
     marques: () => services.marques.lister(),
@@ -179,10 +182,17 @@ if (import.meta.main) {
     service: `coeur-${process.pid}`,
     journal: app.log,
   });
+  const planificateur = new Planificateur({
+    echeances: new EcheancesPg(contexte.pool),
+    marques: () => services.marques.lister(),
+    gestionnaires: gestionnairesDuSocle({ pool: contexte.pool, audit: services.audit, journal: app.log }),
+    journal: app.log,
+  });
   let arreterEcoute: () => void = () => undefined;
   // Arrêt propre : en PID 1 du conteneur, node n'a pas de gestionnaire de SIGTERM par défaut.
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     process.once(signal, () => {
+      planificateur.arreter();
       travailleur.arreter();
       arreterEcoute();
       Promise.all([app.close(), contexte.fermer()]).then(
@@ -194,4 +204,6 @@ if (import.meta.main) {
   await app.listen({ host: env.HOTE, port: env.PORT });
   arreterEcoute = ecouterResultats(contexte.pool, () => travailleur.surNotification(), (message) => app.log.warn({ erreur: message }, 'écoute de la file interrompue'));
   await travailleur.demarrer();
+  // Le planificateur prend place en dernier (AR-3) : tout ce qu'il déclenche trouve la file prête.
+  await planificateur.demarrer();
 }

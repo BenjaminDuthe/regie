@@ -4,3 +4,4 @@
 export const VERSION_CONTRATS = 1;
 
 export * from './taches.ts';
+export * from './echeances.ts';

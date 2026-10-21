@@ -41,7 +41,7 @@ export type Consultation = Readonly<{
 const FORME_JOUR = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** Décalage de Paris par rapport à UTC, en minutes, à cet instant. */
-function decalageParis(instant: Date): number {
+export function decalageParis(instant: Date): number {
   const parties = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(instant);
   const v = (t: string) => Number(parties.find((p) => p.type === t)!.value);
   return (Date.UTC(v('year'), v('month') - 1, v('day'), v('hour'), v('minute')) - Math.floor(instant.getTime() / 60_000) * 60_000) / 60_000;

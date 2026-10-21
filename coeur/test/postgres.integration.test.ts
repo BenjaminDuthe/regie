@@ -18,6 +18,11 @@ import { AuditPg, verifierChaine } from '../src/infra/audit.ts';
 import { EspacesPg, idUtilisateur } from '../src/infra/espaces.ts';
 import { JetonsApiPg, hacherJeton } from '../src/infra/jetons.ts';
 import { FilePg } from '../src/infra/file.ts';
+import { EcheancesPg, type Echeance } from '../src/infra/echeances.ts';
+import { purgerClientsOauth, purgerSessions } from '../src/infra/entretien.ts';
+import { programmerEcheance } from '../src/services/echeances.ts';
+import { Planificateur, decider as decideur } from '../src/services/planificateur.ts';
+import { gestionnairesDuSocle, verifierJournal } from '../src/services/gestionnaires.ts';
 import { MarquesPg } from '../src/infra/marques.ts';
 import { OauthPg } from '../src/infra/oauth.ts';
 import { MagasinSessionsPg } from '../src/infra/sessions.ts';
@@ -446,6 +451,104 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       expect(appliques.sort()).toEqual([c4.id, r.id].sort());
       expect(await file.appliquerResultats(marqueA, async (t) => void appliques.push(t.id))).toBe(0);
       expect((await file.historique(marqueA, a.utilisateurId, r.id)).length).toBe(1);
+    } finally {
+      await superutilisateur.end();
+      await contexte.fermer();
+    }
+  });
+
+  it('échéances : écrites avec l’action, déclenchées une seule fois, rattrapées, récurrences idempotentes, purges et vérification nocturne, RLS', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    const superutilisateur = new Client({ connectionString: Object.assign(new URL(adresse), { pathname: `/${baseNom}` }).toString() });
+    await superutilisateur.connect();
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const audit = new AuditPg(contexte.pool);
+      const echeances = new EcheancesPg(contexte.pool);
+      const marqueA = await marques.creer(`Ech A ${suffixe}`);
+      const marqueB = await marques.creer(`Ech B ${suffixe}`);
+      await espaces.assurer(marqueA, 'sub-ea', undefined, 'Établia');
+      await espaces.assurer(marqueB, 'sub-eb', undefined, 'Autre');
+      const maintenant = new Date('2026-10-21T10:00:00Z');
+      const il_y_a = (minutes: number) => new Date(maintenant.getTime() - minutes * 60_000);
+
+      // Même transaction que l'action métier : annulée avec elle, validée avec elle.
+      await expect(
+        dansTransactionMarque(contexte.pool, marqueA, async (c) => {
+          await programmerEcheance(c, marqueA, { type: 'rappel', objet: 'annule', instant: il_y_a(1) });
+          throw new Error('action métier en échec');
+        }),
+      ).rejects.toThrow('action métier en échec');
+      expect((await echeances.lister(marqueA, 50)).echeances).toEqual([]);
+      await dansTransactionMarque(contexte.pool, marqueA, async (c) => {
+        await programmerEcheance(c, marqueA, { type: 'rappel', objet: 'recent', instant: il_y_a(30) });
+        await programmerEcheance(c, marqueA, { type: 'publication', objet: 'vieille', instant: il_y_a(300) });
+        await programmerEcheance(c, marqueA, { type: 'purge', objet: 'sessions', instant: il_y_a(300), cle: 'unique' });
+        // Même clé : ignorée, sans erreur.
+        expect(await programmerEcheance(c, marqueA, { type: 'purge', objet: 'sessions', instant: il_y_a(200), cle: 'unique' })).toBeUndefined();
+      });
+      await dansTransactionMarque(contexte.pool, marqueB, (c) => programmerEcheance(c, marqueB, { type: 'rappel', objet: 'autre-marque', instant: il_y_a(1) }));
+
+      // Deux planificateurs concurrents : chaque échéance déclenche exactement un travail.
+      const decider = (e: Echeance) => decideur(e, maintenant);
+      const [x, y] = await Promise.all([echeances.declencher(marqueA, maintenant, decider), echeances.declencher(marqueA, maintenant, decider)]);
+      expect(x.declenchees + y.declenchees).toBe(2);
+      expect(x.echouees + y.echouees).toBe(1);
+      const bilan = await echeances.lister(marqueA, 50);
+      expect(bilan.travaux.map((t) => t.objet).sort()).toEqual(['recent', 'sessions']);
+      expect(bilan.echeances.find((e) => e.objet === 'vieille')).toMatchObject({ etat: 'echouee', cause: 'ECHEANCE_PERIMEE' });
+      // Rien de plus à un second passage.
+      expect(await echeances.declencher(marqueA, maintenant, decider)).toEqual({ declenchees: 0, echouees: 0 });
+
+      // Un travail dont le bail expire est repris ; terminé, il ne l'est plus.
+      const t1 = await echeances.prendreTravail(marqueA, ['purge'], maintenant);
+      expect(t1).toMatchObject({ objet: 'sessions', tentatives: 1 });
+      expect(await echeances.prendreTravail(marqueA, ['purge'], maintenant)).toBeUndefined();
+      const reprise = await echeances.prendreTravail(marqueA, ['purge'], new Date(maintenant.getTime() + 301_000));
+      expect(reprise).toMatchObject({ id: t1!.id, tentatives: 2 });
+      await echeances.terminerTravail(marqueA, t1!.id, maintenant);
+      expect(await echeances.prendreTravail(marqueA, ['purge'], new Date(maintenant.getTime() + 999_000))).toBeUndefined();
+
+      // RLS : l'autre marque ne voit rien, et le planificateur d'une marque ne déclenche pas l'autre.
+      expect((await echeances.lister(marqueB, 50)).echeances.map((e) => e.objet)).toEqual(['autre-marque']);
+      expect((await echeances.lister(marqueB, 50)).travaux).toEqual([]);
+
+      // Planificateur complet sur la marque A : récurrences inscrites une fois par jour de Paris, même après deux passes.
+      const journal = { info: () => undefined, warn: () => undefined, error: () => undefined };
+      const planificateur = new Planificateur({ echeances, marques: async () => [marqueA], gestionnaires: gestionnairesDuSocle({ pool: contexte.pool, audit, journal }), journal, maintenant: () => maintenant });
+      await planificateur.assurerRecurrences(marqueA);
+      await planificateur.assurerRecurrences(marqueA);
+      const recurrentes = (await echeances.lister(marqueA, 50)).echeances.filter((e) => e.cle?.endsWith(':2026-10-22'));
+      expect(recurrentes.map((e) => e.objet).sort()).toEqual(['chaine', 'clients_oauth', 'sessions']);
+      expect(recurrentes.every((e) => e.etat === 'programmee')).toBe(true);
+
+      // Purge des sessions expirées et des clients OAuth inutilisés (vieillis par le superutilisateur).
+      await superutilisateur.query(
+        `INSERT INTO sessions (marque_id, hache_jeton, sub, authentifie_le, expire_le) VALUES ($1, $2, 'sub-vieux', now() - interval '3 days', now() - interval '2 days'), ($1, $3, 'sub-frais', now(), now() + interval '1 day')`,
+        [marqueA, randomBytes(32), randomBytes(32)],
+      );
+      expect(await purgerSessions(contexte.pool, marqueA)).toBe(1);
+      expect((await superutilisateur.query("SELECT sub FROM sessions WHERE marque_id = $1 AND sub IN ('sub-vieux','sub-frais')", [marqueA])).rows).toEqual([{ sub: 'sub-frais' }]);
+      const oauth = new OauthPg(contexte.pool);
+      const client = await oauth.enregistrerClient(marqueA, { nom: 'Inutilisé', redirectUris: ['https://exemple.test/cb'] });
+      await superutilisateur.query("UPDATE oauth_clients SET cree_le = now() - interval '11 minutes' WHERE client_id = $1", [client!.clientId]);
+      expect(await purgerClientsOauth(contexte.pool, marqueA)).toBeGreaterThanOrEqual(1);
+      expect(await oauth.trouverClient(client!.clientId)).toBeUndefined();
+
+      // Vérification nocturne : chaîne intacte, trace écrite ; puis rupture détectée (falsification par le superutilisateur).
+      await audit.ajouter(marqueA, { acteur: 'sub-ea', action: 'essai', objet: 'x' });
+      await verifierJournal(audit, journal, marqueA);
+      const lignes = await audit.lire(marqueA);
+      expect(lignes.at(-1)).toMatchObject({ acteur: 'systeme', action: 'verification_chaine' });
+      expect(verifierChaine(lignes)).toBeUndefined();
+      await superutilisateur.query('ALTER TABLE journal_audit DISABLE TRIGGER USER');
+      try {
+        await superutilisateur.query("UPDATE journal_audit SET objet = 'falsifie' WHERE marque_id = $1 AND action = 'essai'", [marqueA]);
+      } finally {
+        await superutilisateur.query('ALTER TABLE journal_audit ENABLE TRIGGER USER');
+      }
+      await expect(verifierJournal(audit, journal, marqueA)).rejects.toMatchObject({ cause_: 'CHAINE_ROMPUE' });
     } finally {
       await superutilisateur.end();
       await contexte.fermer();
