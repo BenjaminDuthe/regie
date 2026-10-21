@@ -16,6 +16,8 @@ import { Masqueur } from '../src/infra/masquage.ts';
 import { calculerSante } from '../src/infra/sante.ts';
 import { AuditPg, verifierChaine } from '../src/infra/audit.ts';
 import { EspacesPg, idUtilisateur } from '../src/infra/espaces.ts';
+import { GabaritsPg } from '../src/infra/gabarits.ts';
+import { GABARIT_DE_DEPART } from '../src/domaine/gabarit.ts';
 import { JetonsApiPg, hacherJeton } from '../src/infra/jetons.ts';
 import { FilePg } from '../src/infra/file.ts';
 import { EcheancesPg, type Echeance } from '../src/infra/echeances.ts';
@@ -608,6 +610,56 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       await notifications.creer(marqueA, alerte);
       await notifications.creer(marqueA, alerte);
       expect((await notifications.lister(marqueA, a.utilisateurId, 50)).filter((n) => n.genre === 'chaine_rompue')).toHaveLength(1);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('gabarits : départ donné une fois à chaque espace, un seul par défaut, cloisonnés par marque et par personne, version qui monte, RLS forcée', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const gabarits = new GabaritsPg(contexte.pool);
+      const marqueA = await marques.creer(`Gabarit A ${suffixe}`);
+      const marqueB = await marques.creer(`Gabarit B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-ga', undefined, 'Établia');
+      const a2 = await espaces.assurer(marqueA, 'sub-ga2', undefined, 'Autre');
+      const b = await espaces.assurer(marqueB, 'sub-gb', undefined, 'Autre');
+
+      // Chaque espace (personnel et marque) reçoit le gabarit de départ, une seule fois, même à deux appels simultanés.
+      const [un, deux] = await Promise.all([gabarits.lister(marqueA, a.utilisateurId), gabarits.lister(marqueA, a.utilisateurId)]);
+      expect(un).toHaveLength(2);
+      expect(deux).toHaveLength(2);
+      expect(new Set(un.map((g) => g.espaceId))).toEqual(new Set(a.espaces.map((e) => e.id)));
+      expect(un.every((g) => g.parDefaut && g.version === 1)).toBe(true);
+      expect(un[0]!.definition).toEqual(GABARIT_DE_DEPART);
+      expect(await gabarits.lister(marqueA, a.utilisateurId)).toHaveLength(2);
+
+      // Pas de limite de 3 gabarits : on peut en créer plus, et ils ne sont jamais « par défaut ».
+      const espace = a.espaces[0]!.id;
+      for (let i = 0; i < 4; i++) expect(await gabarits.creer({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espace, nom: `Variante ${i}`, definition: GABARIT_DE_DEPART })).toBeDefined();
+      expect((await gabarits.lister(marqueA, a.utilisateurId, espace)).length).toBe(5);
+
+      // Remplacement : la version monte, la définition change.
+      const premier = un[0]!;
+      const apres = await gabarits.remplacer(marqueA, a.utilisateurId, premier.id, { nom: 'Renommé', definition: { ...GABARIT_DE_DEPART, styleSousTitres: 'impact' } });
+      expect(apres).toMatchObject({ nom: 'Renommé', version: 2, definition: { styleSousTitres: 'impact' } });
+
+      // Cloisonnement : une autre personne, une autre marque, ni lecture, ni écriture, ni création.
+      expect(await gabarits.lire(marqueA, a2.utilisateurId, premier.id)).toBeUndefined();
+      expect(await gabarits.lire(marqueB, b.utilisateurId, premier.id)).toBeUndefined();
+      expect(await gabarits.lire(marqueB, a.utilisateurId, premier.id)).toBeUndefined();
+      expect(await gabarits.remplacer(marqueA, a2.utilisateurId, premier.id, { definition: GABARIT_DE_DEPART })).toBeUndefined();
+      expect(await gabarits.creer({ marqueId: marqueA, utilisateurId: a2.utilisateurId, espaceId: espace, nom: 'Intrus', definition: GABARIT_DE_DEPART })).toBeUndefined();
+      expect(await gabarits.creer({ marqueId: marqueB, utilisateurId: b.utilisateurId, espaceId: espace, nom: 'Intrus', definition: GABARIT_DE_DEPART })).toBeUndefined();
+      expect((await gabarits.lister(marqueB, b.utilisateurId)).every((g) => b.espaces.some((e) => e.id === g.espaceId))).toBe(true);
+
+      // Sans marque posée, aucune ligne ; jamais de DELETE pour le rôle du cœur.
+      const brut = await contexte.pool.query('SELECT count(*)::int AS n FROM gabarits');
+      expect(brut.rows[0].n).toBe(0);
+      await expect(contexte.pool.query('DELETE FROM gabarits')).rejects.toThrow(/permission denied/);
+      await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE gabarits SET marque_id = marque_id'))).rejects.toThrow(/permission denied/);
     } finally {
       await contexte.fermer();
     }

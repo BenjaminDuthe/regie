@@ -52,3 +52,15 @@ Décisions que le codeur n'a pas à prendre seul (produit, accès, jeton tiers).
 3. **Relance** — regie ne relance jamais seul une étape en échec définitif ; la personne décide. `tache.relancer` (API, MCP, interface) remet la tâche en file sans renvoyer les rushes et garde l'historique. Relancer un `RESULTAT_INCONNU` reste son choix : l'interface lui dit de vérifier d'abord.
 4. **Rupture du journal** — l'administrateur est prévenu dans l'interface, une notification par jour (clé par date) ; sans administrateur déclaré, seul le log d'erreur subsiste.
 5. **Reportés** — condition « rushes non purgés » et « la vidéo retrouve son statut » (ni rushes ni vidéo n'existent encore) ; « série prête » attend 2.12.
+
+## 2.7 Un gabarit de départ, des gardes et une mise en page communes
+
+1. **Marque Établia** — ses couleurs, ses polices et son logo ne sont pas dans le dépôt : le gabarit de départ est neutre (vert profond, texte blanc, fond sombre, accent doré ; Inter, sous-titres « classique »). Options : Benjamin fournit la charte. Recommandation : la fournir, elle remplace `GABARIT_DE_DEPART` (une ligne) sans migration, car chaque espace garde son gabarit modifiable.
+2. **Polices** — quatre polices libres (Inter, Montserrat, Playfair Display, Bebas Neue, toutes SIL OFL-1.1) déclarées dans `deploiement/licences-tiers.json` avec leur source ; les fichiers eux-mêmes ne sont pas embarqués, les histoires de rendu les installeront avec leur déclaration `fichier`. Un test échoue si une police proposée n'est pas déclarée avec une licence libre.
+3. **Zone sûre** — 880×1220 en (0, 220) sur 1080×1920 telle que donnée (le bord gauche à x = 0 est pris tel quel). Options : zone centrée. Recommandation : confirmer la zone avec le gabarit d'Établia ; elle vit dans `bornes.json`.
+4. **Seuil « majuscules < 48 px »** — appliqué à la taille de tout texte du gabarit (titres, sous-titres, carte de fin), ramenée à 1920 px de haut : plus strict que la lettre, et simple à expliquer. Options : seulement les capitales. Recommandation : garder.
+5. **Largeurs de texte** — la mise en page estime la largeur par police (largeur moyenne d'un caractère × taille), sans navigateur : assez juste pour garder, pas pour composer à l'image près ; le test image rendu ⇔ lecteur arrive avec 3.1.
+6. **Gabarit de départ des espaces** — créé au premier accès aux gabarits de l'espace (jamais en double, même en simultané) et non dans la création de l'espace : couvre aussi les espaces existants sans migration de données. Aucune décision attendue.
+7. **Pas de forçage** — aucune action n'accepte de champ pour contourner une garde (un test le vérifie sur tout le registre) ; changer un seuil, c'est changer `bornes.json` en revue.
+8. **Reportés** — import et rastérisation du logo SVG (AR-12 : zone de données et conteneur d'analyse) ; choix du gabarit à l'envoi d'une séance ; suppression d'un gabarit.
+

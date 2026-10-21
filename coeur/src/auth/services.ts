@@ -5,6 +5,7 @@ import type { Audit } from '../infra/audit.ts';
 import type { Coffre } from '../infra/coffre.ts';
 import type { Espaces } from '../infra/espaces.ts';
 import type { File } from '../infra/file.ts';
+import type { Gabarits } from '../infra/gabarits.ts';
 import type { JetonsApi } from '../infra/jetons.ts';
 import type { Notifications } from '../infra/notifications.ts';
 import type { Oauth } from '../infra/oauth.ts';
@@ -35,5 +36,7 @@ export type Services = Readonly<{
   file: File;
   /** Notifications d'interface : étape en échec, journal rompu (histoire 2.6). */
   notifications: Notifications;
+  /** Gabarits des espaces (histoires 2.7 et 2.8). */
+  gabarits: Gabarits;
   maintenant: () => number;
 }>;

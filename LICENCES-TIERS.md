@@ -529,7 +529,12 @@ autorisant l’usage commercial (NFR-26) ; la CI refuse tout autre cas et vérif
 
 ## Polices
 
-Aucun pour l’instant.
+| Nom | Licence | Source |
+| --- | --- | --- |
+| Inter | OFL-1.1 | https://github.com/rsms/inter |
+| Montserrat | OFL-1.1 | https://github.com/JulietaUla/Montserrat |
+| Playfair Display | OFL-1.1 | https://github.com/clauseggers/Playfair-Display |
+| Bebas Neue | OFL-1.1 | https://github.com/dharmatype/Bebas-Neue |
 
 ## Modèles
 

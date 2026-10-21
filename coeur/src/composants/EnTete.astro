@@ -28,6 +28,7 @@ const retour = encodeURIComponent(Astro.url.pathname + Astro.url.search);
     )
   }
   {connecte && <a class="lien" href="/taches">{chaines.entete.taches}</a>}
+  {connecte && <a class="lien" href="/gabarit">{chaines.entete.gabarit}</a>}
   {connecte && <a class="lien" href="/jetons">{chaines.entete.jetons}</a>}
   {connecte && <a class="lien" href="/connexions">{chaines.entete.connexions}</a>}
   {connecte && <a class="lien" href="/journal">{chaines.entete.journal}</a>}

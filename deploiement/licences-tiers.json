@@ -24,7 +24,28 @@
     "typing-extensions": "PSF-2.0",
     "typing-inspection": "MIT"
   },
-  "polices": [],
+  "polices": [
+    {
+      "nom": "Inter",
+      "licence": "OFL-1.1",
+      "source": "https://github.com/rsms/inter"
+    },
+    {
+      "nom": "Montserrat",
+      "licence": "OFL-1.1",
+      "source": "https://github.com/JulietaUla/Montserrat"
+    },
+    {
+      "nom": "Playfair Display",
+      "licence": "OFL-1.1",
+      "source": "https://github.com/clauseggers/Playfair-Display"
+    },
+    {
+      "nom": "Bebas Neue",
+      "licence": "OFL-1.1",
+      "source": "https://github.com/dharmatype/Bebas-Neue"
+    }
+  ],
   "modeles": [],
   "musiques": []
 }

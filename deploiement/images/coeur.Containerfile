@@ -12,6 +12,8 @@ RUN npm ci --ignore-scripts
 
 COPY tsconfig.base.json tsconfig.json ./
 COPY paquets/ paquets/
+# Bornes des gardes (FR-28) : lues par le cœur à la construction et au démarrage.
+COPY deploiement/bornes.json deploiement/bornes.json
 COPY coeur/ coeur/
 RUN npm run build
 

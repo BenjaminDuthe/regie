@@ -7,6 +7,7 @@ import { z } from 'zod';
 import type { Notification } from '../infra/notifications.ts';
 import type { ConnexionClaude } from '../infra/oauth.ts';
 import { DUREE_MAX_JETON_JOURS, PORTEES, type JetonApi } from '../infra/jetons.ts';
+import { ACTIONS_GABARIT } from './actions-gabarit.ts';
 import { ErreurMetier } from './erreurs.ts';
 import { Registre, definirAction } from './registre.ts';
 import { suivreTaches, suivreUneTache } from './suivi.ts';
@@ -207,5 +208,5 @@ export const notificationAcquitter = definirAction({
   objet: (entree) => `notification:${entree.id}`,
 });
 
-export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer, connexionLister, connexionRevoquer, tacheLister, tacheLire, tacheRelancer, notificationLister, notificationAcquitter]);
+export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer, connexionLister, connexionRevoquer, tacheLister, tacheLire, tacheRelancer, notificationLister, notificationAcquitter, ...ACTIONS_GABARIT]);
 export const REGISTRE = new Registre(ACTIONS);

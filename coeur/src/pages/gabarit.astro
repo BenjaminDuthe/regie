@@ -1,0 +1,89 @@
+---
+// Gabarit (histoire 2.7, FR-55) : l'espace reçoit un gabarit de départ ; la personne change la couleur principale, la
+// police et le style des sous-titres en trois choix. Les enregistrements passent par la même action que l'API et le MCP
+// (`gabarit.personnaliser`) : mêmes gardes, même journal.
+import chaines from '../chaines.json' with { type: 'json' };
+import { IDS_POLICES } from '../domaine/polices.ts';
+import { STYLES_SOUS_TITRES, roles } from '../domaine/gabarit.ts';
+import Base from '../mises-en-page/Base.astro';
+import { gabaritLister, gabaritPersonnaliser } from '../services/actions-gabarit.ts';
+import { contexteInterface } from '../services/contextes.ts';
+import { ErreurMetier } from '../services/erreurs.ts';
+import { executerAction } from '../services/registre.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.gabarit;
+const ctx = contexteInterface(services, session);
+let erreur: string | undefined;
+let enregistre = false;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const texte = (nom: string): string => (typeof form.get(nom) === 'string' ? (form.get(nom) as string) : '');
+  try {
+    await executerAction(ctx, gabaritPersonnaliser, { id: texte('id'), couleurPrincipale: texte('couleurPrincipale'), police: texte('police') as never, styleSousTitres: texte('styleSousTitres') as never });
+    return Astro.redirect(`/gabarit?id=${encodeURIComponent(texte('id'))}&ok=1`, 303);
+  } catch (e) {
+    if (!(e instanceof ErreurMetier)) throw e;
+    erreur = e.message;
+  }
+}
+
+// L'affichage n'est pas une action (rien n'est écrit au journal) : la liste est lue directement.
+const { gabarits } = (await gabaritLister.executer(ctx, {})) as { gabarits: { id: string; espaceId: string; nom: string; definition: import('../domaine/gabarit.ts').DefinitionGabarit }[] };
+const choisi = gabarits.find((g) => g.id === Astro.url.searchParams.get('id')) ?? gabarits[0];
+enregistre = Astro.url.searchParams.get('ok') === '1';
+const r = choisi === undefined ? undefined : roles(choisi.definition);
+---
+
+<Base titre={t.titre}>
+  <h1>{t.titre}</h1>
+  <p class="intro">{t.intro}</p>
+  {enregistre && <p class="succes" role="status">{t.enregistre}</p>}
+  {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
+  <p class="doux">{t.gardesNote}</p>
+
+  {choisi === undefined && <p class="doux">{t.vide}</p>}
+  {
+    gabarits.length > 1 && (
+      <nav aria-label={t.titre}>
+        <ul class="liste">
+          {gabarits.map((g) => (
+            <li>{g.id === choisi?.id ? <strong aria-current="true">{g.nom}</strong> : <a href={`/gabarit?id=${g.id}`}>{g.nom}</a>}</li>
+          ))}
+        </ul>
+      </nav>
+    )
+  }
+  {
+    choisi !== undefined && r !== undefined && (
+      <form method="post" action="/gabarit" class="choix">
+        <input type="hidden" name="id" value={choisi.id} />
+        <label>{t.couleur}<input type="color" name="couleurPrincipale" value={r.principale.toLowerCase()} required /></label>
+        <label>
+          {t.police}
+          <select name="police">
+            {IDS_POLICES.map((p) => <option value={p} selected={p === choisi.definition.policeTitres}>{t.polices[p]}</option>)}
+          </select>
+        </label>
+        <label>
+          {t.style}
+          <select name="styleSousTitres">
+            {STYLES_SOUS_TITRES.map((s) => <option value={s} selected={s === choisi.definition.styleSousTitres}>{t.styles[s]}</option>)}
+          </select>
+        </label>
+        <button type="submit" class="bouton">{t.enregistrer}</button>
+      </form>
+    )
+  }
+</Base>
+
+<style is:global>
+  .choix { display: grid; gap: 16px; max-width: 420px; margin-top: 16px; }
+  .choix label { display: grid; gap: 6px; }
+  .choix select, .choix input[type='color'] { font: inherit; padding: 6px; border-radius: var(--rayon); border: 1px solid var(--trait); background: none; color: inherit; min-height: 44px; }
+  .succes { color: var(--accent); }
+</style>

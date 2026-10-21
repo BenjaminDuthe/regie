@@ -6,6 +6,8 @@ import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Services } from '../src/auth/services.ts';
 import { chainer, type Audit, type EntreeAudit, type LigneAudit } from '../src/infra/audit.ts';
+import { GABARIT_DE_DEPART, NOM_GABARIT_DE_DEPART, type DefinitionGabarit } from '../src/domaine/gabarit.ts';
+import type { Gabarit, Gabarits } from '../src/infra/gabarits.ts';
 import { idUtilisateur, trierEspaces, type Espace, type Espaces } from '../src/infra/espaces.ts';
 import { DUREE_MAX_JETON_JOURS, composerJeton, hacherJeton, marqueDuJeton, type JetonApi, type JetonsApi, type NouveauJeton, type Principal } from '../src/infra/jetons.ts';
 import { ACCES_VIE_S, CONNEXION_VIE_MAX_JOURS, CLIENTS_MAX, CODE_VIE_S, REFRESH_VIE_JOURS, composerIdentifiantClient, composerSecret, marqueDuClient, marqueDuSecret, type ClientOauth, type CodeConsomme, type ConnexionClaude, type Emission, type NouveauCode, type Oauth, type Rafraichissement } from '../src/infra/oauth.ts';
@@ -194,6 +196,48 @@ export class EspacesMemoire implements Espaces {
   }
 }
 
+/** Gabarits en mémoire : même contrat que GabaritsPg (départ donné au premier accès, cloisonnement par espace de la personne). */
+export class GabaritsMemoire implements Gabarits {
+  readonly lignes: (Gabarit & { marqueId: string })[] = [];
+  maintenant = () => Date.now();
+  readonly #espaces: EspacesMemoire;
+  constructor(espaces: EspacesMemoire) {
+    this.#espaces = espaces;
+  }
+  #visibles(marqueId: string, utilisateurId: string): string[] {
+    return this.#espaces.tous.filter((e) => e.marqueId === marqueId && e.proprietaireId === utilisateurId).map((e) => e.id);
+  }
+  async lister(marqueId: string, utilisateurId: string, espaceId?: string) {
+    const ids = this.#visibles(marqueId, utilisateurId);
+    for (const id of ids) {
+      if (!this.lignes.some((l) => l.espaceId === id)) {
+        const t = new Date(this.maintenant());
+        this.lignes.push({ id: crypto.randomUUID(), marqueId, espaceId: id, nom: NOM_GABARIT_DE_DEPART, definition: structuredClone(GABARIT_DE_DEPART), parDefaut: true, version: 1, creeLe: t, modifieLe: t });
+      }
+    }
+    return this.lignes.filter((l) => l.marqueId === marqueId && ids.includes(l.espaceId) && (espaceId === undefined || l.espaceId === espaceId));
+  }
+  async lire(marqueId: string, utilisateurId: string, id: string) {
+    const ids = this.#visibles(marqueId, utilisateurId);
+    return this.lignes.find((l) => l.id === id && l.marqueId === marqueId && ids.includes(l.espaceId));
+  }
+  async creer(n: { marqueId: string; utilisateurId: string; espaceId: string; nom: string; definition: DefinitionGabarit }) {
+    if (!this.#visibles(n.marqueId, n.utilisateurId).includes(n.espaceId)) return undefined;
+    const t = new Date(this.maintenant());
+    const g = { id: crypto.randomUUID(), marqueId: n.marqueId, espaceId: n.espaceId, nom: n.nom, definition: structuredClone(n.definition), parDefaut: false, version: 1, creeLe: t, modifieLe: t };
+    this.lignes.push(g);
+    return g;
+  }
+  async remplacer(marqueId: string, utilisateurId: string, id: string, c: { nom?: string; definition: DefinitionGabarit }) {
+    const i = this.lignes.findIndex((l) => l.id === id && l.marqueId === marqueId && this.#visibles(marqueId, utilisateurId).includes(l.espaceId));
+    if (i < 0) return undefined;
+    const avant = this.lignes[i]!;
+    const apres = { ...avant, nom: c.nom ?? avant.nom, definition: structuredClone(c.definition), version: avant.version + 1, modifieLe: new Date(this.maintenant()) };
+    this.lignes[i] = apres;
+    return apres;
+  }
+}
+
 /** Jetons d'API en mémoire : même contrat que JetonsApiPg (haché seul gardé, expiration, révocation, cloisonnement). */
 export class JetonsMemoire implements JetonsApi {
   readonly lignes: (JetonApi & { marqueId: string; utilisateurId: string; sub: string; hache: string })[] = [];
@@ -323,7 +367,7 @@ export class AuditMemoire implements Audit {
   }
 }
 
-export type BancDeTest = { services: Services; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
+export type BancDeTest = { services: Services; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
 
 export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
@@ -338,6 +382,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
   oauth.maintenant = () => horloge.t;
   const file = new FileMemoire();
   file.maintenant = () => horloge.t;
+  const gabarits = new GabaritsMemoire(espaces);
+  gabarits.maintenant = () => horloge.t;
   const notifications = new NotificationsMemoire();
   notifications.maintenant = () => horloge.t;
   file.surEchec = notifications.surEchec;
@@ -355,7 +401,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     oauth,
     file,
     notifications,
+    gabarits,
     maintenant: () => horloge.t,
   };
-  return { services, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
+  return { services, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
 }

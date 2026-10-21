@@ -19,7 +19,8 @@
     "jetons": "Jetons",
     "connexions": "Connexions de Claude",
     "journal": "Journal",
-    "taches": "Tâches"
+    "taches": "Tâches",
+    "gabarit": "Gabarit"
   },
   "connexion": {
     "titre": "Connexion",
@@ -168,7 +169,9 @@
     "MCP_METHODE_REFUSEE": "Le point d’entrée MCP n’accepte que des requêtes POST.",
     "TACHE_INTROUVABLE": "Cette tâche n’existe pas, ou elle n’est pas à toi.",
     "TACHE_NON_RELANCABLE": "Cette tâche ne peut pas être relancée : seule une tâche échouée se relance.",
-    "NOTIFICATION_INTROUVABLE": "Cette notification n’existe pas, ou elle n’est pas à toi."
+    "NOTIFICATION_INTROUVABLE": "Cette notification n’existe pas, ou elle n’est pas à toi.",
+    "GABARIT_INTROUVABLE": "Ce gabarit n’existe pas, ou tu n’y as pas accès.",
+    "GARDE_NON_RESPECTEE": "Ce gabarit ne peut pas être enregistré : {detail}"
   },
   "jetons": {
     "titre": "Jetons d’API",
@@ -356,5 +359,61 @@
     "chaine_rompue": "Le journal d’audit ne se vérifie plus : une ligne a été modifiée ou retirée. Regarde le journal.",
     "defaut": "Un événement demande ton attention.",
     "voirTache": "Voir la tâche"
+  },
+  "gabarit": {
+    "titre": "Gabarit",
+    "intro": "Ton gabarit donne à toutes tes vidéos le même air de famille. Trois choix suffisent pour commencer.",
+    "lien": "Gabarit",
+    "espace": "Espace",
+    "couleur": "Couleur principale",
+    "police": "Police",
+    "style": "Style des sous-titres",
+    "styles": {
+      "classique": "Classique",
+      "impact": "Impact (majuscules)",
+      "karaoke": "Karaoké (mot mis en avant)"
+    },
+    "polices": {
+      "inter": "Inter",
+      "montserrat": "Montserrat",
+      "playfair": "Playfair Display",
+      "bebas": "Bebas Neue"
+    },
+    "enregistrer": "Enregistrer",
+    "enregistre": "Gabarit enregistré.",
+    "apercu": "Aperçu",
+    "apercuAlt": "Aperçu du gabarit sur trois scènes d’un brouillon d’exemple",
+    "gardesTitre": "Garde-fous",
+    "gardesNote": "Contraste, taille du texte et zone sûre ne se contournent pas : un réglage qui les enfreint est refusé.",
+    "violation": "scène {segment} ({temps}), {element} : {mesure} {unite}, seuil {seuil} {unite}",
+    "codes": {
+      "CONTRASTE": "contraste",
+      "TEXTE_TROP_PETIT": "taille du texte",
+      "ZONE_SURE": "dépassement de la zone sûre"
+    },
+    "unites": {
+      "ratio": ":1",
+      "px": "px"
+    },
+    "nouveau": "Nouveau gabarit",
+    "nom": "Nom",
+    "sections": {
+      "couleurs": "Couleurs",
+      "polices": "Polices",
+      "sousTitres": "Sous-titres",
+      "carteFin": "Carte de fin",
+      "publication": "Publication"
+    },
+    "couleurTexte": "Couleur du texte",
+    "couleurFond": "Couleur de fond",
+    "couleurAccent": "Couleur d’accent",
+    "policeTitres": "Police des titres",
+    "policeSousTitres": "Police des sous-titres",
+    "carteFinTitre": "Titre de la carte de fin",
+    "carteFinSousTitre": "Sous-titre de la carte de fin",
+    "legende": "Légende par défaut",
+    "hashtags": "Mots-clics par défaut (un par ligne ou séparés par des espaces)",
+    "logo": "Le logo (SVG ou image) s’importera avec la zone de données ; l’aperçu montre un monogramme provisoire.",
+    "vide": "Aucun gabarit pour cet espace."
   }
 }

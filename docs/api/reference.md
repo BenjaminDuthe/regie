@@ -287,3 +287,78 @@ Corps de la demande (schéma JSON) :
   "additionalProperties": false
 }
 ```
+
+## `gabarit.lister`
+
+Liste les gabarits de tes espaces (couleurs, polices, style des sous-titres, carte de fin). Un espace neuf reçoit le gabarit de départ.
+
+- API : `POST /api/v1/gabarit/lister` · outil MCP : `gabarit_lister`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "espaceId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+## `gabarit.personnaliser`
+
+Change en trois choix un de tes gabarits : la couleur principale, la police (titres et sous-titres) et le style des sous-titres. Refusé si le contraste, la taille du texte ou la zone sûre ne sont plus respectés.
+
+- API : `POST /api/v1/gabarit/personnaliser` · outil MCP : `gabarit_personnaliser`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "couleurPrincipale": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "police": {
+      "type": "string",
+      "enum": [
+        "inter",
+        "montserrat",
+        "playfair",
+        "bebas"
+      ]
+    },
+    "styleSousTitres": {
+      "type": "string",
+      "enum": [
+        "classique",
+        "impact",
+        "karaoke"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "couleurPrincipale",
+    "police",
+    "styleSousTitres"
+  ],
+  "additionalProperties": false
+}
+```
