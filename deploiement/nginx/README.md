@@ -72,3 +72,14 @@ nginx -t && systemctl reload nginx
 ```
 
 Côté Cloudflare : supprime la route `regie.etablia.fr` du tunnel, puis l'enregistrement DNS `regie` s'il reste.
+
+## Correctif du 2026-10-21 : limite renforcée sur les bons chemins
+
+La limite de 1 requête par seconde (rafale de 10) visait `/auth/`, que le cœur n'utilise pas. Elle porte désormais sur `/connexion` (dont le retour OIDC `/connexion/retour`) et sur `/oauth/` (`/oauth/token`, `/oauth/register`). L'ancienne configuration est copiée dans le CT 101, dans `/root/nginx-avant-correctif-2026-10-21/`.
+
+| Contrôle depuis Internet | Résultat |
+|--------------------------|----------|
+| `nginx -t`, puis rechargement | réussis |
+| 60 requêtes sur `/connexion/retour`, 30 en parallèle | 11 × 503 (1 + rafale de 10), 49 × 429 |
+| 60 requêtes sur `/oauth/token` juste après | 59 × 429 : même zone, même adresse |
+| 20 requêtes sur `/sante` | 20 × 503 (page d'attente), aucune 429 |

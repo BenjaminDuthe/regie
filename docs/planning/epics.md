@@ -27,7 +27,7 @@ Le grill du 2026-10-18 recentre la V1 sur un seul utilisateur et une première t
 |---|----------|--------------------------|
 | 1 | 0.1 Réparer Authentik et créer l'application « regie » | **en partie faite** (2026-10-19/20 : réseau, second facteur, ouverture publique) ; reste à Benjamin le fournisseur OIDC, l'application et le secret dans Vaultwarden |
 | 2 | 0.2 Le LXC `regie` sur `pve-media` | **faite** (2026-10-20) : CT 140, Podman rootless, VAAPI sur l'Arc, pare-feu ; voir `deploiement/infra/lxc-regie.md` |
-| 3 | 0.3 `regie.etablia.fr` derrière nginx | **faite** (2026-10-20) ; correctif du 2026-10-21 à déployer : limite renforcée sur `/connexion` et `/oauth/` au lieu de `/auth/` |
+| 3 | 0.3 `regie.etablia.fr` derrière nginx | **faite** (2026-10-20) ; correctif du 2026-10-21 déployé et contrôlé : limite renforcée sur `/connexion` et `/oauth/` au lieu de `/auth/` |
 | 4 | 0.4 La CI tourne sur Forgejo | **faite** côté Forgejo (2026-10-20 : miroir, runner, premier run vert) ; reste à Benjamin le jeton de statut GitHub et la protection de `main` |
 | 5 | 1.1 Amorcer le dépôt, la CI et la première page | **faite** (238c584) ; CI verte sur Forgejo le 2026-10-20 |
 | 6 | 1.2 Une première page sûre, lisible et accessible | **faite** (2026-10-20) : CSP en en-tête, jetons UX-DR1, en-tête commun, lien vers le code source du commit en service |
