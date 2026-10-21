@@ -45,8 +45,10 @@ describe('périmètres et filtres', () => {
   it('« mes actions » : seulement les miennes, du plus récent au plus ancien', () => {
     const v = consulterJournal(lignes, moi, { perimetre: 'moi' });
     expect(v.lignes.map((l) => l.action)).toEqual(['connexion_revoquer', 'jeton_creer']);
-    expect(v.chaineRompueA).toBeUndefined();
-    expect(v.verifiees).toBe(5);
+    expect(v.chaineIntacte).toBe(true);
+    // Hors administrateur : ni le nombre de lignes de la marque, ni la position d'une rupture.
+    expect(v.verifiees).toBeUndefined();
+    expect(consulterJournal(lignes, admin, { perimetre: 'instance' }).verifiees).toBe(5);
   });
   it('« mon espace » ajoute ce qui touche à mon espace, pas celui des autres', () => {
     const v = consulterJournal(lignes, moi, { perimetre: 'espace' });
@@ -73,10 +75,13 @@ describe('périmètres et filtres', () => {
     const rompue = lignes.filter((_, i) => i !== 1);
     const v = consulterJournal(rompue, admin, { perimetre: 'instance' });
     expect(v.chaineRompueA).toBe(1);
+    const vueMoi = consulterJournal(rompue, moi, { perimetre: 'moi' });
+    expect(vueMoi.chaineIntacte).toBe(false);
+    expect(vueMoi.chaineRompueA).toBeUndefined();
   });
   it('coupe l’affichage sans couper la vérification', () => {
     const beaucoup = fabriquer(Array.from({ length: LIMITE_LIGNES + 5 }, (_, i) => ['2026-10-21T08:00:00Z', 'moi', 'a', `o:${i}`, 'api'] as [string, string, string, string, string]));
-    const v = consulterJournal(beaucoup, moi, { perimetre: 'moi' });
+    const v = consulterJournal(beaucoup, admin, { perimetre: 'instance' });
     expect(v.lignes).toHaveLength(LIMITE_LIGNES);
     expect(v.total).toBe(LIMITE_LIGNES + 5);
     expect(v.verifiees).toBe(LIMITE_LIGNES + 5);

@@ -35,10 +35,10 @@ const libelleOrigine = (o: string) => (o === 'interface' || o === 'mcp' || o ===
   <p class="intro">{t.intro}</p>
   {periodeInvalide && <p class="erreur" role="alert">{t.periode_invalide}</p>}
   {
-    vue.chaineRompueA === undefined ? (
-      <p class="chaine ok" data-chaine="ok">{t.chaine_ok.replace('{n}', String(vue.verifiees))}</p>
+    vue.chaineIntacte ? (
+      <p class="chaine ok" data-chaine="ok">{vue.verifiees === undefined ? t.chaine_ok_simple : t.chaine_ok.replace('{n}', String(vue.verifiees))}</p>
     ) : (
-      <p class="chaine rompue" role="alert" data-chaine="rompue">{t.chaine_rompue.replace('{n}', String(vue.chaineRompueA + 1))}</p>
+      <p class="chaine rompue" role="alert" data-chaine="rompue">{vue.chaineRompueA === undefined ? t.chaine_rompue_simple : t.chaine_rompue.replace('{n}', String(vue.chaineRompueA + 1))}</p>
     )
   }
   <form method="get" action="/journal" class="filtres">

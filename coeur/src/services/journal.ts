@@ -30,10 +30,12 @@ export type Consultation = Readonly<{
   lignes: readonly VueLigne[];
   /** Nombre de lignes correspondant au filtre avant la coupe à `LIMITE_LIGNES`. */
   total: number;
-  /** `undefined` : chaîne intacte ; sinon position (à partir de 0) de la première ligne qui la rompt. */
+  /** La chaîne entière de la marque est intacte (vérifiée pour tous les lecteurs). */
+  chaineIntacte: boolean;
+  /** Position (à partir de 0) de la première ligne qui rompt la chaîne : administrateur seulement. */
   chaineRompueA: number | undefined;
-  /** Nombre de lignes de la chaîne vérifiée. */
-  verifiees: number;
+  /** Nombre de lignes de la chaîne vérifiée : administrateur seulement (sinon, il révélerait l'activité des autres). */
+  verifiees: number | undefined;
 }>;
 
 const FORME_JOUR = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -91,7 +93,14 @@ export function consulterJournal(chaine: readonly LigneAudit[], lecteur: Lecteur
     retenues.push({ horodatage: l.horodatage, acteur: l.acteur, action: l.action, objet: v.objet, origine: origineDe(l), mienne: v.mienne });
   }
   retenues.reverse(); // le plus récent d'abord
-  return { lignes: retenues.slice(0, LIMITE_LIGNES), total: retenues.length, chaineRompueA: verifierChaine(chaine), verifiees: chaine.length };
+  const rupture = verifierChaine(chaine);
+  return {
+    lignes: retenues.slice(0, LIMITE_LIGNES),
+    total: retenues.length,
+    chaineIntacte: rupture === undefined,
+    chaineRompueA: lecteur.estAdmin ? rupture : undefined,
+    verifiees: lecteur.estAdmin ? chaine.length : undefined,
+  };
 }
 
 function prochainJour(jour: string): string {

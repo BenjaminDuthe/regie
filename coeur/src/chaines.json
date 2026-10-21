@@ -261,6 +261,8 @@
     "filtrer": "Filtrer",
     "chaine_ok": "Chaîne vérifiée : {n} lignes, aucune n’a été modifiée ni retirée.",
     "chaine_rompue": "Chaîne rompue à la ligne {n} : le journal a été modifié ou une ligne a disparu.",
+    "chaine_ok_simple": "Chaîne vérifiée : aucune ligne n’a été modifiée ni retirée.",
+    "chaine_rompue_simple": "Chaîne rompue : le journal a été modifié ou une ligne a disparu. Prévenez l’administrateur.",
     "vide": "Aucune ligne pour ces filtres.",
     "coupe": "{total} lignes correspondent ; les {n} plus récentes sont affichées.",
     "colonnes": {
