@@ -362,7 +362,7 @@
   },
   "gabarit": {
     "titre": "Gabarit",
-    "intro": "Ton gabarit donne à toutes tes vidéos le même air de famille. Trois choix suffisent pour commencer.",
+    "intro": "Ton gabarit donne à toutes tes vidéos le même air de famille : couleurs, polices, style des sous-titres, carte de fin, légende et mots-clics. L’aperçu se met à jour pendant que tu règles.",
     "lien": "Gabarit",
     "espace": "Espace",
     "couleur": "Couleur principale",
@@ -414,6 +414,13 @@
     "legende": "Légende par défaut",
     "hashtags": "Mots-clics par défaut (un par ligne ou séparés par des espaces)",
     "logo": "Le logo (SVG ou image) s’importera avec la zone de données ; l’aperçu montre un monogramme provisoire.",
-    "vide": "Aucun gabarit pour cet espace."
+    "vide": "Aucun gabarit pour cet espace.",
+    "creer": "Créer un gabarit avec ces réglages",
+    "actualiser": "Actualiser l’aperçu",
+    "apercuIndisponible": "L’aperçu n’a pas pu être dessiné avec ces réglages.",
+    "aide": {
+      "couleurs": "Les couleurs vont par rôle : principale, texte, fond et accent.",
+      "nom": "Un nom pour retrouver ce gabarit."
+    }
   }
 }

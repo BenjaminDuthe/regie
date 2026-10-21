@@ -362,3 +362,332 @@ Corps de la demande (schéma JSON) :
   "additionalProperties": false
 }
 ```
+
+## `gabarit.creer`
+
+Crée un gabarit dans un de tes espaces (sans limite de nombre). Refusé si le contraste, la taille du texte ou la zone sûre ne sont pas respectés.
+
+- API : `POST /api/v1/gabarit/creer` · outil MCP : `gabarit_creer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "espaceId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "nom": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "definition": {
+      "type": "object",
+      "properties": {
+        "couleurs": {
+          "minItems": 2,
+          "maxItems": 4,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          }
+        },
+        "policeTitres": {
+          "type": "string",
+          "enum": [
+            "inter",
+            "montserrat",
+            "playfair",
+            "bebas"
+          ]
+        },
+        "policeSousTitres": {
+          "type": "string",
+          "enum": [
+            "inter",
+            "montserrat",
+            "playfair",
+            "bebas"
+          ]
+        },
+        "styleSousTitres": {
+          "type": "string",
+          "enum": [
+            "classique",
+            "impact",
+            "karaoke"
+          ]
+        },
+        "carteFin": {
+          "type": "object",
+          "properties": {
+            "titre": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "sousTitre": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "titre",
+            "sousTitre"
+          ],
+          "additionalProperties": false
+        },
+        "legende": {
+          "type": "string",
+          "maxLength": 2200
+        },
+        "hashtags": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^#[\\p{L}\\p{N}_]{1,60}$"
+          }
+        }
+      },
+      "required": [
+        "couleurs",
+        "policeTitres",
+        "policeSousTitres",
+        "styleSousTitres",
+        "carteFin",
+        "legende",
+        "hashtags"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "espaceId",
+    "nom",
+    "definition"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `gabarit.definir`
+
+Remplace la définition d’un de tes gabarits (couleurs, polices, style, carte de fin, légende, mots-clics). Refusé si une garde n’est pas respectée.
+
+- API : `POST /api/v1/gabarit/definir` · outil MCP : `gabarit_definir`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "nom": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "definition": {
+      "type": "object",
+      "properties": {
+        "couleurs": {
+          "minItems": 2,
+          "maxItems": 4,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          }
+        },
+        "policeTitres": {
+          "type": "string",
+          "enum": [
+            "inter",
+            "montserrat",
+            "playfair",
+            "bebas"
+          ]
+        },
+        "policeSousTitres": {
+          "type": "string",
+          "enum": [
+            "inter",
+            "montserrat",
+            "playfair",
+            "bebas"
+          ]
+        },
+        "styleSousTitres": {
+          "type": "string",
+          "enum": [
+            "classique",
+            "impact",
+            "karaoke"
+          ]
+        },
+        "carteFin": {
+          "type": "object",
+          "properties": {
+            "titre": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "sousTitre": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "titre",
+            "sousTitre"
+          ],
+          "additionalProperties": false
+        },
+        "legende": {
+          "type": "string",
+          "maxLength": 2200
+        },
+        "hashtags": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^#[\\p{L}\\p{N}_]{1,60}$"
+          }
+        }
+      },
+      "required": [
+        "couleurs",
+        "policeTitres",
+        "policeSousTitres",
+        "styleSousTitres",
+        "carteFin",
+        "legende",
+        "hashtags"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "definition"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `gabarit.apercu`
+
+Dessine l’aperçu d’une définition de gabarit sur un brouillon d’exemple (image SVG) et liste les gardes qu’elle enfreindrait, sans rien enregistrer.
+
+- API : `POST /api/v1/gabarit/apercu` · outil MCP : `gabarit_apercu`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "definition": {
+      "type": "object",
+      "properties": {
+        "couleurs": {
+          "minItems": 2,
+          "maxItems": 4,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          }
+        },
+        "policeTitres": {
+          "type": "string",
+          "enum": [
+            "inter",
+            "montserrat",
+            "playfair",
+            "bebas"
+          ]
+        },
+        "policeSousTitres": {
+          "type": "string",
+          "enum": [
+            "inter",
+            "montserrat",
+            "playfair",
+            "bebas"
+          ]
+        },
+        "styleSousTitres": {
+          "type": "string",
+          "enum": [
+            "classique",
+            "impact",
+            "karaoke"
+          ]
+        },
+        "carteFin": {
+          "type": "object",
+          "properties": {
+            "titre": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "sousTitre": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "titre",
+            "sousTitre"
+          ],
+          "additionalProperties": false
+        },
+        "legende": {
+          "type": "string",
+          "maxLength": 2200
+        },
+        "hashtags": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^#[\\p{L}\\p{N}_]{1,60}$"
+          }
+        }
+      },
+      "required": [
+        "couleurs",
+        "policeTitres",
+        "policeSousTitres",
+        "styleSousTitres",
+        "carteFin",
+        "legende",
+        "hashtags"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "definition"
+  ],
+  "additionalProperties": false
+}
+```

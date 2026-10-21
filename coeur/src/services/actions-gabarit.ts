@@ -4,8 +4,9 @@
 
 import { z } from 'zod';
 import chaines from '../chaines.json' with { type: 'json' };
+import { apercuSvg } from '../domaine/apercu.ts';
 import { IDS_POLICES } from '../domaine/polices.ts';
-import { STYLES_SOUS_TITRES, evaluerGabarit, normaliser, type DefinitionGabarit } from '../domaine/gabarit.ts';
+import { STYLES_SOUS_TITRES, definitionGabarit, evaluerGabarit, normaliser, type DefinitionGabarit } from '../domaine/gabarit.ts';
 import { codeTemporel, type Violation } from '../domaine/gardes.ts';
 import type { Gabarit } from '../infra/gabarits.ts';
 import { ErreurMetier } from './erreurs.ts';
@@ -75,4 +76,52 @@ export const gabaritPersonnaliser = definirAction({
   objet: (entree) => `gabarit:${entree.id}`,
 });
 
-export const ACTIONS_GABARIT = [gabaritLister, gabaritPersonnaliser] as const;
+export const gabaritCreer = definirAction({
+  domaine: 'gabarit',
+  verbe: 'creer',
+  description: 'Crée un gabarit dans un de tes espaces (sans limite de nombre). Refusé si le contraste, la taille du texte ou la zone sûre ne sont pas respectés.',
+  portee: 'ecriture',
+  entree: z.object({ espaceId: identifiant, nom: z.string().trim().min(1).max(80), definition: definitionGabarit }).strict(),
+  executer: async (ctx, entree) => {
+    if (ctx.espaceIds !== undefined && !ctx.espaceIds.includes(entree.espaceId)) throw new ErreurMetier('ESPACE_INTROUVABLE', 404, { id: entree.espaceId });
+    const definition = normaliser(entree.definition);
+    exigerGardes(definition);
+    const g = await ctx.services.gabarits.creer({ marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId, espaceId: entree.espaceId, nom: entree.nom, definition });
+    if (g === undefined) throw new ErreurMetier('ESPACE_INTROUVABLE', 404, { id: entree.espaceId });
+    return { gabarit: gabaritVisible(g) };
+  },
+  objet: (_entree, sortie) => `gabarit:${sortie.gabarit.id}`,
+});
+
+export const gabaritDefinir = definirAction({
+  domaine: 'gabarit',
+  verbe: 'definir',
+  description: 'Remplace la définition d’un de tes gabarits (couleurs, polices, style, carte de fin, légende, mots-clics). Refusé si une garde n’est pas respectée.',
+  portee: 'ecriture',
+  entree: z.object({ id: identifiant, nom: z.string().trim().min(1).max(80).optional(), definition: definitionGabarit }).strict(),
+  executer: async (ctx, entree) => {
+    await gabaritAccessible(ctx, entree.id);
+    const definition = normaliser(entree.definition);
+    exigerGardes(definition);
+    const apres = await ctx.services.gabarits.remplacer(ctx.marqueId, ctx.utilisateurId, entree.id, entree.nom === undefined ? { definition } : { nom: entree.nom, definition });
+    if (apres === undefined) throw new ErreurMetier('GABARIT_INTROUVABLE', 404, { id: entree.id });
+    return { gabarit: gabaritVisible(apres) };
+  },
+  objet: (entree) => `gabarit:${entree.id}`,
+});
+
+export const gabaritApercu = definirAction({
+  domaine: 'gabarit',
+  verbe: 'apercu',
+  description: 'Dessine l’aperçu d’une définition de gabarit sur un brouillon d’exemple (image SVG) et liste les gardes qu’elle enfreindrait, sans rien enregistrer.',
+  portee: 'lecture',
+  entree: z.object({ definition: definitionGabarit }).strict(),
+  executer: async (_ctx, entree) => {
+    const definition = normaliser(entree.definition);
+    const violations = evaluerGabarit(definition);
+    return { svg: apercuSvg(definition), violations: violations.map((v) => ({ ...v, phrase: decrireViolation(v) })) };
+  },
+  objet: () => 'gabarit',
+});
+
+export const ACTIONS_GABARIT = [gabaritLister, gabaritPersonnaliser, gabaritCreer, gabaritDefinir, gabaritApercu] as const;

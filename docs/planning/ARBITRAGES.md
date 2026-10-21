@@ -64,3 +64,12 @@ Décisions que le codeur n'a pas à prendre seul (produit, accès, jeton tiers).
 7. **Pas de forçage** — aucune action n'accepte de champ pour contourner une garde (un test le vérifie sur tout le registre) ; changer un seuil, c'est changer `bornes.json` en revue.
 8. **Reportés** — import et rastérisation du logo SVG (AR-12 : zone de données et conteneur d'analyse) ; choix du gabarit à l'envoi d'une séance ; suppression d'un gabarit.
 
+## 2.8 Définir mon gabarit complet et le prévisualiser
+
+1. **Aperçu** — image SVG dessinée sur le serveur (aucune dépendance, aucun navigateur) : trois scènes d'un brouillon d'exemple (titre et logo, sous-titre, carte de fin), zone sûre en pointillés. Servie par `/gabarit/apercu.svg` (session exigée, `default-src 'none'`), mise à jour en direct par un petit script, ou par « Actualiser l'aperçu » sans script. L'équivalent pour l'API et le MCP est `gabarit.apercu`. Le rendu final passe par le lecteur (3.1) : l'aperçu est une estimation fidèle des positions et des couleurs, pas des chasses exactes des polices.
+2. **Logo** — l'import et la rastérisation d'un logo SVG exigent la zone de données et le conteneur d'analyse (AR-12) : reportés. L'aperçu montre un monogramme provisoire. Recommandation : les reprendre avec la zone de données.
+3. **Pas de limite de gabarits** — suivant l'ajustement du tableau, aucun plafond de trois ; aucune suppression non plus (ni DELETE accordé à la base), à décider si la liste devient longue.
+4. **Gabarit choisi à l'envoi d'une séance** — reporté : la séance n'existe pas encore (recentrage du 2026-10-18).
+5. **Journal** — `gabarit.creer` et `gabarit.definir` sont au journal ; l'aperçu (image dessinée à chaque réglage) ne l'est pas, rien n'étant écrit ni exposé. `gabarit.apercu` par l'API ou le MCP l'est, comme toute action.
+6. **Marque Établia** — voir l'arbitrage 2.7 : gabarit neutre tant que la charte n'est pas fournie.
+
