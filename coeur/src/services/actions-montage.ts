@@ -16,6 +16,7 @@ import { ErreurMetier } from './erreurs.ts';
 import { definirAction, type ContexteAction } from './registre.ts';
 import { lancerRendu } from './rendu.ts';
 import { lancerVoix } from './voix.ts';
+import { suivreUneTache } from './suivi.ts';
 
 const identifiant = z.uuid();
 
@@ -306,4 +307,55 @@ export const montageLegender = definirAction({
   objet: (entree) => `montage:${entree.id}`,
 });
 
-export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, montageRegenerer, montageRegenererGabarit, montageCouvertures, montageCouvrir, montageLegende, montageLegender, renduLire, renduAdresse] as const;
+/**
+ * Télécharger la vidéo prête (histoire 3.8, FR-40, FR-52, NFR-18) : la vidéo complète (1 080×1 920, sans filigrane), sa
+ * couverture et ses légendes. Si le rendu complet n'existe pas encore, il est lancé (une seule fois) et l'heure estimée
+ * est donnée. Les rushes purgés n'empêchent pas le téléchargement d'un rendu déjà fait.
+ */
+export const montageTelecharger = definirAction({
+  domaine: 'montage',
+  verbe: 'telecharger',
+  description: 'Prépare le téléchargement d’une vidéo prête. Si le rendu complet (1 080×1 920, sans filigrane) est fait, rend son adresse signée (moins d’une heure), la couverture choisie (image SVG) et la légende de chaque réseau. Sinon, met le rendu complet en file (une seule fois : un rendu déjà en file n’est pas doublé) et rend l’état `en_preparation` avec l’heure de fin estimée ; rappelle ensuite cette action. Les rushes purgés n’empêchent pas de télécharger un rendu déjà fait ; sans rendu à faire, ils donnent SEANCE_PURGEE. Un rendu complet bloqué par une garde n’est pas téléchargeable (RENDU_PAS_PRET).',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant }),
+  executer: async (ctx, entree) => {
+    const m = await montageAccessible(ctx, entree.id);
+    const qui = { marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId };
+    const complets = (await ctx.services.montages.listerRendus(qui.marqueId, qui.utilisateurId, m.id)).filter((r) => r.genre === 'complet');
+    const pret = complets.find((r) => r.etat === 'pret' && r.fichierId !== null);
+    const fichier = pret?.fichierId == null ? undefined : await ctx.services.montages.lireFichier(qui.marqueId, qui.utilisateurId, pret.fichierId);
+    if (pret !== undefined && fichier !== undefined && fichier.purgeLe === null) {
+      const adresse = signerAdresse(ctx.services.cleAdresses, `/v/session/${ctx.marqueId}/${ctx.utilisateurId}/${fichier.id}`, { maintenant: ctx.services.maintenant(), dureeS: DUREE_ADRESSE_FICHIER_S });
+      const variante = varianteChoisie(m.timeline);
+      const legendes = await Promise.all(RESEAUX.map(async (reseau) => {
+        const lue = await ctx.services.montages.lireLegende(qui.marqueId, qui.utilisateurId, m.serieId, reseau);
+        const valeur = lue === undefined ? legendeProposee(m.timeline, reseau) : { legende: lue.legende, hashtags: lue.hashtags };
+        return { reseau, ...valeur, enregistree: lue !== undefined };
+      }));
+      return {
+        etat: 'pret' as const,
+        montageId: m.id,
+        video: { adresse, mime: fichier.mime, octets: fichier.octets, dureeMs: fichier.dureeMs, largeur: 1080, hauteur: 1920, expireDansS: DUREE_ADRESSE_FICHIER_S },
+        couverture: { variante, svg: dessinerCouverture(m.timeline, m.gabarit.definition, variante) },
+        legendes,
+      };
+    }
+    // Un rendu complet bloqué par une garde ne se relance pas à l'identique : la personne corrige d'abord le montage.
+    const dernier = complets[0];
+    if (dernier?.etat === 'bloque') throw new ErreurMetier('RENDU_PAS_PRET', 409, { etat: dernier.etat });
+    let tacheId: string | null = complets.find((r) => r.etat === 'en_file' || r.etat === 'en_cours')?.tacheId ?? null;
+    let lance = false;
+    if (tacheId === null) {
+      await exigerFilm(ctx, m);
+      const nouveau = await lancerRendu(ctx.services, qui, m.id, 'complet');
+      if (nouveau === undefined) throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: m.id });
+      tacheId = nouveau.tacheId;
+      lance = true;
+    }
+    const suivi = await suivreUneTache(ctx.services, qui.marqueId, qui.utilisateurId, tacheId);
+    return { etat: 'en_preparation' as const, montageId: m.id, lance, tacheId, finEstimee: suivi?.finEstimee ?? null, finEstimeeEnClair: suivi?.finEstimeeEnClair ?? null };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, montageRegenerer, montageRegenererGabarit, montageCouvertures, montageCouvrir, montageLegende, montageLegender, montageTelecharger, renduLire, renduAdresse] as const;

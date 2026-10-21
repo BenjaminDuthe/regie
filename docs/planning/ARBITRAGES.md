@@ -187,3 +187,11 @@ Question : quelles bornes par réseau, et où vit la légende ?
 1. **Bornes à confirmer** — `deploiement/bornes.json` porte désormais les bornes réseau par réseau (Instagram, Facebook, TikTok : 2 200 caractères et 5 hashtags, valeurs de départ qui reprennent les défauts). **Recommandation** : confirmer chaque valeur contre les règles en vigueur du réseau avant la publication (épopée 7) ; changer un seuil, c'est changer ce fichier en revue de code.
 2. **La légende suit la vidéo, pas la version** — une ligne par vidéo (série) et par réseau (migration 0013, table `legendes`) : éditer ou changer de gabarit ne la perd pas, et enregistrer ne crée pas de version.
 3. **Refus, jamais de troncature** — un dépassement est refusé en nommant la borne ; les hashtags sont mis en minuscules et dédoublonnés. Le compteur est calculé par le serveur (la feuille fonctionne sans script) ; un compteur en direct pourra s'ajouter avec le script de la page.
+
+## 3.8 Télécharger ma vidéo prête
+
+Question : que livre le téléchargement, et comment sans rendu complet ?
+
+1. **Couverture en SVG** — option A : rastériser en PNG/JPEG au téléchargement (dépendance ou ffmpeg) ; option B : livrer l'image SVG de 3.5 en pièce jointe. Retenu : B, sans dépendance. **Recommandation** : B tant qu'aucun réseau ne refuse le SVG de couverture ; sinon rastériser avec le rendu complet (conteneur ffmpeg).
+2. **Un seul rendu complet à la fois** — `montage.telecharger` ne relance pas un rendu complet déjà en file ou en cours ; un rendu complet bloqué par une garde est refusé (`RENDU_PAS_PRET`) plutôt que relancé à l'identique.
+3. **Rushes purgés** — un rendu complet déjà fait reste téléchargeable (FR-52) ; sans rendu à faire, la demande est refusée (`SEANCE_PURGEE`).

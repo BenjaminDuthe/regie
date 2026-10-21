@@ -2821,6 +2821,33 @@ Corps de la demande (schéma JSON) :
 }
 ```
 
+## `montage.telecharger`
+
+Prépare le téléchargement d’une vidéo prête. Si le rendu complet (1 080×1 920, sans filigrane) est fait, rend son adresse signée (moins d’une heure), la couverture choisie (image SVG) et la légende de chaque réseau. Sinon, met le rendu complet en file (une seule fois : un rendu déjà en file n’est pas doublé) et rend l’état `en_preparation` avec l’heure de fin estimée ; rappelle ensuite cette action. Les rushes purgés n’empêchent pas de télécharger un rendu déjà fait ; sans rendu à faire, ils donnent SEANCE_PURGEE. Un rendu complet bloqué par une garde n’est pas téléchargeable (RENDU_PAS_PRET).
+
+- API : `POST /api/v1/montage/telecharger` · outil MCP : `montage_telecharger`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
 ## `rendu.lire`
 
 Lit un rendu : son état, la progression de sa tâche, la cause d’un échec, et, pour un rendu bloqué, chaque violation des gardes (scène, élément, mesure, seuil).

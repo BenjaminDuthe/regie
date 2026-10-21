@@ -105,3 +105,7 @@ registre y figure (`coeur/test/api.test.ts`).
 
 - Ajout de `montage.legende` (lecture) : la légende et les hashtags d’une vidéo pour un réseau (`instagram`, `facebook`, `tiktok`), avec les bornes du réseau ; une légende est proposée tant que rien n’est enregistré.
 - Ajout de `montage.legender` (écriture) : enregistre la légende et les hashtags d’un réseau ; refus `LEGENDE_TROP_LONGUE`, `TROP_DE_HASHTAGS` ou `HASHTAG_INVALIDE` (422) qui nomme la borne dépassée.
+
+## 2026-10-21 — histoire 3.8
+
+- Ajout de `montage.telecharger` (écriture) : rend l’adresse signée (moins d’une heure) de la vidéo complète 1 080×1 920 sans filigrane, la couverture choisie (SVG) et la légende de chaque réseau ; sans rendu complet, le met en file (une seule fois) et rend `etat: en_preparation` avec l’heure de fin estimée. Refus `SEANCE_PURGEE` si rien n’est rendu et que les rushes sont purgés, `RENDU_PAS_PRET` si le rendu complet est bloqué par une garde.

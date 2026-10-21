@@ -1,0 +1,102 @@
+---
+// Télécharger ma vidéo prête (histoire 3.8, FR-40, FR-52, NFR-18) : la vidéo complète (1 080×1 920, sans filigrane),
+// sa couverture et ses légendes, par une adresse signée de moins d'une heure. Tout passe par l'action
+// `montage.telecharger` (la même que l'API et le MCP) : sans rendu complet, elle le lance et rend l'heure estimée.
+// Sans script : le bouton envoie le formulaire ; seule une demande explicite (POST) peut lancer un rendu.
+import chaines from '../../chaines.json' with { type: 'json' };
+import Base from '../../mises-en-page/Base.astro';
+import { DUREE_ADRESSE_FICHIER_S, montageAccessible, montageTelecharger } from '../../services/actions-montage.ts';
+import { contexteInterface } from '../../services/contextes.ts';
+import { ErreurMetier } from '../../services/erreurs.ts';
+import { executerAction } from '../../services/registre.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.montages;
+const d = t.telechargement;
+const ctx = contexteInterface(services, session);
+const MOTIF_ID = /^[0-9a-f-]{36}$/;
+let id = Astro.url.searchParams.get('id') ?? '';
+let erreur: string | undefined;
+type Resultat =
+  | { etat: 'pret'; video: { adresse: string; octets: number }; couverture: { variante: string }; legendes: { reseau: string; legende: string; hashtags: string[]; enregistree: boolean }[] }
+  | { etat: 'en_preparation'; lance: boolean; finEstimeeEnClair: string | null };
+let resultat: Resultat | undefined;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const brut = form.get('id');
+  id = typeof brut === 'string' ? brut : '';
+  if (MOTIF_ID.test(id)) {
+    try {
+      resultat = (await executerAction(ctx, montageTelecharger, { id })) as Resultat;
+    } catch (err) {
+      if (!(err instanceof ErreurMetier)) throw err;
+      erreur = err.message;
+    }
+  } else erreur = chaines.erreurs.MONTAGE_INTROUVABLE;
+}
+
+let base;
+try {
+  base = await montageAccessible(ctx, MOTIF_ID.test(id) ? id : '00000000-0000-0000-0000-000000000000');
+} catch (err) {
+  if (!(err instanceof ErreurMetier)) throw err;
+}
+if (base === undefined) return new Response(chaines.erreurs.MONTAGE_INTROUVABLE, { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+
+const libelles = t.legende.reseaux as Record<string, string>;
+const texteLegende = (l: { legende: string; hashtags: string[] }): string => [l.legende, l.hashtags.map((h) => `#${h.replace(/^#/, '')}`).join(' ')].filter((x) => x !== '').join('\n\n');
+---
+
+<Base titre={d.titre}>
+  <h1>{d.titre}</h1>
+  <p class="intro">{d.intro}</p>
+  <p><a href={`/montages?id=${base.id}`}>{t.editeur.retourVideo}</a></p>
+  {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
+
+  {
+    resultat?.etat === 'pret' ? (
+      <>
+        <section aria-labelledby="titre-video">
+          <h2 id="titre-video">{d.video}</h2>
+          <p>
+            <a class="bouton" href={resultat.video.adresse} download="video.mp4">{d.telechargerVideo.replace('{taille}', (resultat.video.octets / 1_000_000).toFixed(1))}</a>
+          </p>
+          <p class="doux">{d.format} {d.expire.replace('{minutes}', String(DUREE_ADRESSE_FICHIER_S / 60))}</p>
+        </section>
+        <section aria-labelledby="titre-couverture">
+          <h2 id="titre-couverture">{d.couverture}</h2>
+          <img src={`/montages/couverture.svg?id=${base.id}&variante=${resultat.couverture.variante}`} alt={d.apercuCouverture} width="180" height="320" />
+          <p><a class="bouton" href={`/montages/couverture.svg?id=${base.id}&variante=${resultat.couverture.variante}&telecharger=1`}>{d.telechargerCouverture}</a></p>
+        </section>
+        <section aria-labelledby="titre-legendes">
+          <h2 id="titre-legendes">{d.legendes}</h2>
+          {
+            resultat.legendes.map((l) => (
+              <div>
+                <h3>{libelles[l.reseau] ?? l.reseau}</h3>
+                {!l.enregistree && <p class="doux">{d.legendeProposee}</p>}
+                <textarea readonly rows="4" aria-label={d.champLegende.replace('{reseau}', libelles[l.reseau] ?? l.reseau)}>{texteLegende(l)}</textarea>
+              </div>
+            ))
+          }
+          <p><a href={`/montages/legende?id=${base.id}`}>{d.modifierLegende}</a></p>
+        </section>
+      </>
+    ) : (
+      <form method="post" action="/montages/telecharger">
+        <input type="hidden" name="id" value={base.id} />
+        {resultat?.etat === 'en_preparation' && (
+          <p class="succes" role="status">
+            {resultat.lance && <>{d.lancee} </>}
+            {resultat.finEstimeeEnClair === null ? d.enPreparationSansHeure : d.enPreparation.replace('{heure}', resultat.finEstimeeEnClair)}
+          </p>
+        )}
+        <button type="submit" class="bouton">{resultat?.etat === 'en_preparation' ? d.verifier : d.bouton}</button>
+      </form>
+    )
+  }
+</Base>

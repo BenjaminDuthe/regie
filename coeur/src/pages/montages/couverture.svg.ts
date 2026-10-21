@@ -19,7 +19,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
   try {
     const m = await montageAccessible(contexteInterface(locals.regie, locals.session), id);
     const svg = dessinerCouverture(m.timeline, m.gabarit.definition, variante as VarianteCouverture);
-    return new Response(svg, { headers: { ...ENTETES, 'content-type': 'image/svg+xml; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'" } });
+    return new Response(svg, { headers: { ...ENTETES, ...(url.searchParams.get('telecharger') === '1' ? { 'content-disposition': `attachment; filename="couverture-${variante}.svg"` } : {}), 'content-type': 'image/svg+xml; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'" } });
   } catch (e) {
     if (e instanceof ErreurMetier) return absent();
     throw e;

@@ -145,7 +145,7 @@ const titrePage = detail === undefined ? t.titre : `${t.titre} — ${t.version.r
           )
         }
 
-        <p><a class="bouton" href={`/montages/editer?id=${detail.montage.id}`}>{t.modifier}</a> <a class="bouton" href={`/montages/variantes?id=${detail.montage.id}`}>{t.choisirCouverture}</a> <a class="bouton" href={`/montages/legende?id=${detail.montage.id}`}>{t.ecrireLegende}</a></p>
+        <p><a class="bouton" href={`/montages/editer?id=${detail.montage.id}`}>{t.modifier}</a> <a class="bouton" href={`/montages/variantes?id=${detail.montage.id}`}>{t.choisirCouverture}</a> <a class="bouton" href={`/montages/legende?id=${detail.montage.id}`}>{t.ecrireLegende}</a> <a class="bouton" href={`/montages/telecharger?id=${detail.montage.id}`}>{t.telecharger}</a></p>
         <form method="post" action={`/montages?id=${detail.montage.id}`} class="regenerer">
           <input type="hidden" name="id" value={detail.montage.id} />
           <button type="submit" name="regeneration" value="rendu" class="bouton" disabled={enCours}>{t.regenerer}</button>
