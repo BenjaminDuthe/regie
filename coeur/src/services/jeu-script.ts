@@ -10,6 +10,7 @@ import { EtapesScript, premierHoteRefuse, signerLaissezPasser, type DernierJeu }
 import chaines from '../chaines.json' with { type: 'json' };
 import type { Applications } from '../infra/applications.ts';
 import { TYPE_SECRET_COMPTE_DEMO, compteLieA, lireCompteSerialise, nomSecretCompteDemo, sortieCiteMotDePasse } from '../infra/comptes-demo.ts';
+import type { Notifications } from '../infra/notifications.ts';
 import type { Scripts } from '../infra/scripts.ts';
 import { DUREE_LAISSEZ_PASSER_S, VIEWPORT, hoteDeAccueil, type LanceurCapture } from './capture.ts';
 import { creerMontageDuJeu, type MontageDuJeu, type OptionsMontageJeu } from './film-jeu.ts';
@@ -22,7 +23,7 @@ import { ErreurTache, type Executant } from './travailleur.ts';
 /** Durée maximale d'un jeu, pauses comprises (le délai de garde de la tâche est de 300 s). */
 export const DELAI_JEU_MS = 180_000;
 
-const entreeTache = z.strictObject({ scriptId: z.uuid() });
+const entreeTache = z.strictObject({ scriptId: z.uuid(), rejeu: z.boolean().optional() });
 const CAUSES_ECHEC = ['PAGE_INJOIGNABLE', 'ETAPE_ECHEC', 'DELAI_DEPASSE', 'CAPTURE_ECHEC'] as const;
 const resultatConteneur = z.discriminatedUnion('ok', [
   z.strictObject({
@@ -54,6 +55,8 @@ export type OptionsExecutantJeuScript = Readonly<{
   proxy: string;
   /** Avec lui, un jeu réussi range son film, crée le premier montage et met son rendu allégé dans la file (histoire 4.6). */
   montage?: OptionsMontageJeu;
+  /** Avec elles, un rejeu (histoire 4.11) qui produit un montage lève `montage_remplace` pour la personne. */
+  notifications?: Notifications;
   maintenant?: () => number;
 }>;
 
@@ -173,6 +176,10 @@ export function creerExecutantJeuScript(o: OptionsExecutantJeuScript): Executant
         const base = { dureeMs: r.dureeMs, etapes: r.etapes, hote: r.hote, video: r.video ?? null };
         if (o.montage === undefined || r.video === undefined) return base satisfies ResultatJeuScript;
         const montage = await creerMontageDuJeu(o.montage, { marqueId: tache.marqueId, utilisateurId: tache.utilisateurId }, script, reassembleur.fichier, r.video.octets, entreesJournal, r.dureeMs);
+        // Un rejeu de la chaîne de déploiement remplace la vidéo précédente : la personne en est prévenue, une seule fois par tâche.
+        if (entree.data.rejeu === true && 'montageId' in montage && o.notifications !== undefined) {
+          await o.notifications.creer(tache.marqueId, { utilisateurId: tache.utilisateurId, genre: 'montage_remplace', etape: 'jeu_script', tacheId: tache.id, cle: `montage_remplace:${tache.id}` });
+        }
         return { ...base, montage } satisfies ResultatJeuScript;
       }
       // Les numéros d'étape du jeu vont de 1 (0 : l'ouverture de l'accueil, qui compte pour la première).

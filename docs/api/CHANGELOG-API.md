@@ -86,6 +86,14 @@ registre y figure (`coeur/test/api.test.ts`).
 
 - Ajout de `montage.editer` (écriture) : applique à un montage une liste d’opérations (texte, durée, déplacer, dupliquer, retirer une scène, carte de fin) et crée une nouvelle version immuable ; rend aussi les violations des gardes, scène par scène. Ne lance pas de rendu. `MONTAGE_INTROUVABLE` (404), `MONTAGE_VERSION_PERIMEE` (409), `SCENE_INTROUVABLE` (404), `DERNIERE_SCENE` (409), `TROP_DE_SCENES` (422), `TIMELINE_INVALIDE` (422).
 
+## 2026-10-21 — histoire 4.11
+
+- Ajout de `script.rejouer` (écriture) : rejoue un script depuis la chaîne de déploiement ; même contrôle que `script.jouer`, la tâche est marquée « rejeu » : un rejeu réussi qui produit un montage prévient la personne (`montage_remplace`), un rejeu en échec la prévient par la notification d’étape échouée (numéro d’étape et capture sur la page du script).
+- Ajout de `rejeu.etat` (lecture) : dit si le rejeu est actif pour un script et jusqu’à quand (jamais la valeur du jeton).
+- Ajout de `rejeu.desactiver` (écriture) : révoque tout de suite le jeton de rejeu du script.
+- `rejeu.activer` (création du jeton de rejeu, un an au plus, valeur rendue une seule fois) est réservé à l’interface, après une connexion récente, comme `jeton.creer`.
+- Un jeton de rejeu n’est valable que pour `script.rejouer` sur son script : toute autre action, ou un autre script, donne 403 `JETON_REJEU_LIMITE`. `jeton.lister` rend `scriptId` pour ces jetons.
+
 ## 2026-10-21 — histoire 3.11
 
 - `montage.editer` accepte quatre opérations de plus : `animation` (entrée, sortie, durée, délai des textes d’une scène ; catalogue fermé), `transition` (`coupe` ou `fondu`), `zoom` (actif, niveau de 1,1 à 3, décalage de ±2 s par rapport au clic) et `animation_carte` (animation du texte de la carte de fin). Une valeur hors catalogue ou hors bornes donne 400.

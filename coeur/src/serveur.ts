@@ -115,7 +115,7 @@ function servicesSansBase(): Services {
     cleAdresses: randomBytes(32),
     admin: { sub: undefined, email: undefined },
     urlPublique: undefined,
-    jetons: { creer: refus, lister: async () => [], revoquer: async () => false, authentifier: async () => undefined },
+    jetons: { creer: refus, lister: async () => [], revoquer: async () => false, revoquerDuScript: async () => 0, authentifier: async () => undefined },
     oauth: {
       enregistrerClient: refus,
       trouverClient: async () => undefined,
@@ -261,7 +261,7 @@ if (import.meta.main) {
             return {
               ...(moteurVoix === undefined ? {} : { voix: creerExecutantVoix({ montages: services.montages, stockage: services.stockage, moteur: moteurVoix, file: services.file }) }),
               rendu: creerExecutantRendu({ montages: services.montages, stockage: services.stockage, lanceur: lanceurRendu, encodeur: env.REGIE_RENDU_ENCODEUR }),
-              jeu_script: creerExecutantJeuScript({ applications: services.applications, scripts: services.scripts, passerelle, lanceur, journaux: services.journauxJeu, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY, montage: { montages: services.montages, stockage: services.stockage, gabarits: services.gabarits, file: services.file, voix: moteurVoix !== undefined } }),
+              jeu_script: creerExecutantJeuScript({ applications: services.applications, scripts: services.scripts, passerelle, lanceur, journaux: services.journauxJeu, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY, montage: { montages: services.montages, stockage: services.stockage, gabarits: services.gabarits, file: services.file, voix: moteurVoix !== undefined }, notifications: services.notifications }),
               exploration: creerExecutantExploration({ applications: services.applications, lanceur, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
               capture: creerExecutantCapture({ applications: services.applications, lanceur, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
               test_connexion: creerExecutantTestConnexion({

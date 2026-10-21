@@ -9,7 +9,8 @@ import { EtapeScript, VERBES_SCRIPT, type EtapeScript as Etape } from '@regie/co
 import chaines from '../chaines.json' with { type: 'json' };
 import Base from '../mises-en-page/Base.astro';
 import { applicationLister } from '../services/actions-application.ts';
-import { scriptAjouterEtape, scriptCreer, scriptDeplacerEtape, scriptJouer, scriptLister, scriptModifierEtape, scriptRetirerEtape } from '../services/actions-script.ts';
+import { exigerAuthRecente } from '../auth/auth-recente.ts';
+import { rejeuActiver, rejeuDesactiver, rejeuEtat, scriptAjouterEtape, scriptCreer, scriptDeplacerEtape, scriptJouer, scriptLister, scriptModifierEtape, scriptRetirerEtape } from '../services/actions-script.ts';
 import { contexteInterface } from '../services/contextes.ts';
 import { ErreurMetier } from '../services/erreurs.ts';
 import { executerAction } from '../services/registre.ts';
@@ -24,6 +25,8 @@ const ctx = contexteInterface(services, session);
 const NOM_COOKIE = 'regie_etape_retiree';
 const UUID = /^[0-9a-f-]{36}$/;
 let erreur: string | undefined;
+// Le jeton de rejeu qui vient d'être créé : montré une seule fois, dans la réponse à ce geste (jamais redirigé, jamais gardé).
+let jetonRejeu: string | undefined;
 // Le jeu en cours à suivre : la tâche rendue par `script.jouer`, passée dans l'adresse après le geste.
 const tacheJeu = UUID.test(Astro.url.searchParams.get('jeu') ?? '') ? Astro.url.searchParams.get('jeu')! : undefined;
 
@@ -44,11 +47,19 @@ if (Astro.request.method === 'POST') {
       const r = (await executerAction(ctx, scriptJouer, { id })) as { tacheId: string };
       return Astro.redirect(`/scripts?id=${id}&jeu=${r.tacheId}`, 303);
     }
-    if (geste === 'creer') {
+    if (geste === 'rejeu_activer') {
+      // Créer un jeton exige une connexion de moins de 10 minutes, comme pour les jetons personnels.
+      const aRefaire = exigerAuthRecente(session, `/scripts?id=${id}`);
+      if (aRefaire !== undefined) return Astro.redirect(aRefaire, 303);
+      jetonRejeu = ((await executerAction(ctx, rejeuActiver, { id })) as { clair: string }).clair;
+    } else if (geste === 'rejeu_desactiver') {
+      await executerAction(ctx, rejeuDesactiver, { id });
+      return Astro.redirect(`/scripts?id=${id}&ok=1`, 303);
+    } else if (geste === 'creer') {
       const r = (await executerAction(ctx, scriptCreer, { applicationId: champ('applicationId'), nom: champ('nom'), origine: 'claude', etapes: [] })) as { script: { id: string } };
       return Astro.redirect(`/scripts?id=${r.script.id}`, 303);
     }
-    if (geste === 'monter' || geste === 'descendre') await executerAction(ctx, scriptDeplacerEtape, { id, version, position, sens: geste });
+    else if (geste === 'monter' || geste === 'descendre') await executerAction(ctx, scriptDeplacerEtape, { id, version, position, sens: geste });
     else if (geste === 'retirer') {
       const r = (await executerAction(ctx, scriptRetirerEtape, { id, version, position })) as { retiree: Etape };
       const valeur = Buffer.from(JSON.stringify({ id, position, etape: r.retiree })).toString('base64url');
@@ -84,7 +95,7 @@ if (Astro.request.method === 'POST') {
       const nouvelle = actuelle?.verbe === 'aller' ? { ...actuelle, url: champ('nouvelle') } : actuelle !== undefined && 'cible' in actuelle ? { ...actuelle, cible: champ('nouvelle') } : actuelle;
       await executerAction(ctx, scriptModifierEtape, { id, version, position, etape: nouvelle });
     }
-    return Astro.redirect(UUID.test(id) ? `/scripts?id=${id}&ok=1` : '/scripts', 303);
+    if (jetonRejeu === undefined) return Astro.redirect(UUID.test(id) ? `/scripts?id=${id}&ok=1` : '/scripts', 303);
   } catch (e) {
     if (!(e instanceof ErreurMetier)) throw e;
     erreur = e.message;
@@ -96,6 +107,7 @@ const adresseMcp = `${Astro.url.origin}/mcp`;
 const modeleInitial = d.modele.replace('{application}', applications[0]?.nom ?? '').replace('{nom}', d.nomExemple).replace('{demande}', d.demandeExemple);
 const scripts = await services.scripts.lister(session.marqueId, ctx.utilisateurId, undefined);
 const courant = UUID.test(idDemande) ? await services.scripts.lire(session.marqueId, ctx.utilisateurId, idDemande) : undefined;
+const etatRejeu = courant === undefined ? undefined : ((await rejeuEtat.executer(ctx, { id: courant.id })) as { actif: boolean; expireLe: string | null });
 const application = courant === undefined ? undefined : applications.find((a) => a.id === courant.applicationId);
 const formatDate = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' });
 const date = (iso: string): string => formatDate.format(new Date(iso));
@@ -226,6 +238,33 @@ const champCible = (e: Etape): 'url' | 'cible' | undefined => (e.verbe === 'alle
           <input type="hidden" name="id" value={courant.id} />
           <button type="submit" class="bouton bouton-principal" disabled={courant.etapes.length === 0}>{t.jouer.bouton}</button>
         </form>
+
+        <section class="rejeu" aria-labelledby="titre-rejeu">
+          <h3 id="titre-rejeu">{t.rejeu.interrupteur}</h3>
+          <p class="doux">{t.rejeu.aide}</p>
+          <form method="post" action={`/scripts?id=${courant.id}`} class="interrupteur-rejeu">
+            <input type="hidden" name="geste" value={etatRejeu?.actif === true ? 'rejeu_desactiver' : 'rejeu_activer'} />
+            <input type="hidden" name="id" value={courant.id} />
+            <button type="submit" role="switch" aria-checked={etatRejeu?.actif === true ? 'true' : 'false'} class="interrupteur" disabled={courant.etapes.length === 0 && etatRejeu?.actif !== true}>
+              <span class="curseur-interrupteur" aria-hidden="true"></span>
+              <span>{t.rejeu.interrupteur}</span>
+            </button>
+            <span class="doux">{etatRejeu?.actif === true && etatRejeu.expireLe !== null ? t.rejeu.actif.replace('{date}', date(etatRejeu.expireLe)) : t.rejeu.inactif}</span>
+          </form>
+          {
+            jetonRejeu !== undefined && (
+              <div class="jeton-rejeu" role="status" aria-live="polite">
+                <p><strong>{t.rejeu.nouveau}</strong></p>
+                <code class="valeur" id="valeur-rejeu">{jetonRejeu}</code>
+                <p><button type="button" class="bouton secondaire" id="copier-rejeu" data-copie={t.rejeu.copie}>{t.rejeu.copier}</button> <span id="etat-copie" class="doux" role="status"></span></p>
+                <p class="avertissement" role="alert">{t.rejeu.avertissement}</p>
+                <p class="doux">{t.rejeu.appel}</p>
+                <pre class="appel-rejeu">{`curl -X POST ${Astro.url.origin}/api/v1/script/rejouer \\\n  -H "Authorization: Bearer $REGIE_JETON_REJEU" \\\n  -H "Content-Type: application/json" \\\n  -d '{"id":"${courant.id}"}'`}</pre>
+              </div>
+            )
+          }
+          <p class="doux">{t.rejeu.echec}</p>
+        </section>
 
         {
           tacheJeu !== undefined && (
@@ -365,6 +404,21 @@ const champCible = (e: Etape): 'url' | 'cible' | undefined => (e.verbe === 'alle
 </Base>
 
 <script>
+  // Copie du jeton de rejeu (histoire 4.11) : une action de l'utilisateur, rien n'est envoyé nulle part.
+  document.getElementById('copier-rejeu')?.addEventListener('click', async (e) => {
+    const bouton = e.currentTarget as HTMLButtonElement;
+    const valeur = document.getElementById('valeur-rejeu')?.textContent ?? '';
+    const etat = document.getElementById('etat-copie');
+    try {
+      await navigator.clipboard.writeText(valeur);
+      if (etat) etat.textContent = bouton.dataset['copie'] ?? '';
+    } catch {
+      // Sans presse-papiers, la valeur reste sélectionnable d'un clic.
+    }
+  });
+</script>
+
+<script>
   // Modèle de demande à copier : le texte est assemblé par textContent / value, jamais en HTML. Aucun appel réseau.
   const zone = document.getElementById('demande-texte') as HTMLTextAreaElement | null;
   const bloc = document.querySelector<HTMLElement>('.demande-claude');
@@ -478,6 +532,18 @@ const champCible = (e: Etape): 'url' | 'cible' | undefined => (e.verbe === 'alle
   .etape { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px; min-width: 0; }
   .etape-texte { margin: 0 0 8px; overflow-wrap: anywhere; }
   .etape-panne { border-color: var(--erreur, #c0392b); border-width: 2px; }
+  .rejeu { margin: 20px 0; display: grid; gap: 8px; }
+  .interrupteur-rejeu { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .interrupteur { display: inline-flex; align-items: center; gap: 10px; background: none; border: 1px solid var(--trait); border-radius: 999px; padding: 6px 14px 6px 6px; font: inherit; color: var(--texte); cursor: pointer; }
+  .curseur-interrupteur { width: 36px; height: 20px; border-radius: 999px; background: var(--trait); position: relative; }
+  .curseur-interrupteur::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); transition: transform 0.15s; }
+  .interrupteur[aria-checked='true'] .curseur-interrupteur { background: var(--accent); }
+  .interrupteur[aria-checked='true'] .curseur-interrupteur::after { transform: translateX(16px); }
+  .interrupteur:disabled { opacity: 0.5; cursor: not-allowed; }
+  .jeton-rejeu { background: var(--garder-fond); border-radius: var(--rayon); padding: 4px 16px 12px; }
+  .jeton-rejeu .valeur { display: block; overflow-wrap: anywhere; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; user-select: all; }
+  .avertissement { color: var(--jeter); font-weight: 600; }
+  .appel-rejeu { overflow-x: auto; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
   .capture-panne { max-width: 100%; height: auto; border: 1px solid var(--trait); border-radius: var(--rayon); }
   .actions-etape { display: flex; flex-wrap: wrap; gap: 8px; }
   .actions-etape form { margin: 0; }

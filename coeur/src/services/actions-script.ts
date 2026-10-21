@@ -241,25 +241,105 @@ export const scriptModifierEtape = definirAction({
   objet: (entree) => `script:${entree.id}`,
 });
 
+/** Lance le jeu d'un script : mêmes vérifications pour « Jouer et filmer » et pour le rejeu de la chaîne de déploiement. */
+async function lancerJeu(ctx: ContexteAction, id: string, rejeu: boolean) {
+  const script = await scriptAccessible(ctx, id);
+  if (script.etapes.length === 0) throw new ErreurMetier('SCRIPT_SANS_ETAPE', 422, { id: script.id });
+  const application = await applicationAccessible(ctx, script.applicationId);
+  // Les hôtes ont pu changer depuis l'écriture du script : on refuse avant de lancer un navigateur.
+  const refusee = premierHoteRefuse(script.etapes, application.hotes);
+  if (refusee !== undefined) throw new ErreurMetier('SCRIPT_HOTE_REFUSE', 422, refusee);
+  if (script.etapes.some((e) => e.verbe === 'connexion')) {
+    const etat = await ctx.services.comptesDemo.etat(ctx.marqueId, application.id);
+    if (!etat.depose) throw new ErreurMetier('COMPTE_ABSENT', 409, { applicationId: application.id });
+  }
+  const tache = await ctx.services.file.enfiler(ctx.marqueId, ctx.utilisateurId, 'jeu_script', rejeu ? { scriptId: script.id, rejeu: true } : { scriptId: script.id });
+  return { tacheId: tache.id, scriptId: script.id, version: script.version };
+}
+
 export const scriptJouer = definirAction({
   domaine: 'script',
   verbe: 'jouer',
   description: 'Joue le script dans la capture isolée et le filme en vertical. Rend la tâche à suivre (`tache.lire`) ; le résultat va au dernier jeu du script (`script.lire`) : réussi, échec à l’étape N, ou hôte refusé. Une navigation hors de la liste d’hôtes de l’application arrête le jeu.',
   portee: 'ecriture',
   entree: z.strictObject({ id: identifiant }),
+  executer: (ctx, entree) => lancerJeu(ctx, entree.id, false),
+  objet: (entree) => `script:${entree.id}`,
+});
+
+// --- Histoire 4.11 : rejouer la démo à chaque mise en production (FR-19, AR-13) ---------------------------------------
+// La chaîne de déploiement appelle `script.rejouer` avec un jeton limité à ce script. Le jeu est le même ; en plus, un
+// rejeu réussi qui produit un montage prévient la personne (`montage_remplace`) et un rejeu en échec la prévient par la
+// notification d'étape échouée, avec le numéro de l'étape et la capture sur la page du script.
+
+export const scriptRejouer = definirAction({
+  domaine: 'script',
+  verbe: 'rejouer',
+  description: 'Rejoue le script depuis la chaîne de déploiement (jeton de rejeu) : crée une séance liée au script et un nouveau montage, et te prévient du remplacement ou de l’étape en échec. Rend la tâche à suivre (`tache.lire`).',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant }),
+  executer: (ctx, entree) => lancerJeu(ctx, entree.id, true),
+  objet: (entree) => `script:${entree.id}`,
+});
+
+const DUREE_REJEU_JOURS = 365;
+
+/** Le jeton de rejeu encore valable de ce script, s'il y en a un (jamais sa valeur). */
+async function jetonRejeuActif(ctx: ContexteAction, scriptId: string) {
+  const maintenant = Date.now();
+  const jetons = await ctx.services.jetons.lister(ctx.marqueId, ctx.utilisateurId);
+  return jetons.find((j) => j.scriptId === scriptId && j.revoqueLe === undefined && j.expireLe.getTime() > maintenant);
+}
+
+export const rejeuEtat = definirAction({
+  domaine: 'rejeu',
+  verbe: 'etat',
+  description: 'Dit si le rejeu à chaque mise en production est actif pour un script, et jusqu’à quand (jamais la valeur du jeton).',
+  portee: 'lecture',
+  entree: z.strictObject({ id: identifiant }),
   executer: async (ctx, entree) => {
     const script = await scriptAccessible(ctx, entree.id);
-    if (script.etapes.length === 0) throw new ErreurMetier('SCRIPT_SANS_ETAPE', 422, { id: script.id });
-    const application = await applicationAccessible(ctx, script.applicationId);
-    // Les hôtes ont pu changer depuis l'écriture du script : on refuse avant de lancer un navigateur.
-    const refusee = premierHoteRefuse(script.etapes, application.hotes);
-    if (refusee !== undefined) throw new ErreurMetier('SCRIPT_HOTE_REFUSE', 422, refusee);
-    if (script.etapes.some((e) => e.verbe === 'connexion')) {
-      const etat = await ctx.services.comptesDemo.etat(ctx.marqueId, application.id);
-      if (!etat.depose) throw new ErreurMetier('COMPTE_ABSENT', 409, { applicationId: application.id });
-    }
-    const tache = await ctx.services.file.enfiler(ctx.marqueId, ctx.utilisateurId, 'jeu_script', { scriptId: script.id });
-    return { tacheId: tache.id, scriptId: script.id, version: script.version };
+    const jeton = await jetonRejeuActif(ctx, script.id);
+    return { scriptId: script.id, actif: jeton !== undefined, expireLe: jeton?.expireLe.toISOString() ?? null };
+  },
+  objet: (entree) => `script:${entree.id}`,
+});
+
+export const rejeuActiver = definirAction({
+  domaine: 'rejeu',
+  verbe: 'activer',
+  description: 'Active le rejeu à chaque mise en production : crée un jeton limité à ce script (un an au plus), rendu une seule fois. Réservé à l’interface, après une connexion récente.',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant }),
+  executer: async (ctx, entree) => {
+    const script = await scriptAccessible(ctx, entree.id);
+    // Un seul jeton de rejeu par script : en activer un nouveau remplace (révoque) l'ancien.
+    await ctx.services.jetons.revoquerDuScript(ctx.marqueId, ctx.utilisateurId, script.id);
+    const { jeton, clair } = await ctx.services.jetons.creer({
+      marqueId: ctx.marqueId,
+      utilisateurId: ctx.utilisateurId,
+      sub: ctx.sub,
+      nom: chaines.scripts.rejeu.nomJeton.replace('{nom}', script.nom).slice(0, 80),
+      portees: ['ecriture'],
+      espaceIds: [script.espaceId],
+      dureeJours: DUREE_REJEU_JOURS,
+      scriptId: script.id,
+    });
+    return { scriptId: script.id, expireLe: jeton.expireLe.toISOString(), clair };
+  },
+  objet: (entree) => `script:${entree.id}`,
+});
+
+export const rejeuDesactiver = definirAction({
+  domaine: 'rejeu',
+  verbe: 'desactiver',
+  description: 'Désactive le rejeu à chaque mise en production : le jeton de rejeu du script est révoqué tout de suite.',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant }),
+  executer: async (ctx, entree) => {
+    const script = await scriptAccessible(ctx, entree.id);
+    const revoques = await ctx.services.jetons.revoquerDuScript(ctx.marqueId, ctx.utilisateurId, script.id);
+    return { scriptId: script.id, revoques };
   },
   objet: (entree) => `script:${entree.id}`,
 });
@@ -367,4 +447,4 @@ export const scriptProposer = definirAction({
   objet: (entree, sortie) => (sortie.creee ? `script:${sortie.script.id}` : `application:${entree.applicationId}`),
 });
 
-export const ACTIONS_SCRIPT = [scriptLister, scriptLire, scriptCreer, scriptDefinir, scriptAjouterEtape, scriptDeplacerEtape, scriptRetirerEtape, scriptModifierEtape, scriptJouer, scriptExplorer, scriptExploration, scriptProposer] as const;
+export const ACTIONS_SCRIPT = [scriptLister, scriptLire, scriptCreer, scriptDefinir, scriptAjouterEtape, scriptDeplacerEtape, scriptRetirerEtape, scriptModifierEtape, scriptJouer, scriptRejouer, rejeuEtat, rejeuActiver, rejeuDesactiver, scriptExplorer, scriptExploration, scriptProposer] as const;

@@ -31,5 +31,6 @@ export function contexteJeton(services: Services, principal: Principal, origine:
     portees: principal.portees,
     espaceIds: principal.espaceIds,
     pat: principal.jetonId,
+    ...(principal.scriptId === undefined ? {} : { scriptId: principal.scriptId }),
   };
 }

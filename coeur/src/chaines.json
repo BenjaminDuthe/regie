@@ -162,6 +162,7 @@
     "ERREUR_INCONNUE": "Quelque chose s’est mal passé de notre côté. Réessaie dans un instant.",
     "ENTREE_INVALIDE": "La demande n’est pas valable : vérifie {champs}.",
     "AUTH_JETON_REQUIS": "Cette demande exige un jeton valide, non expiré et non révoqué.",
+    "JETON_REJEU_LIMITE": "Ce jeton ne sert qu’à rejouer son script : l’action {action} lui est refusée.",
     "JETON_PORTEE_INSUFFISANTE": "Ce jeton n’a pas le droit d’écrire : l’action {action} demande la portée {portee}.",
     "JETON_INTROUVABLE": "Ce jeton n’existe pas, ou il est déjà révoqué.",
     "ESPACE_INTROUVABLE": "Cet espace n’existe pas, ou tu n’y as pas accès.",
@@ -402,6 +403,7 @@
     "vide": "Rien de nouveau.",
     "acquitter": "Compris",
     "etape_echouee": "L’étape « {etape} » a échoué.",
+    "montage_remplace": "Ton script a été rejoué : un nouveau montage est prêt et remplace le précédent dans ta bibliothèque.",
     "chaine_rompue": "Le journal d’audit ne se vérifie plus : une ligne a été modifiée ou retirée. Regarde le journal.",
     "defaut": "Un événement demande ton attention.",
     "voirTache": "Voir la tâche"
@@ -799,6 +801,19 @@
       "trouver": "trouver le formulaire",
       "saisir": "saisir le compte",
       "valider": "valider la connexion"
+    },
+    "rejeu": {
+      "interrupteur": "Rejouer à chaque mise en production",
+      "aide": "Ta chaîne de déploiement rejoue ce script avec un jeton limité à lui seul : il ne peut rien faire d’autre, il vit un an au plus, tu peux le révoquer d’un geste.",
+      "actif": "Actif jusqu’au {date}.",
+      "inactif": "Inactif.",
+      "nomJeton": "Rejeu : {nom}",
+      "nouveau": "Jeton de rejeu",
+      "avertissement": "Copie-le maintenant : il ne s’affichera plus. Garde-le dans les secrets de ta chaîne de déploiement, jamais dans le dépôt.",
+      "copier": "Copier le jeton",
+      "copie": "Jeton copié.",
+      "appel": "Appel à lancer après chaque mise en production",
+      "echec": "Si un rejeu échoue, tu es prévenue ici avec le numéro de l’étape et sa capture d’écran : corrige le script puis rejoue."
     },
     "jouer": {
       "bouton": "Jouer et filmer",

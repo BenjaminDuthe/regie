@@ -2031,6 +2031,114 @@ Corps de la demande (schéma JSON) :
 }
 ```
 
+## `script.rejouer`
+
+Rejoue le script depuis la chaîne de déploiement (jeton de rejeu) : crée une séance liée au script et un nouveau montage, et te prévient du remplacement ou de l’étape en échec. Rend la tâche à suivre (`tache.lire`).
+
+- API : `POST /api/v1/script/rejouer` · outil MCP : `script_rejouer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `rejeu.etat`
+
+Dit si le rejeu à chaque mise en production est actif pour un script, et jusqu’à quand (jamais la valeur du jeton).
+
+- API : `POST /api/v1/rejeu/etat` · outil MCP : `rejeu_etat`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `rejeu.activer`
+
+Active le rejeu à chaque mise en production : crée un jeton limité à ce script (un an au plus), rendu une seule fois. Réservé à l’interface, après une connexion récente.
+
+- Réservée à l'interface : la valeur du jeton de rejeu se montre une seule fois à une personne connectée récemment : un jeton ne crée pas de jeton (AD-15, AR-13)
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `rejeu.desactiver`
+
+Désactive le rejeu à chaque mise en production : le jeton de rejeu du script est révoqué tout de suite.
+
+- API : `POST /api/v1/rejeu/desactiver` · outil MCP : `rejeu_desactiver`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
 ## `script.explorer`
 
 Explore une page de ton application dans la capture isolée, pour écrire un script juste : lance la tâche à suivre (`tache_lire`), puis lis la page avec `script_exploration`. Sans adresse, regie ouvre la page d’accueil. L’adresse doit rester dans les hôtes déclarés de l’application. Aucun compte de démonstration n’est utilisé : tu vois ce qu’un visiteur voit.

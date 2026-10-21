@@ -22,6 +22,8 @@ export type ContexteAction = Readonly<{
   espaceIds: readonly string[] | undefined;
   /** Jeton d'API ou connexion à l'origine de l'appel (jamais sa valeur). */
   pat: string | undefined;
+  /** Jeton de rejeu (histoire 4.11) : seul `script.rejouer` sur ce script est permis. */
+  scriptId?: string | undefined;
 }>;
 
 export type Action<E = unknown, S = unknown> = Readonly<{
@@ -97,6 +99,10 @@ export async function executerAction(contexte: ContexteAction, action: Action<an
   if (!porteeSuffit(contexte.portees, action.portee)) {
     return refuser(new ErreurMetier('JETON_PORTEE_INSUFFISANTE', 403, { action: nomAction(action), portee: action.portee }));
   }
+  // Un jeton de rejeu ne sert qu'à rejouer son script : tout le reste lui est refusé (refus par défaut, AR-13).
+  if (contexte.scriptId !== undefined && nomAction(action) !== 'script.rejouer') {
+    return refuser(new ErreurMetier('JETON_REJEU_LIMITE', 403, { action: nomAction(action) }));
+  }
   const lecture = action.entree.safeParse(entreeBrute ?? {});
   if (!lecture.success) {
     // Les messages de zod sont en anglais : on ne rend que les champs en cause.
@@ -104,6 +110,9 @@ export async function executerAction(contexte: ContexteAction, action: Action<an
     if (precise !== undefined) return refuser(precise);
     const champs = [...new Set(lecture.error.issues.map((i) => i.path.join('.') || '(corps)'))];
     return refuser(new ErreurMetier('ENTREE_INVALIDE', 400, { champs: champs.join(', ') }));
+  }
+  if (contexte.scriptId !== undefined && (lecture.data as { id?: unknown }).id !== contexte.scriptId) {
+    return refuser(new ErreurMetier('JETON_REJEU_LIMITE', 403, { action: nomAction(action) }));
   }
   let sortie: unknown;
   try {

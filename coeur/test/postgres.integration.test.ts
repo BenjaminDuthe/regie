@@ -714,6 +714,36 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
     }
   });
 
+  it('jeton de rejeu : lié à un script, un an au plus, écriture sur un seul espace, révoqué avec son script (histoire 4.11)', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const applications = new ApplicationsPg(contexte.pool);
+      const scripts = new ScriptsPg(contexte.pool);
+      const jetons = new JetonsApiPg(contexte.pool);
+      const marque = await marques.creer(`Rejeu ${suffixe}`);
+      const a = await espaces.assurer(marque, 'sub-rj', undefined, 'Établia');
+      const app = (await applications.creer({ marqueId: marque, utilisateurId: a.utilisateurId, espaceId: a.espaces[0]!.id, nom: 'Démo', accueil: 'https://demo.etablia.fr/', hotes: ['demo.etablia.fr'] }))!;
+      const script = (await scripts.creer({ marqueId: marque, utilisateurId: a.utilisateurId, applicationId: app.id, origine: 'claude', nom: 'Parcours', etapes: [{ verbe: 'aller' as const, url: 'https://demo.etablia.fr/' }] }))!;
+      const base = { marqueId: marque, utilisateurId: a.utilisateurId, sub: 'sub-rj', nom: 'rejeu', espaceIds: [a.espaces[0]!.id], scriptId: script.id };
+
+      const { jeton, clair } = await jetons.creer({ ...base, portees: ['ecriture'], dureeJours: 365 });
+      expect(await jetons.authentifier(clair)).toMatchObject({ scriptId: script.id });
+      // Sans script, 90 jours au plus ; avec un script, la lecture seule ou 366 jours sont refusés.
+      await expect(jetons.creer({ ...base, scriptId: undefined, portees: ['ecriture'], dureeJours: 365 })).rejects.toThrow(/check|jetons_api/);
+      await expect(jetons.creer({ ...base, portees: ['lecture'], dureeJours: 30 })).rejects.toThrow(/check|jetons_api/);
+      await expect(jetons.creer({ ...base, portees: ['ecriture'], dureeJours: 400 })).rejects.toThrow(/check|jetons_api/);
+
+      expect(await jetons.revoquerDuScript(marque, a.utilisateurId, script.id)).toBe(1);
+      expect(await jetons.authentifier(clair)).toBeUndefined();
+      expect(await jetons.revoquerDuScript(marque, a.utilisateurId, script.id)).toBe(0);
+      expect(jeton.scriptId).toBe(script.id);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
   it('scripts : cloisonnés par marque et par personne, version vérifiée, dernier jeu remis à vide, RLS forcée (histoire 4.4)', async () => {
     const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
     try {

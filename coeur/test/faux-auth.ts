@@ -16,7 +16,7 @@ import type { CibleCompte, ComptesDemo, CompteDemo, EtatCompteDemo } from '../sr
 import { JournauxJeu } from '../src/services/journaux-jeu.ts';
 import type { Gabarit, Gabarits } from '../src/infra/gabarits.ts';
 import { idUtilisateur, trierEspaces, type Espace, type Espaces } from '../src/infra/espaces.ts';
-import { DUREE_MAX_JETON_JOURS, composerJeton, hacherJeton, marqueDuJeton, type JetonApi, type JetonsApi, type NouveauJeton, type Principal } from '../src/infra/jetons.ts';
+import { DUREE_MAX_JETON_JOURS, DUREE_MAX_REJEU_JOURS, composerJeton, hacherJeton, marqueDuJeton, type JetonApi, type JetonsApi, type NouveauJeton, type Principal } from '../src/infra/jetons.ts';
 import { ACCES_VIE_S, CONNEXION_VIE_MAX_JOURS, CLIENTS_MAX, CODE_VIE_S, REFRESH_VIE_JOURS, composerIdentifiantClient, composerSecret, marqueDuClient, marqueDuSecret, type ClientOauth, type CodeConsomme, type ConnexionClaude, type Emission, type NouveauCode, type Oauth, type Rafraichissement } from '../src/infra/oauth.ts';
 import { Coffre } from '../src/infra/coffre.ts';
 import { FileMemoire } from './faux-file.ts';
@@ -250,10 +250,10 @@ export class JetonsMemoire implements JetonsApi {
   readonly lignes: (JetonApi & { marqueId: string; utilisateurId: string; sub: string; hache: string })[] = [];
   maintenant = () => Date.now();
   async creer(n: NouveauJeton) {
-    if (n.dureeJours < 1 || n.dureeJours > DUREE_MAX_JETON_JOURS) throw new Error('durée hors limites');
+    if (n.dureeJours < 1 || n.dureeJours > (n.scriptId === undefined ? DUREE_MAX_JETON_JOURS : DUREE_MAX_REJEU_JOURS)) throw new Error('durée hors limites');
     const clair = composerJeton(n.marqueId);
     const cree = this.maintenant();
-    const jeton: JetonApi = { id: crypto.randomUUID(), nom: n.nom, portees: n.portees, espaceIds: n.espaceIds, creeLe: new Date(cree), expireLe: new Date(cree + n.dureeJours * 86_400_000), revoqueLe: undefined };
+    const jeton: JetonApi = { id: crypto.randomUUID(), nom: n.nom, portees: n.portees, espaceIds: n.espaceIds, creeLe: new Date(cree), expireLe: new Date(cree + n.dureeJours * 86_400_000), revoqueLe: undefined, ...(n.scriptId === undefined ? {} : { scriptId: n.scriptId }) };
     this.lignes.push({ ...jeton, marqueId: n.marqueId, utilisateurId: n.utilisateurId, sub: n.sub, hache: hacherJeton(clair).toString('hex') });
     return { jeton, clair };
   }
@@ -266,11 +266,16 @@ export class JetonsMemoire implements JetonsApi {
     (ligne as { revoqueLe: Date | undefined }).revoqueLe = new Date(this.maintenant());
     return true;
   }
+  async revoquerDuScript(marqueId: string, utilisateurId: string, scriptId: string) {
+    const cibles = this.lignes.filter((l) => l.marqueId === marqueId && l.utilisateurId === utilisateurId && l.scriptId === scriptId && l.revoqueLe === undefined);
+    for (const l of cibles) (l as { revoqueLe: Date | undefined }).revoqueLe = new Date(this.maintenant());
+    return cibles.length;
+  }
   async authentifier(clair: string): Promise<Principal | undefined> {
     const marqueId = marqueDuJeton(clair);
     const ligne = marqueId === undefined ? undefined : this.lignes.find((l) => l.hache === hacherJeton(clair).toString('hex'));
     if (marqueId === undefined || ligne === undefined || ligne.marqueId !== marqueId || ligne.revoqueLe !== undefined || ligne.expireLe.getTime() <= this.maintenant()) return undefined;
-    return { marqueId, utilisateurId: ligne.utilisateurId, sub: ligne.sub, jetonId: ligne.id, portees: ligne.portees, espaceIds: ligne.espaceIds };
+    return { marqueId, utilisateurId: ligne.utilisateurId, sub: ligne.sub, jetonId: ligne.id, portees: ligne.portees, espaceIds: ligne.espaceIds, ...(ligne.scriptId === undefined ? {} : { scriptId: ligne.scriptId }) };
   }
 }
 
