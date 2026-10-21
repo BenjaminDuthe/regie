@@ -5,7 +5,8 @@
 
 import type { Pool } from 'pg';
 import type { Services } from '../auth/services.ts';
-import { tachesReseauFinies } from '../infra/publications.ts';
+import { echeancesPublicationPerimees, tachesReseauFinies } from '../infra/publications.ts';
+import { auditerTentative } from './echeance.ts';
 import { notifierIssue, type ResultatReseau } from './executant-reseau.ts';
 
 /** On regarde les tâches des deux derniers jours : au-delà, un état resté en suspens n'est plus qu'un cas de support. */
@@ -27,6 +28,15 @@ export async function reconcilierPublications(pool: Pool, services: Services, ma
     const p = await services.publications.rattraper(marqueId, t.utilisateurId, t.id, issue);
     if (p === undefined) continue;
     rattrapees += 1;
+    await notifierIssue(services, marqueId, p);
+  }
+  // Les échéances que le planificateur a laissées passer (plus de 2 h) : la publication échoue avec sa cause, sans rien envoyer.
+  const depuis = new Date(services.maintenant() - FENETRE_RECONCILIATION_MS);
+  for (const e of await echeancesPublicationPerimees(pool, marqueId, depuis)) {
+    const p = await services.publications.echouerProgrammee(marqueId, e.utilisateurId, e.publicationId, e.epoch, ['programmee', 'en_attente_confirmation'], 'ECHEANCE_PERIMEE', 'rejouer');
+    if (p === undefined) continue;
+    rattrapees += 1;
+    await auditerTentative(services, marqueId, e.utilisateurId, p.id);
     await notifierIssue(services, marqueId, p);
   }
   return rattrapees;

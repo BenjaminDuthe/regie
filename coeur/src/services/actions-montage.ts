@@ -53,6 +53,14 @@ export const renduVisible = (r: Rendu) => ({
   termineLe: r.termineLe?.toISOString() ?? null,
 });
 
+/** Une version nouvelle met en attente de confirmation les publications programmées de la vidéo (histoire 7.4) : on prévient. */
+async function prevenirPublicationsAConfirmer(ctx: ContexteAction, montage: Montage): Promise<void> {
+  const attente = await ctx.services.publications.lister(ctx.marqueId, ctx.utilisateurId, { serieId: montage.serieId, etat: 'en_attente_confirmation' });
+  for (const p of attente) {
+    await ctx.services.notifications.creer(ctx.marqueId, { utilisateurId: p.utilisateurId, genre: 'publication_a_confirmer', etape: p.reseau, cause: 'MONTAGE_MODIFIE', action: 'confirmer', cle: `publication_a_confirmer:${p.id}:${montage.numero}` });
+  }
+}
+
 export async function montageAccessible(ctx: ContexteAction, id: string): Promise<Montage> {
   const m = await ctx.services.montages.lire(ctx.marqueId, ctx.utilisateurId, id);
   // Un jeton ne voit que les espaces qu'on lui a donnés : pour lui, un autre montage n'existe pas.
@@ -157,6 +165,7 @@ export const montageDefinirVoix = definirAction({
     const r = await ctx.services.montages.creerVersion({ marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId, parentId: base.id, origine: 'edition', timeline });
     if (r.etat === 'introuvable') throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
     if (r.etat === 'perimee') throw new ErreurMetier('MONTAGE_VERSION_PERIMEE', 409, { derniere: r.derniere });
+    await prevenirPublicationsAConfirmer(ctx, r.montage);
     const qui = { marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId };
     // Avec une voix locale et du texte à dire : la voix d'abord (elle met ensuite le rendu en file) ; sinon, le rendu seul.
     const aDire = ctx.services.voixLocale === true && timeline.scenes.some((s) => s.voix.trim() !== '');
@@ -183,6 +192,7 @@ export const montageEditer = definirAction({
     const r = await ctx.services.montages.creerVersion({ marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId, parentId: base.id, origine: 'edition', timeline: resultat.timeline });
     if (r.etat === 'introuvable') throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
     if (r.etat === 'perimee') throw new ErreurMetier('MONTAGE_VERSION_PERIMEE', 409, { derniere: r.derniere });
+    await prevenirPublicationsAConfirmer(ctx, r.montage);
     return { montage: montageVisible(r.montage), violations: phrases(evaluerMontage(r.montage.timeline, r.montage.gabarit.definition)) };
   },
   objet: (entree) => `montage:${entree.id}`,
@@ -236,6 +246,7 @@ export const montageRegenererGabarit = definirAction({
     const r = await ctx.services.montages.creerVersion({ marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId, parentId: base.id, origine: 'gabarit', timeline: base.timeline, gabarit: figerGabarit(actuel) });
     if (r.etat === 'introuvable') throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
     if (r.etat === 'perimee') throw new ErreurMetier('MONTAGE_VERSION_PERIMEE', 409, { derniere: r.derniere });
+    await prevenirPublicationsAConfirmer(ctx, r.montage);
     const lance = await lancerRegeneration(ctx, r.montage, 'allege');
     return { montage: montageVisible(r.montage), tacheId: lance.tacheId };
   },
@@ -271,6 +282,7 @@ export const montageCouvrir = definirAction({
     const r = await ctx.services.montages.creerVersion({ marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId, parentId: base.id, origine: 'edition', timeline: resultat.timeline });
     if (r.etat === 'introuvable') throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
     if (r.etat === 'perimee') throw new ErreurMetier('MONTAGE_VERSION_PERIMEE', 409, { derniere: r.derniere });
+    await prevenirPublicationsAConfirmer(ctx, r.montage);
     return { montage: montageVisible(r.montage), inchange: false };
   },
   objet: (entree) => `montage:${entree.id}`,

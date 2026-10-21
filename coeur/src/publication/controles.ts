@@ -20,6 +20,7 @@ export async function controlerAvantEnvoi(
   marqueId: string,
   utilisateurId: string,
   p: Readonly<{ compteId: string; renduId: string; reseau: Reseau }>,
+  options: Readonly<{ quota?: boolean }> = {},
 ): Promise<Pret | Refus> {
   const nom = RESEAUX_DECLARES[p.reseau]?.nom ?? p.reseau;
   const compte = await services.comptesReseau.lire(marqueId, utilisateurId, p.compteId);
@@ -34,6 +35,8 @@ export async function controlerAvantEnvoi(
   if (depassee !== undefined) return refus('PUBLICATION_BORNE', { reseau: nom, ...depassee });
   const jeton = await services.comptesReseau.lireJeton(marqueId, compte.id);
   if (jeton === undefined) return refus('PUBLICATION_COMPTE_DECONNECTE');
+  // À la programmation, le quota de l'heure dite n'est pas connu : il est contrôlé à l'envoi (histoire 7.4).
+  if (options.quota === false) return { ok: true, jeton, compte, fichier, connecteur };
   try {
     const quota = await connecteur.quota({ jeton, compteExterne: compte.compteExterne });
     if (quota.utilise >= quota.total) return refus('PUBLICATION_QUOTA', { reseau: nom, utilise: quota.utilise, total: quota.total });

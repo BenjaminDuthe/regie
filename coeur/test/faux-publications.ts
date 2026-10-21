@@ -3,15 +3,21 @@
 // tient aussi `montages.publiees` à jour (une vidéo en ligne ne se supprime pas), comme le fait la requête SQL.
 
 import { estEnLigne, peutAnnuler } from '../src/domaine/publication.ts';
-import type { FinPublication, FiltrePublications, NouvellePublication, Publication, Publications, QuiTente, ResultatCreation, TentativePublication } from '../src/infra/publications.ts';
+import { epochDe, TYPE_ECHEANCE_PUBLICATION, objetEcheancePublication } from '../src/domaine/publication.ts';
+import type { EtatPublication } from '../src/domaine/publication.ts';
+import type { Cible, FinPublication, FiltrePublications, NouvellePublication, Publication, Publications, QuiTente, ResultatCreation, TentativePublication } from '../src/infra/publications.ts';
 import type { EspacesMemoire } from './faux-auth.ts';
 import type { MontagesMemoire } from './faux-montages.ts';
 
 type Modifiable<T> = { -readonly [K in keyof T]: T[K] };
 type Tentative = Modifiable<TentativePublication> & { publicationId: string };
 
+/** L'échéance inscrite avec une publication programmée : le faux en tient la liste, comme la table `echeances`. */
+export type EcheanceMemoire = { type: string; objet: string; instant: Date; etat: 'programmee' | 'declenchee' | 'echouee' | 'annulee' };
+
 export class PublicationsMemoire implements Publications {
   readonly lignes: Modifiable<Publication>[] = [];
+  readonly echeances: EcheanceMemoire[] = [];
   readonly historique: Tentative[] = [];
   maintenant: () => number = Date.now;
   readonly #espaces: EspacesMemoire;
@@ -56,8 +62,19 @@ export class PublicationsMemoire implements Publications {
       tacheId: null, programmeePour: n.programmeePour ?? null, idExterne: null, lien: null, cause: null, action: null, tentatives: 0, creeLe: t, modifieLe: t, publieeLe: null,
     };
     this.lignes.push(p);
+    if (p.etat === 'programmee' && p.programmeePour !== null) this.#inscrire(p, p.programmeePour);
     this.#synchroniser(p.serieId);
     return { etat: 'ok', publication: { ...p } };
+  }
+
+  #inscrire(p: Publication, quand: Date): void {
+    this.echeances.push({ type: TYPE_ECHEANCE_PUBLICATION, objet: objetEcheancePublication(p.id, p.utilisateurId, quand), instant: quand, etat: 'programmee' });
+  }
+
+  #retirer(p: Publication): void {
+    if (p.programmeePour === null) return;
+    const objet = objetEcheancePublication(p.id, p.utilisateurId, p.programmeePour);
+    for (const e of this.echeances) if (e.objet === objet && e.etat === 'programmee') e.etat = 'annulee';
   }
 
   async lire(marqueId: string, utilisateurId: string, id: string): Promise<Publication | undefined> {
@@ -156,7 +173,65 @@ export class PublicationsMemoire implements Publications {
     p.etat = 'annulee';
     p.cause = null;
     p.action = null;
+    this.#retirer(p);
     return this.#touche(p);
+  }
+
+  async deplacer(marqueId: string, utilisateurId: string, id: string, quand: Date): Promise<Publication | undefined> {
+    const p = this.#trouver(marqueId, utilisateurId, id);
+    if (p === undefined || (p.etat !== 'programmee' && p.etat !== 'en_attente_confirmation')) return undefined;
+    this.#retirer(p);
+    p.programmeePour = quand;
+    this.#inscrire(p, quand);
+    return this.#touche(p);
+  }
+
+  async confirmer(marqueId: string, utilisateurId: string, id: string, cible: Cible): Promise<Publication | undefined> {
+    const p = this.#trouver(marqueId, utilisateurId, id);
+    if (p === undefined || p.etat !== 'en_attente_confirmation') return undefined;
+    p.etat = 'programmee';
+    p.montageId = cible.montageId;
+    p.renduId = cible.renduId;
+    p.legende = cible.legende;
+    p.hashtags = [...cible.hashtags];
+    p.cause = null;
+    p.action = null;
+    return this.#touche(p);
+  }
+
+  async lancerEcheance(marqueId: string, utilisateurId: string, id: string, epoch: number): Promise<Publication | undefined> {
+    const p = this.#trouver(marqueId, utilisateurId, id);
+    if (p === undefined || p.programmeePour === null || epochDe(p.programmeePour) !== epoch) return undefined;
+    if (p.etat === 'programmee') {
+      p.etat = 'en_file';
+      p.cause = null;
+      p.action = null;
+      return this.#touche(p);
+    }
+    return p.etat === 'en_file' && p.tacheId === null && p.tentatives === 0 ? { ...p } : undefined;
+  }
+
+  async echouerProgrammee(marqueId: string, utilisateurId: string, id: string, epoch: number, depuis: readonly EtatPublication[], cause: string, action: string): Promise<Publication | undefined> {
+    const p = this.#trouver(marqueId, utilisateurId, id);
+    if (p === undefined || p.programmeePour === null || epochDe(p.programmeePour) !== epoch || !depuis.includes(p.etat)) return undefined;
+    p.etat = 'en_echec';
+    p.tentatives += 1;
+    p.cause = cause;
+    p.action = action;
+    const t = new Date(this.maintenant());
+    this.historique.push({ publicationId: p.id, numero: p.tentatives, origine: 'echeance', utilisateurId: p.utilisateurId, pat: null, tacheId: null, debut: t, fin: t, issue: 'en_echec', cause });
+    return this.#touche(p);
+  }
+
+  /** Ce que fait `MontagesPg.creerVersion` dans sa transaction : les publications programmées de la vidéo attendent l'accord. */
+  montageModifie(serieId: string): void {
+    for (const p of this.lignes) {
+      if (p.serieId !== serieId || p.etat !== 'programmee') continue;
+      p.etat = 'en_attente_confirmation';
+      p.cause = 'MONTAGE_MODIFIE';
+      p.action = 'confirmer';
+      this.#touche(p);
+    }
   }
 
   async fichierEnEnvoi(marqueId: string, utilisateurId: string, fichierId: string): Promise<boolean> {

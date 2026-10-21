@@ -417,6 +417,7 @@
     "actions": {
       "relancer": "Tu peux la relancer.",
       "rejouer": "Tu peux la rejouer depuis ta bibliothèque.",
+      "confirmer": "Confirme la nouvelle version depuis ta bibliothèque.",
       "verifier": "Vérifie d’abord le résultat à l’extérieur, puis relance si besoin.",
       "defaut": "Tu peux la relancer."
     },
@@ -442,6 +443,7 @@
     "chaine_rompue": "Le journal d’audit ne se vérifie plus : une ligne a été modifiée ou retirée. Regarde le journal.",
     "connexion_expire_bientot": "La connexion de ton compte {etape} expire dans moins de 7 jours.",
     "connexion_expire_demain": "La connexion de ton compte {etape} expire demain.",
+    "publication_a_confirmer": "Le montage a changé : confirme la publication prévue sur {etape} avant l’heure.",
     "publication_publiee": "Ta vidéo est publiée sur {etape}.",
     "publication_echec": "La publication sur {etape} a échoué.",
     "publication_incertaine": "La publication sur {etape} est incertaine : la vidéo est peut-être en ligne, regie ne la renvoie pas.",

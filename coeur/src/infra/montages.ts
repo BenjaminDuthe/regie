@@ -203,6 +203,9 @@ export class MontagesPg implements Montages {
            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb) RETURNING ${COL_MONTAGE}`,
           [n.marqueId, p.espace_id, p.script_id, p.serie_id, dernier + 1, p.id, n.origine, p.film_fichier_id, JSON.stringify(n.timeline), JSON.stringify(n.gabarit ?? p.gabarit)],
         );
+        // Une publication programmée de cette vidéo attend l'accord de la personne pour la nouvelle version (histoire 7.4) :
+        // même transaction, donc jamais de version sans que la publication le sache.
+        await client.query("UPDATE publications SET etat = 'en_attente_confirmation', cause = 'MONTAGE_MODIFIE', action = 'confirmer', modifie_le = now() WHERE serie_id = $1 AND etat = 'programmee'", [p.serie_id]);
         return { etat: 'ok', montage: versMontage(rows[0]!) } as const;
       });
     } catch (e) {

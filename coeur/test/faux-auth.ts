@@ -590,6 +590,7 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
   montages.maintenant = () => horloge.t;
   const publications = new PublicationsMemoire(espaces, montages);
   publications.maintenant = () => horloge.t;
+  montages.surVersion = (serieId) => publications.montageModifie(serieId);
   const stockage = new StockageMemoire();
   const notifications = new NotificationsMemoire();
   notifications.maintenant = () => horloge.t;

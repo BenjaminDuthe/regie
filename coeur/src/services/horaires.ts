@@ -22,6 +22,30 @@ export function parisVersUtc(annee: number, mois: number, jour: number, heure: n
   return instant;
 }
 
+/** « AAAA-MM-JJTHH:MM » : l'heure affichée à Paris à cet instant (les secondes sont écartées). */
+export function heureParisDe(instant: Date): string {
+  const parties = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(instant);
+  const v = (t: string) => parties.find((p) => p.type === t)!.value;
+  return `${v('year')}-${v('month')}-${v('day')}T${v('hour')}:${v('minute')}`;
+}
+
+const FORME_HEURE_PARIS = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)$/;
+
+/**
+ * L'instant UTC où il est « AAAA-MM-JJTHH:MM » à Paris (NFR-25). `undefined` si la forme est mauvaise, si le jour n'existe
+ * pas (30 février) ou si l'heure n'existe pas (le saut du printemps : 02:30 le dernier dimanche de mars). Une heure qui se
+ * répète (le retour de l'automne : 02:30 le dernier dimanche d'octobre) donne sa PREMIÈRE occurrence, à l'heure d'été.
+ */
+export function heureParisVersInstant(quand: string): Date | undefined {
+  const m = FORME_HEURE_PARIS.exec(quand);
+  if (m === null) return undefined;
+  const [annee, mois, jour, heure, minute] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4]), Number(m[5])];
+  const mur = Date.UTC(annee, mois - 1, jour, heure, minute);
+  // Paris est à UTC+1 (hiver) ou UTC+2 (été) : seuls ces deux instants peuvent convenir, et on les vérifie en relisant l'heure de Paris.
+  const candidats = [mur - 2 * 3_600_000, mur - 3_600_000].map((t) => new Date(t)).filter((d) => heureParisDe(d) === quand);
+  return candidats[0];
+}
+
 /** Le prochain `HH:MM` heure de Paris strictement après `apres`. */
 export function prochainHoraireParis(apres: Date, heureParis: string): { instant: Date; jour: string } {
   const m = FORME_HEURE.exec(heureParis);

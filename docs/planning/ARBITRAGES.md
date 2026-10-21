@@ -248,3 +248,15 @@ Question : quelles décisions et quelles preuves manquent pour publier réelleme
 7. **Inscription de l'application Meta et jeton réel** — requis pour tout essai réel (voir 7.1 et 7.6).
 8. **Cas limite** — si le lien de la tâche à la publication échoue après la mise en file, la publication reste `en_file` sans tâche ; le réconciliateur la signale. Recommandation : la déclarer en échec sûr au prochain balayage.
 
+## 7.4 Programmer, déplacer ou annuler une publication
+
+Question : quelles décisions et quelles preuves manquent pour publier à l'heure dite ?
+
+1. **Heures de Paris ambiguës ou inexistantes** — au changement d'heure d'automne, une heure se répète : la première occurrence est retenue. Au printemps, une heure n'existe pas : elle est refusée (`PUBLICATION_ECHEANCE_INVALIDE`). Option : demander laquelle des deux. **Recommandation** : garder ainsi.
+2. **Précision** — le départ se fait dans la minute (période du planificateur), pas à la seconde. **Recommandation** : suffisant pour des publications ; revoir si Meta l'exige.
+3. **Acteur d'audit** — une tentative lancée par l'échéance est inscrite avec l'acteur `echeance:<utilisateurId>` et l'origine `echeance`, sans jeton d'API.
+4. **Montage modifié** — la publication passe en `en_attente_confirmation` (cause `MONTAGE_MODIFIE`) et une notification est créée ; `publication.confirmer` fige la dernière version et reprogramme à la même heure. Sans accord à l'heure dite : échec `MONTAGE_MODIFIE`, action « rejouer ». Un retard de plus de 2 h donne `ECHEANCE_PERIMEE`, avec la même action.
+5. **Quota** — non contrôlé à la programmation mais à l'envoi : une programmation peut donc échouer à l'heure dite si le quota du compte est atteint.
+6. **Horizon d'un an** — borne de départ. Recommandation : la confirmer.
+7. **Validation de bout en bout** — exige l'inscription de l'application Meta et un jeton réel (voir 7.1 et 7.6).
+

@@ -14,6 +14,9 @@ import { Coffre } from '../src/infra/coffre.ts';
 import { ComptesDemoPg } from '../src/infra/comptes-demo.ts';
 import { ComptesReseauPg } from '../src/infra/comptes-reseau.ts';
 import { PublicationsPg, tachesReseauFinies } from '../src/infra/publications.ts';
+import type { Services } from '../src/auth/services.ts';
+import { gestionnairePublication } from '../src/publication/echeance.ts';
+import { reconcilierPublications } from '../src/publication/reconciliation.ts';
 import { lecteurCoffre } from '../src/services/passerelle-secrets.ts';
 import { nomSecretCompteDemo, TYPE_SECRET_COMPTE_DEMO } from '../src/infra/comptes-demo.ts';
 import { DOSSIER_MIGRATIONS, ErreurDemarrage, FICHIERS_SECRETS, demarrerBase } from '../src/infra/demarrage.ts';
@@ -1035,6 +1038,116 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       expect(await publications.rejouer(marque, a.utilisateurId, p.id)).toBeUndefined();
       expect(await publications.annuler(marque, a.utilisateurId, p.id)).toBeUndefined();
       expect((await publications.tentatives(marque, a.utilisateurId, p.id)).map((t) => [t.numero, t.issue])).toEqual([[1, 'en_echec'], [2, 'incertaine']]);
+      await comptes.deconnecter(marque, a.utilisateurId, compte.id);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('publications programmées : échéance inscrite, déplacée, annulée ; départ unique par le planificateur ; retard de plus de 2 h en échec ; montage modifié (histoire 7.4)', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const montages = new MontagesPg(contexte.pool);
+      const comptes = new ComptesReseauPg(contexte.pool, contexte.coffre);
+      const publications = new PublicationsPg(contexte.pool);
+      const echeances = new EcheancesPg(contexte.pool);
+      const file = new FilePg(contexte.pool);
+      const audit = new AuditPg(contexte.pool);
+      const notifications = new NotificationsPg(contexte.pool);
+      const marque = await marques.creer(`Publi D ${suffixe}`);
+      const autreMarque = await marques.creer(`Publi E ${suffixe}`);
+      const a = await espaces.assurer(marque, 'sub-pd', undefined, 'Établia');
+      const a2 = await espaces.assurer(marque, 'sub-pd2', undefined, 'Autre');
+      const espace = a.espaces[0]!.id;
+      let maintenant = new Date('2026-10-21T10:00:00Z');
+      const services = { publications, file, audit, notifications, maintenant: () => maintenant.getTime() } as unknown as Services;
+      const timeline = depuisJournal([{ t: 0, genre: 'film_debut' }, { t: 3000, genre: 'film_fin' }], { filmDureeMs: 3000 });
+      const gabarit = figerGabarit({ id: randomUUID(), nom: 'Départ', version: 1, definition: GABARIT_DE_DEPART });
+      const montage = async () =>
+        (await montages.creerDepuisFilm({ marqueId: marque, utilisateurId: a.utilisateurId, espaceId: espace, scriptId: null, montageId: randomUUID(), film: { id: randomUUID(), genre: 'film' as const, mime: 'video/webm' as const, octets: 12, sha256: 'a'.repeat(64) }, timeline, gabarit }))!;
+      let n = 0;
+      const compte = (await comptes.connecter({ marqueId: marque, utilisateurId: a.utilisateurId, espaceId: espace, reseau: 'instagram', compteExterne: '17841400000000004', nom: 'compte_demo', jeton: randomBytes(20).toString('hex'), expireLe: new Date(Date.now() + 60 * 86_400_000) }, new Date()))!;
+      const programmer = async (m: Awaited<ReturnType<typeof montage>>, quand: string) => {
+        const rendu = (await montages.creerRendu({ marqueId: marque, utilisateurId: a.utilisateurId, montageId: m.id, genre: 'complet' }))!;
+        const r = await publications.creer({ marqueId: marque, utilisateurId: a.utilisateurId, espaceId: espace, compteId: compte.id, reseau: 'instagram', serieId: m.serieId, montageId: m.id, renduId: rendu.id, legende: `l${(n += 1)}`, hashtags: [], etat: 'programmee', programmeePour: new Date(quand) });
+        if (r.etat !== 'ok') throw new Error('création refusée');
+        return { p: r.publication, rendu };
+      };
+      const actives = async () => (await echeances.lister(marque, 50)).echeances.filter((e) => e.type === 'publication' && e.etat === 'programmee');
+      const planificateur = new Planificateur({ echeances, marques: async () => [marque], gestionnaires: gestionnairePublication(services), journal: { info: () => undefined, warn: () => undefined, error: () => undefined }, maintenant: () => maintenant });
+
+      // Programmer inscrit l'échéance en UTC ; annuler la supprime ; déplacer remplace l'ancienne par la nouvelle.
+      const m1 = await montage();
+      const { p } = await programmer(m1, '2026-10-21T12:30:00Z');
+      expect((await actives()).map((e) => e.instant.toISOString())).toEqual(['2026-10-21T12:30:00.000Z']);
+      expect((await publications.deplacer(marque, a2.utilisateurId, p.id, new Date('2026-10-21T13:00:00Z')))).toBeUndefined();
+      const deplacee = await publications.deplacer(marque, a.utilisateurId, p.id, new Date('2026-10-21T13:00:00Z'));
+      expect(deplacee?.programmeePour?.toISOString()).toBe('2026-10-21T13:00:00.000Z');
+      expect((await actives()).map((e) => e.instant.toISOString())).toEqual(['2026-10-21T13:00:00.000Z']);
+      expect(await publications.annuler(marque, a.utilisateurId, p.id)).toMatchObject({ etat: 'annulee' });
+      expect(await actives()).toEqual([]);
+      // Reprogrammer la même vidéo après annulation : permis.
+      const { p: p2 } = await programmer(m1, '2026-10-21T12:30:00Z');
+
+      // Le planificateur déclenche dans la minute, une seule fois, même en deux passes concurrentes ; une seule tâche.
+      maintenant = new Date('2026-10-21T12:30:20Z');
+      await Promise.all([planificateur.passerMarque(marque), planificateur.passerMarque(marque)]);
+      await planificateur.passerMarque(marque);
+      const lue = (await publications.lire(marque, a.utilisateurId, p2.id))!;
+      expect(lue.etat).toBe('en_file');
+      expect(lue.tacheId).not.toBeNull();
+      const taches = await dansTransactionMarque(contexte.pool, marque, (cl) => cl.query("SELECT entree FROM taches WHERE type = 'reseau'"));
+      expect(taches.rows).toHaveLength(1);
+      expect(taches.rows[0].entree).toMatchObject({ publicationId: p2.id, origine: 'echeance', pat: null, sub: `echeance:${a.utilisateurId}` });
+      // Le gestionnaire rejoué (reprise après arrêt) ne crée pas une seconde tâche.
+      const objet = `${p2.id}:${a.utilisateurId}:${Math.floor(Date.parse('2026-10-21T12:30:00Z') / 1000)}`;
+      await gestionnairePublication(services).publication!({ id: randomUUID(), marqueId: marque, echeanceId: randomUUID(), type: 'publication', objet, etat: 'en_cours', tentatives: 2, cause: undefined });
+      expect((await dansTransactionMarque(contexte.pool, marque, (cl) => cl.query("SELECT 1 FROM taches WHERE type = 'reseau'"))).rowCount).toBe(1);
+
+      // Retard de moins de 2 h : rattrapé. Plus ancien : échéance en échec, puis le réconciliateur fait échouer la publication.
+      const m3 = await montage();
+      const m4 = await montage();
+      const proche = (await programmer(m3, '2026-10-21T13:00:00Z')).p;
+      const lointaine = (await programmer(m4, '2026-10-21T08:00:00Z')).p;
+      maintenant = new Date('2026-10-21T14:30:00Z'); // 1 h 30 après l'une, 6 h 30 après l'autre
+      await planificateur.passerMarque(marque);
+      expect((await publications.lire(marque, a.utilisateurId, proche.id))!.etat).toBe('en_file');
+      expect((await publications.lire(marque, a.utilisateurId, lointaine.id))!.etat).toBe('programmee');
+      expect(await reconcilierPublications(contexte.pool, services, marque)).toBe(1);
+      expect(await publications.lire(marque, a.utilisateurId, lointaine.id)).toMatchObject({ etat: 'en_echec', cause: 'ECHEANCE_PERIMEE', tentatives: 1 });
+      expect(await reconcilierPublications(contexte.pool, services, marque)).toBe(0);
+      expect((await publications.tentatives(marque, a.utilisateurId, lointaine.id)).map((t) => [t.origine, t.issue])).toEqual([['echeance', 'en_echec']]);
+      expect((await dansTransactionMarque(contexte.pool, marque, (cl) => cl.query("SELECT 1 FROM taches WHERE type = 'reseau'"))).rowCount).toBe(2);
+
+      // Montage modifié : la publication attend la confirmation ; sans elle à l'heure dite, échec MONTAGE_MODIFIE.
+      const m5 = await montage();
+      maintenant = new Date('2026-10-22T10:00:00Z');
+      const { p: p5 } = await programmer(m5, '2026-10-22T12:00:00Z');
+      const v2 = await montages.creerVersion({ marqueId: marque, utilisateurId: a.utilisateurId, parentId: m5.id, origine: 'edition', timeline });
+      if (v2.etat !== 'ok') throw new Error('version refusée');
+      expect(await publications.lire(marque, a.utilisateurId, p5.id)).toMatchObject({ etat: 'en_attente_confirmation', cause: 'MONTAGE_MODIFIE', action: 'confirmer' });
+      expect(await actives()).toHaveLength(1);
+      maintenant = new Date('2026-10-22T12:00:30Z');
+      await planificateur.passerMarque(marque);
+      expect(await publications.lire(marque, a.utilisateurId, p5.id)).toMatchObject({ etat: 'en_echec', cause: 'MONTAGE_MODIFIE' });
+      expect((await dansTransactionMarque(contexte.pool, marque, (cl) => cl.query("SELECT 1 FROM taches WHERE type = 'reseau'"))).rowCount).toBe(2);
+
+      // Confirmer : seulement depuis `en_attente_confirmation`, avec la nouvelle cible figée.
+      const m6 = await montage();
+      maintenant = new Date('2026-10-23T08:00:00Z');
+      const { p: p6 } = await programmer(m6, '2026-10-23T12:00:00Z');
+      const v6 = await montages.creerVersion({ marqueId: marque, utilisateurId: a.utilisateurId, parentId: m6.id, origine: 'edition', timeline });
+      if (v6.etat !== 'ok') throw new Error('version refusée');
+      const rendu6 = (await montages.creerRendu({ marqueId: marque, utilisateurId: a.utilisateurId, montageId: v6.montage.id, genre: 'complet' }))!;
+      expect(await publications.confirmer(marque, a2.utilisateurId, p6.id, { montageId: v6.montage.id, renduId: rendu6.id, legende: 'neuve', hashtags: ['a'] })).toBeUndefined();
+      expect(await publications.confirmer(marque, a.utilisateurId, p6.id, { montageId: v6.montage.id, renduId: rendu6.id, legende: 'neuve', hashtags: ['a'] })).toMatchObject({ etat: 'programmee', montageId: v6.montage.id, renduId: rendu6.id, legende: 'neuve', cause: null });
+      expect(await publications.confirmer(marque, a.utilisateurId, p6.id, { montageId: v6.montage.id, renduId: rendu6.id, legende: 'x', hashtags: [] })).toBeUndefined();
+
+      // Cloisonnement : une autre marque ne voit ni n'agit sur ces échéances.
+      expect(await publications.lancerEcheance(autreMarque, a.utilisateurId, p6.id, 0)).toBeUndefined();
+      expect(await publications.echouerProgrammee(autreMarque, a.utilisateurId, p6.id, 0, ['programmee'], 'X', 'rejouer')).toBeUndefined();
       await comptes.deconnecter(marque, a.utilisateurId, compte.id);
     } finally {
       await contexte.fermer();

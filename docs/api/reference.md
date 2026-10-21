@@ -3355,6 +3355,130 @@ Corps de la demande (schéma JSON) :
 }
 ```
 
+## `publication.programmer`
+
+Programme la publication d’une vidéo sur un compte relié à une heure de Paris (`quand`, « AAAA-MM-JJTHH:MM », dans le futur, au plus un an ; une heure qui n’existe pas au changement d’heure est refusée, une heure répétée à l’automne est la première). Mêmes contrôles que `publication.publier`, hors quota (contrôlé à l’heure dite). Le départ a lieu dans la minute qui suit ; un retard de moins de 2 h est rattrapé, au-delà la publication échoue (ECHEANCE_PERIMEE). Si le montage change avant l’heure, la publication passe en `en_attente_confirmation` : `publication.confirmer` avant l’heure, sinon elle échoue (MONTAGE_MODIFIE). Rend la publication `programmee`.
+
+- API : `POST /api/v1/publication/programmer` · outil MCP : `publication_programmer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "montageId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "compteId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "quand": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+    }
+  },
+  "required": [
+    "montageId",
+    "compteId",
+    "quand"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `publication.deplacer`
+
+Déplace l’heure d’une publication `programmee` ou `en_attente_confirmation` (`quand`, heure de Paris, mêmes règles que `publication.programmer`) : l’ancienne échéance est retirée, la nouvelle inscrite.
+
+- API : `POST /api/v1/publication/deplacer` · outil MCP : `publication_deplacer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "quand": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$"
+    }
+  },
+  "required": [
+    "id",
+    "quand"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `publication.annuler`
+
+Annule une publication qui n’est pas encore partie (`en_file`, `programmee`, `en_attente_confirmation` ou `en_echec`) : son échéance est supprimée. Une publication partie ou incertaine ne s’annule pas (PUBLICATION_ETAT).
+
+- API : `POST /api/v1/publication/annuler` · outil MCP : `publication_annuler`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `publication.confirmer`
+
+Confirme la nouvelle version du montage d’une publication `en_attente_confirmation` : elle fige la dernière version, son rendu complet prêt et la légende enregistrée, refait les contrôles et redevient `programmee` à la même heure. À faire avant l’heure prévue, sinon elle échoue (MONTAGE_MODIFIE).
+
+- API : `POST /api/v1/publication/confirmer` · outil MCP : `publication_confirmer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
 ## `publication.lire`
 
 Lit une publication : son état (`en_file`, `programmee`, `en_attente_confirmation`, `envoi_en_cours`, `publiee`, `en_echec`, `incertaine` ou `annulee`), le résultat (identifiant et lien du réseau quand elle est publiée, cause et action à faire quand elle a échoué ou qu’elle est incertaine) et l’historique de chaque tentative (numéro, origine, jeton d’API, début, fin, issue).

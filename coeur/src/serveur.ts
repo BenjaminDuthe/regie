@@ -53,6 +53,7 @@ import { creerExecutantTestConnexion } from './services/test-connexion.ts';
 import { PasserelleSecretsCoffre, lecteurCoffre } from './services/passerelle-secrets.ts';
 import { Travailleur } from './services/travailleur.ts';
 import { EcheancesPg } from './infra/echeances.ts';
+import { gestionnairePublication } from './publication/echeance.ts';
 import { Planificateur } from './services/planificateur.ts';
 import { gestionnairesDuSocle, gestionnaireRappelConnexion } from './services/gestionnaires.ts';
 
@@ -172,6 +173,7 @@ function servicesSansBase(): Services {
       creer: refus, lire: async () => undefined, lister: async () => [], tentatives: async () => [], lierTache: refus, demarrerEnvoi: async () => undefined,
       echouerAvantEnvoi: async () => undefined, conclure: async () => undefined, rejouer: async () => undefined, annuler: async () => undefined,
       fichierEnEnvoi: async () => false, rattraper: async () => undefined,
+      deplacer: async () => undefined, confirmer: async () => undefined, lancerEcheance: async () => undefined, echouerProgrammee: async () => undefined,
     },
     maintenant: Date.now,
   };
@@ -306,6 +308,7 @@ if (import.meta.main) {
     gestionnaires: {
       ...gestionnairesDuSocle({ pool: contexte.pool, audit: services.audit, journal: app.log, alerte: { notifications: services.notifications, adminSub: services.admin.sub } }),
       ...gestionnaireRappelConnexion({ comptes: services.comptesReseau, notifications: services.notifications }),
+      ...gestionnairePublication(services),
     },
     journal: app.log,
   });

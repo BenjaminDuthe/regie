@@ -14,6 +14,8 @@ export class MontagesMemoire implements Montages {
   readonly suppressions: { serieId: string; fichiers: number; utilisateurId: string }[] = [];
   /** Séries ayant une publication publiée : la table `publications` n'existe pas encore (épopée 7). */
   readonly publiees = new Set<string>();
+  /** Appelé à chaque nouvelle version, comme le fait la requête de `MontagesPg.creerVersion` (publications programmées, histoire 7.4). */
+  surVersion: (serieId: string) => void = () => undefined;
   /** Espaces que la personne voit : `undefined` = tous (la RLS est testée avec PostgreSQL). */
   espacesVisibles: readonly string[] | undefined;
   maintenant = (): number => Date.now();
@@ -35,6 +37,7 @@ export class MontagesMemoire implements Montages {
     if (dernier !== p.numero) return { etat: 'perimee', derniere: dernier };
     const m: Montage = { id: crypto.randomUUID(), espaceId: p.espaceId, scriptId: p.scriptId, serieId: p.serieId, numero: dernier + 1, parentId: p.id, origine: n.origine, filmFichierId: p.filmFichierId, timeline: structuredClone(n.timeline), gabarit: structuredClone(n.gabarit ?? p.gabarit), creeLe: new Date(this.maintenant()) };
     this.montages.push(m);
+    this.surVersion(m.serieId);
     return { etat: 'ok', montage: m };
   }
 

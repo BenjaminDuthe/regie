@@ -142,3 +142,10 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `publication.lire` (lecture) : une publication avec son état, son identifiant et son lien chez le réseau, la cause et l'action en cas d'échec ou d'incertitude.
 - Ajout de `publication.lister` (lecture) : les publications, filtrables par vidéo, espace, réseau et état.
 - `montage.supprimer` refuse désormais une vidéo publiée (`VIDEO_PUBLIEE`, 409).
+
+## 2026-10-21 — histoire 7.4
+
+- Ajout de `publication.programmer` (écriture) : programme une publication à une heure de Paris (`AAAA-MM-JJTHH:MM`) ; fige montage, rendu et légende ; refus `PUBLICATION_ECHEANCE_INVALIDE` (422) si l'heure est passée, à plus d'un an, inexistante (changement d'heure) ou mal écrite.
+- Ajout de `publication.deplacer` (écriture) : change l'heure d'une publication programmée ou en attente de confirmation.
+- Ajout de `publication.annuler` (écriture) : annule une publication non encore partie et supprime son échéance.
+- Ajout de `publication.confirmer` (écriture) : confirme la dernière version d'un montage modifié (`MONTAGE_MODIFIE`) ; la publication redevient programmée.

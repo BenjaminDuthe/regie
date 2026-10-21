@@ -6,7 +6,9 @@
 import type { ClientBase, Pool } from 'pg';
 import type { Reseau } from '../domaine/bornes.ts';
 import type { EtatPublication, IssueTentative, OrigineTentative } from '../domaine/publication.ts';
+import { TYPE_ECHEANCE_PUBLICATION, epochDe, lireObjetEcheancePublication, objetEcheancePublication } from '../domaine/publication.ts';
 import { dansTransactionMarque, dansTransactionUtilisateur } from './base.ts';
+import { inscrireEcheance } from './echeances.ts';
 
 export type Publication = Readonly<{
   id: string;
@@ -66,6 +68,9 @@ export type ResultatCreation =
   | Readonly<{ etat: 'existe'; id: string }>
   | Readonly<{ etat: 'introuvable' }>;
 
+/** Ce qu'une publication fige : la version du montage, son rendu complet et la légende, relus à la confirmation. */
+export type Cible = Readonly<{ montageId: string; renduId: string; legende: string; hashtags: readonly string[] }>;
+
 export type QuiTente = Readonly<{ origine: OrigineTentative; pat: string | null }>;
 
 export type FinPublication =
@@ -91,6 +96,18 @@ export interface Publications {
   rejouer(marqueId: string, utilisateurId: string, id: string): Promise<Publication | undefined>;
   /** Annule une publication qui n'est pas partie (voir `peutAnnuler`). `undefined` si l'état ne le permet pas. */
   annuler(marqueId: string, utilisateurId: string, id: string): Promise<Publication | undefined>;
+  /** Change l'heure d'une publication `programmee` ou `en_attente_confirmation` : l'ancienne échéance est retirée, la nouvelle inscrite, dans la même transaction. */
+  deplacer(marqueId: string, utilisateurId: string, id: string, quand: Date): Promise<Publication | undefined>;
+  /** `en_attente_confirmation -> programmee` : la publication fige la version donnée (montage, rendu, légende). `undefined` si l'état n'était pas `en_attente_confirmation`. */
+  confirmer(marqueId: string, utilisateurId: string, id: string, cible: Cible): Promise<Publication | undefined>;
+  /**
+   * L'heure est venue : compare-and-set `programmee -> en_file` si l'instant visé (`epoch`, en secondes) est toujours celui de la publication.
+   * Rend la publication à mettre en file, ou `undefined` s'il n'y a rien à faire (déplacée, annulée, déjà lancée). Une publication
+   * restée `en_file` sans tâche (arrêt entre les deux écritures) est rendue de nouveau : la mise en file est rejouable.
+   */
+  lancerEcheance(marqueId: string, utilisateurId: string, id: string, epoch: number): Promise<Publication | undefined>;
+  /** L'heure est venue et rien ne peut partir (montage non confirmé, retard de plus de 2 h) : `depuis -> en_echec`, tentative inscrite. */
+  echouerProgrammee(marqueId: string, utilisateurId: string, id: string, epoch: number, depuis: readonly EtatPublication[], cause: string, action: string): Promise<Publication | undefined>;
   /** Vrai si le fichier est celui d'une publication en cours d'envoi : seule condition pour le servir à `/v/publication/…`. */
   fichierEnEnvoi(marqueId: string, utilisateurId: string, fichierId: string): Promise<boolean>;
   /** Rattrape une publication dont la tâche s'est terminée (ou a échoué) sans que l'exécutant ait pu écrire. */
@@ -111,12 +128,28 @@ export const versPublication = (l: Ligne): Publication => ({
 
 type LigneTentative = { numero: number; origine: OrigineTentative; utilisateur_id: string; pat: string | null; tache_id: string | null; debut: Date; fin: Date | null; issue: IssueTentative; cause: string | null };
 
-async function ouvrirTentative(client: ClientBase, marqueId: string, p: Ligne, tacheId: string, qui: QuiTente, utilisateurId: string, issue: IssueTentative, cause: string | null): Promise<void> {
+async function ouvrirTentative(client: ClientBase, marqueId: string, p: Ligne, tacheId: string | null, qui: QuiTente, utilisateurId: string, issue: IssueTentative, cause: string | null): Promise<void> {
   await client.query(
     `INSERT INTO publication_tentatives (marque_id, espace_id, publication_id, numero, origine, utilisateur_id, pat, tache_id, issue, cause, fin)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CASE WHEN $9 = 'en_cours' THEN NULL ELSE now() END)`,
     [marqueId, p.espace_id, p.id, p.tentatives, qui.origine, utilisateurId, qui.pat, tacheId, issue, cause],
   );
+}
+
+/** L'échéance d'une publication programmée, inscrite dans la transaction qui la programme. */
+async function inscrireEcheancePublication(client: ClientBase, marqueId: string, publicationId: string, utilisateurId: string, quand: Date): Promise<void> {
+  await inscrireEcheance(client, marqueId, {
+    type: TYPE_ECHEANCE_PUBLICATION,
+    objet: objetEcheancePublication(publicationId, utilisateurId, quand),
+    instant: quand,
+    cle: `${publicationId}:${epochDe(quand)}`,
+  });
+}
+
+/** Retire l'échéance inscrite pour cet instant. Sa clé est libérée : la même heure pourra être reprogrammée. */
+async function retirerEcheancePublication(client: ClientBase, publicationId: string, utilisateurId: string, quand: Date | null): Promise<void> {
+  if (quand === null) return;
+  await client.query("UPDATE echeances SET etat = 'annulee', cle = NULL WHERE type = $1 AND objet = $2 AND etat = 'programmee'", [TYPE_ECHEANCE_PUBLICATION, objetEcheancePublication(publicationId, utilisateurId, quand)]);
 }
 
 export class PublicationsPg implements Publications {
@@ -137,7 +170,9 @@ export class PublicationsPg implements Publications {
            RETURNING ${COLONNES}`,
           [n.espaceId, n.utilisateurId, n.compteId, n.reseau, n.serieId, n.montageId, n.renduId, n.legende, n.hashtags, n.etat, n.programmeePour ?? null],
         );
-        return rows[0] === undefined ? { etat: 'introuvable' } : { etat: 'ok', publication: versPublication(rows[0]) };
+        if (rows[0] === undefined) return { etat: 'introuvable' };
+        if (n.etat === 'programmee' && n.programmeePour !== undefined) await inscrireEcheancePublication(client, n.marqueId, rows[0].id, n.utilisateurId, n.programmeePour);
+        return { etat: 'ok', publication: versPublication(rows[0]) };
       } catch (erreur) {
         const code = (erreur as { code?: string }).code;
         if (code !== '23505' && code !== '23503') throw erreur;
@@ -248,7 +283,61 @@ export class PublicationsPg implements Publications {
          WHERE id = $1 AND etat IN ('en_file', 'programmee', 'en_attente_confirmation', 'en_echec') RETURNING ${COLONNES}`,
         [id],
       );
+      const p = rows[0];
+      if (p === undefined) return undefined;
+      await retirerEcheancePublication(client, p.id, p.utilisateur_id, p.programmee_pour);
+      return versPublication(p);
+    });
+  }
+
+  async deplacer(marqueId: string, utilisateurId: string, id: string, quand: Date): Promise<Publication | undefined> {
+    return dansTransactionUtilisateur(this.#pool, marqueId, utilisateurId, async (client) => {
+      const avant = await client.query<Ligne>(`SELECT ${COLONNES} FROM publications WHERE id = $1 AND etat IN ('programmee', 'en_attente_confirmation') FOR UPDATE`, [id]);
+      const ancien = avant.rows[0];
+      if (ancien === undefined) return undefined;
+      const { rows } = await client.query<Ligne>('UPDATE publications SET programmee_pour = $2, modifie_le = now() WHERE id = $1 RETURNING ' + COLONNES, [id, quand]);
+      await retirerEcheancePublication(client, ancien.id, ancien.utilisateur_id, ancien.programmee_pour);
+      await inscrireEcheancePublication(client, marqueId, ancien.id, ancien.utilisateur_id, quand);
+      return versPublication(rows[0]!);
+    });
+  }
+
+  async confirmer(marqueId: string, utilisateurId: string, id: string, cible: Cible): Promise<Publication | undefined> {
+    return dansTransactionUtilisateur(this.#pool, marqueId, utilisateurId, async (client) => {
+      const { rows } = await client.query<Ligne>(
+        `UPDATE publications SET etat = 'programmee', montage_id = $2, rendu_id = $3, legende = $4, hashtags = $5, cause = NULL, action = NULL, modifie_le = now()
+         WHERE id = $1 AND etat = 'en_attente_confirmation' RETURNING ${COLONNES}`,
+        [id, cible.montageId, cible.renduId, cible.legende, cible.hashtags],
+      );
       return rows[0] === undefined ? undefined : versPublication(rows[0]);
+    });
+  }
+
+  async lancerEcheance(marqueId: string, utilisateurId: string, id: string, epoch: number): Promise<Publication | undefined> {
+    return dansTransactionUtilisateur(this.#pool, marqueId, utilisateurId, async (client) => {
+      const { rows } = await client.query<Ligne>(
+        `UPDATE publications SET etat = 'en_file', cause = NULL, action = NULL, modifie_le = now()
+         WHERE id = $1 AND etat = 'programmee' AND floor(extract(epoch FROM programmee_pour)) = $2 RETURNING ${COLONNES}`,
+        [id, epoch],
+      );
+      if (rows[0] !== undefined) return versPublication(rows[0]);
+      // Reprise d'un travail interrompu entre le passage `en_file` et la mise en file de la tâche.
+      const reste = await client.query<Ligne>(`SELECT ${COLONNES} FROM publications WHERE id = $1 AND etat = 'en_file' AND tache_id IS NULL AND tentatives = 0 AND floor(extract(epoch FROM programmee_pour)) = $2`, [id, epoch]);
+      return reste.rows[0] === undefined ? undefined : versPublication(reste.rows[0]);
+    });
+  }
+
+  async echouerProgrammee(marqueId: string, utilisateurId: string, id: string, epoch: number, depuis: readonly EtatPublication[], cause: string, action: string): Promise<Publication | undefined> {
+    return dansTransactionUtilisateur(this.#pool, marqueId, utilisateurId, async (client) => {
+      const { rows } = await client.query<Ligne>(
+        `UPDATE publications SET etat = 'en_echec', tentatives = tentatives + 1, cause = $4, action = $5, modifie_le = now()
+         WHERE id = $1 AND etat = ANY($3::text[]) AND floor(extract(epoch FROM programmee_pour)) = $2 RETURNING ${COLONNES}`,
+        [id, epoch, depuis, cause, action],
+      );
+      const p = rows[0];
+      if (p === undefined) return undefined;
+      await ouvrirTentative(client, marqueId, p, null, { origine: 'echeance', pat: null }, p.utilisateur_id, 'en_echec', cause);
+      return versPublication(p);
     });
   }
 
@@ -298,5 +387,21 @@ export async function tachesReseauFinies(pool: Pool, marqueId: string, depuis: D
       [depuis],
     );
     return rows.map((r) => ({ id: r.id, utilisateurId: r.utilisateur_id, etat: r.etat, resultat: r.resultat, cause: r.cause }));
+  });
+}
+
+/** Les échéances de publication que le planificateur a laissées passer (plus de 2 h de retard) depuis `depuis`. */
+export type EcheancePerimee = Readonly<{ publicationId: string; utilisateurId: string; epoch: number }>;
+
+export async function echeancesPublicationPerimees(pool: Pool, marqueId: string, depuis: Date): Promise<EcheancePerimee[]> {
+  return dansTransactionMarque(pool, marqueId, async (client) => {
+    const { rows } = await client.query<{ objet: string }>(
+      "SELECT objet FROM echeances WHERE type = $1 AND etat = 'echouee' AND cause = 'ECHEANCE_PERIMEE' AND declenchee_le >= $2 ORDER BY instant",
+      [TYPE_ECHEANCE_PUBLICATION, depuis],
+    );
+    return rows.flatMap((r) => {
+      const o = lireObjetEcheancePublication(r.objet);
+      return o === undefined ? [] : [o];
+    });
   });
 }

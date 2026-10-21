@@ -37,3 +37,22 @@ export const peutRejouer = (etat: EtatPublication): boolean => etat === 'en_eche
  */
 export const CAUSES_SURES_NON_DEFINITIVES: readonly string[] = Object.freeze(['RESEAU_QUOTA_ATTEINT', 'RESEAU_TRAITEMENT_LONG']);
 export const echecSur = (code: string, definitive: boolean): boolean => definitive || CAUSES_SURES_NON_DEFINITIVES.includes(code);
+
+// --- L'échéance d'une publication programmée (histoire 7.4) -------------------------------------------------------
+// L'échéance (type `publication`) porte l'identifiant de la publication, celui de la personne (la file et la RLS ne se
+// lisent qu'en son nom) et l'instant visé en secondes : une échéance dont l'instant n'est plus celui de la publication
+// (déplacée, annulée) ne fait rien, même si elle était déjà due.
+
+export const TYPE_ECHEANCE_PUBLICATION = 'publication';
+
+export const epochDe = (instant: Date): number => Math.floor(instant.getTime() / 1000);
+
+export const objetEcheancePublication = (publicationId: string, utilisateurId: string, instant: Date): string => `${publicationId}:${utilisateurId}:${epochDe(instant)}`;
+
+export function lireObjetEcheancePublication(objet: string): Readonly<{ publicationId: string; utilisateurId: string; epoch: number }> | undefined {
+  const m = /^([0-9a-f-]{36}):([0-9a-f-]{36}):(\d{1,12})$/.exec(objet);
+  return m === null ? undefined : { publicationId: m[1]!, utilisateurId: m[2]!, epoch: Number(m[3]) };
+}
+
+/** Une publication ne se programme pas plus d'un an à l'avance. */
+export const HORIZON_PROGRAMMATION_MS = 366 * 86_400_000;
