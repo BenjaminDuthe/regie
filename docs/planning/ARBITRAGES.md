@@ -153,3 +153,13 @@ Décisions que le codeur n'a pas à prendre seul (produit, accès, jeton tiers).
 2. **Rafraîchissement sans script** — pendant un rendu en file ou en cours, une balise `<meta http-equiv="refresh">` recharge la page toutes les 5 s ; le suivi SSE (2.5) reste sur `/taches`.
 3. **Montage hors de portée = introuvable** — un identifiant mal formé, inconnu ou d'un autre lecteur donne la même réponse (aucune fuite d'existence).
 4. **Reportés** — reproductibilité à 40 ms et chronométrage de recette (exigent GPU et rushes réels) ; notification « série prête ».
+
+## 3.10 et 3.11 Éditer, animer et regénérer une vidéo
+
+Question : que montre l'aperçu d'une scène, et à quoi tient « deux rendus identiques » ?
+
+1. **Aperçu sans l'image du film** — option A : extraire une image du film avec ffmpeg à chaque modification (fidèle, mais un conteneur par frappe) ; option B : fond uni du gabarit, textes, zone sûre, cadre et clics du zoom, animations jouées en SVG (instantané). Retenu : B. **Recommandation** : B pour l'édition, le vrai film reste la référence via « Regénérer ». Une vignette tirée du film peut s'ajouter plus tard sans changer l'interface.
+2. **Animations de l'aperçu = animations du rendu** — l'aperçu (SMIL dans une `<img>`, sans script) utilise les mêmes paramètres que le rendu ASS : fondu, glissement de 90 px, zoom de 40 à 100 % à l'entrée et de 100 à 60 % à la sortie. Un écart de rendu image par image est possible : le film rendu fait foi.
+3. **Rendus identiques (FR-30)** — le plan de rendu (graphe, sous-titres, arguments) est pur et déterministe, testé : même montage et même gabarit figé donnent le même plan. L'identité octet pour octet de la vidéo dépend de ffmpeg (version fixée par l'image) et du GPU. Option : forcer l'encodage logiciel pour la recette. **Recommandation** : mesurer sur la machine cible avant de promettre l'identité binaire.
+4. **« Regénérer » ne crée pas de version** — il relance un rendu du montage tel quel ; seule une modification (3.10) ou un changement de gabarit (2.13) crée une version.
+5. **Publications déjà parties** — restent liées à l'ancienne version de fait ; l'affichage du lien arrive avec l'épopée 7 (pas encore codée).

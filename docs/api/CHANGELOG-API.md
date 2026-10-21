@@ -85,3 +85,8 @@ registre y figure (`coeur/test/api.test.ts`).
 ## 2026-10-21 — histoire 3.10
 
 - Ajout de `montage.editer` (écriture) : applique à un montage une liste d’opérations (texte, durée, déplacer, dupliquer, retirer une scène, carte de fin) et crée une nouvelle version immuable ; rend aussi les violations des gardes, scène par scène. Ne lance pas de rendu. `MONTAGE_INTROUVABLE` (404), `MONTAGE_VERSION_PERIMEE` (409), `SCENE_INTROUVABLE` (404), `DERNIERE_SCENE` (409), `TROP_DE_SCENES` (422), `TIMELINE_INVALIDE` (422).
+
+## 2026-10-21 — histoire 3.11
+
+- `montage.editer` accepte quatre opérations de plus : `animation` (entrée, sortie, durée, délai des textes d’une scène ; catalogue fermé), `transition` (`coupe` ou `fondu`), `zoom` (actif, niveau de 1,1 à 3, décalage de ±2 s par rapport au clic) et `animation_carte` (animation du texte de la carte de fin). Une valeur hors catalogue ou hors bornes donne 400.
+- Ajout de `montage.regenerer` (écriture) : met en file un nouveau rendu (précédé de la voix de synthèse si elle existe) du montage tel qu’il est ; suivre l’avancement avec `rendu.lire`. `MONTAGE_INTROUVABLE` (404), `SEANCE_PURGEE` (409, avec la date de purge).

@@ -4,6 +4,9 @@
 
 import { z } from 'zod';
 import {
+  ANIMATIONS,
+  ANIMATIONS_SORTIE,
+  TRANSITIONS,
   CarteFin,
   IdScene,
   SCENES_MAX,
@@ -30,6 +33,33 @@ export const OperationEdition = z.discriminatedUnion('op', [
   z.strictObject({ op: z.literal('deplacer'), sceneId: IdScene, sens: z.enum(['monter', 'descendre']) }),
   z.strictObject({ op: z.literal('dupliquer'), sceneId: IdScene }),
   z.strictObject({ op: z.literal('retirer'), sceneId: IdScene }),
+  /** Animation d'entrée et de sortie des textes d'une scène : seul le catalogue du moteur est accepté (histoire 3.11). */
+  z.strictObject({
+    op: z.literal('animation'),
+    sceneId: IdScene,
+    entree: z.enum(ANIMATIONS).optional(),
+    sortie: z.enum(ANIMATIONS_SORTIE).optional(),
+    dureeMs: z.number().int().min(100).max(2000).optional(),
+    delaiMs: z.number().int().min(0).max(5000).optional(),
+  }),
+  /** Transition de la scène avec la précédente. */
+  z.strictObject({ op: z.literal('transition'), sceneId: IdScene, transition: z.enum(TRANSITIONS) }),
+  /** Zoom automatique tiré des clics : actif ou non, niveau, décalage par rapport au clic. */
+  z.strictObject({
+    op: z.literal('zoom'),
+    sceneId: IdScene,
+    actif: z.boolean().optional(),
+    niveau: z.number().min(1.1).max(3).optional(),
+    decalageMs: z.number().int().min(-2000).max(2000).optional(),
+  }),
+  /** Animation du texte de la carte de fin. */
+  z.strictObject({
+    op: z.literal('animation_carte'),
+    entree: z.enum(ANIMATIONS).optional(),
+    sortie: z.enum(ANIMATIONS_SORTIE).optional(),
+    dureeMs: z.number().int().min(100).max(2000).optional(),
+    delaiMs: z.number().int().min(0).max(5000).optional(),
+  }),
   /** Pose ou change la carte de fin ; `null` la retire. */
   z.strictObject({
     op: z.literal('carte_fin'),
@@ -95,6 +125,24 @@ export function appliquerOperations(base: Timeline, operations: readonly Operati
         if (t.scenes.length <= 1 && t.scenes.some((s) => s.id === o.sceneId)) return { ok: false, code: 'DERNIERE_SCENE', sceneId: o.sceneId };
         suite = retirerScene(t, o.sceneId);
         break;
+      case 'animation':
+        suite = changerScene(t, o.sceneId, (s) => ({
+          ...s,
+          animation: { entree: o.entree ?? s.animation.entree, sortie: o.sortie ?? s.animation.sortie, dureeMs: o.dureeMs ?? s.animation.dureeMs, delaiMs: o.delaiMs ?? s.animation.delaiMs },
+        }));
+        break;
+      case 'transition':
+        suite = changerScene(t, o.sceneId, (s) => ({ ...s, transition: o.transition }));
+        break;
+      case 'zoom':
+        suite = changerScene(t, o.sceneId, (s) => ({ ...s, zoom: { actif: o.actif ?? s.zoom.actif, niveau: o.niveau ?? s.zoom.niveau, decalageMs: o.decalageMs ?? s.zoom.decalageMs } }));
+        break;
+      case 'animation_carte': {
+        if (t.carteFin === null) return { ok: false, code: 'TIMELINE_INVALIDE', detail: 'il n’y a pas de carte de fin à animer' };
+        const a = t.carteFin.animation;
+        suite = { ...t, carteFin: { ...t.carteFin, animation: { entree: o.entree ?? a.entree, sortie: o.sortie ?? a.sortie, dureeMs: o.dureeMs ?? a.dureeMs, delaiMs: o.delaiMs ?? a.delaiMs } } };
+        break;
+      }
       case 'carte_fin': {
         if (o.retirer === true) {
           suite = { ...t, carteFin: null };

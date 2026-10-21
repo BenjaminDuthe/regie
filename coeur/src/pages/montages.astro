@@ -5,9 +5,10 @@
 // `media-src 'self' blob:`. Un rendu bloqué par une garde reste lisible, marqué « bloqué », avec la scène fautive.
 import chaines from '../chaines.json' with { type: 'json' };
 import Base from '../mises-en-page/Base.astro';
-import { DUREE_ADRESSE_FICHIER_S, montageLire, montageLister, renduAdresse } from '../services/actions-montage.ts';
+import { DUREE_ADRESSE_FICHIER_S, montageLire, montageLister, montageRegenerer, renduAdresse } from '../services/actions-montage.ts';
 import { contexteInterface } from '../services/contextes.ts';
 import { ErreurMetier } from '../services/erreurs.ts';
+import { executerAction } from '../services/registre.ts';
 
 const services = Astro.locals.regie;
 const session = Astro.locals.session;
@@ -27,10 +28,28 @@ type Vue = { id: string; numero: number; origine: string; dureeMs: number; creeL
 let liste: Vue[] = [];
 let detail: { montage: Vue; rendus: Rendu[]; versions: { id: string; numero: number; origine: string; creeLe: string }[] } | undefined;
 let introuvable: string | undefined;
+let refus: string | undefined;
+
+// Regénérer (histoires 3.11 et 2.13) : les mêmes actions que l'API et le MCP, puis retour sur la page (303, adresse interne).
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const id = typeof form.get('id') === 'string' ? (form.get('id') as string) : '';
+  const demande = form.get('regeneration');
+  if (/^[0-9a-f-]{36}$/.test(id) && demande === 'rendu') {
+    try {
+      await executerAction(ctx, montageRegenerer, { id });
+      return Astro.redirect(`/montages?id=${encodeURIComponent(id)}&lance=rendu`, 303);
+    } catch (e) {
+      if (!(e instanceof ErreurMetier)) throw e;
+      refus = e.message;
+    }
+  } else refus = chaines.erreurs.MONTAGE_INTROUVABLE;
+}
+const lance = Astro.url.searchParams.get('lance');
 
 if (idDemande === '') {
   liste = ((await montageLister.executer(ctx, {})) as { montages: Vue[] }).montages;
-} else {
+} else if (idDemande !== '') {
   try {
     const entree = montageLire.entree.parse({ id: idDemande });
     detail = (await montageLire.executer(ctx, entree)) as typeof detail;
@@ -84,6 +103,8 @@ const titrePage = detail === undefined ? t.titre : `${t.titre} — ${t.version.r
   }
 
   {introuvable !== undefined && <p class="probleme" role="alert">{introuvable}</p>}
+  {refus !== undefined && <p class="probleme" role="alert">{refus}</p>}
+  {lance === 'rendu' && <p class="succes" role="status">{t.regenereLance}</p>}
   {idDemande !== '' && <p><a href="/montages">{t.retour}</a></p>}
 
   {
@@ -120,6 +141,11 @@ const titrePage = detail === undefined ? t.titre : `${t.titre} — ${t.version.r
         }
 
         <p><a class="bouton" href={`/montages/editer?id=${detail.montage.id}`}>{t.modifier}</a></p>
+        <form method="post" action={`/montages?id=${detail.montage.id}`} class="regenerer">
+          <input type="hidden" name="id" value={detail.montage.id} />
+          <button type="submit" name="regeneration" value="rendu" class="bouton" disabled={enCours}>{t.regenerer}</button>
+          <p class="doux">{t.regenererAide}</p>
+        </form>
         <h2>{t.scenes}</h2>
         <ol class="scenes">
           {detail.montage.timeline.scenes.map((s, i) => (

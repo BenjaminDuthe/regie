@@ -2264,7 +2264,7 @@ Corps de la demande (schéma JSON) :
 
 ## `montage.editer`
 
-Modifie un montage par une liste d’opérations appliquées dans l’ordre : `texte` (accroche, texteEcran, voix d’une scène), `duree` (dureeMs d’une scène), `deplacer` (monter ou descendre), `dupliquer`, `retirer`, `carte_fin` (titre, sousTitre, dureeMs, ou retirer). Crée une NOUVELLE version du montage (l’ancienne ne change pas, les publications déjà parties restent liées à elle) à partir de la version donnée, sans lancer de rendu. Rend les violations des gardes de la nouvelle version, scène par scène : un texte hors zone sûre ou illisible n’empêche pas l’enregistrement, mais la vidéo ne passera pas « prête » tant qu’il n’est pas corrigé. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).
+Modifie un montage par une liste d’opérations appliquées dans l’ordre : `texte` (accroche, texteEcran, voix d’une scène), `duree` (dureeMs d’une scène), `deplacer` (monter ou descendre), `dupliquer`, `retirer`, `carte_fin` (titre, sousTitre, dureeMs, ou retirer), `animation` (entree, sortie, dureeMs, delaiMs des textes d’une scène ; catalogue : aucune, fondu, glisse_haut, glisse_bas, zoom en entrée ; aucune, fondu, zoom en sortie), `transition` (coupe ou fondu avec la scène précédente), `zoom` (actif, niveau de 1,1 à 3, decalageMs par rapport au clic) et `animation_carte` (la même chose pour la carte de fin). Crée une NOUVELLE version du montage (l’ancienne ne change pas, les publications déjà parties restent liées à elle) à partir de la version donnée, sans lancer de rendu. Rend les violations des gardes de la nouvelle version, scène par scène : un texte hors zone sûre ou illisible n’empêche pas l’enregistrement, mais la vidéo ne passera pas « prête » tant qu’il n’est pas corrigé. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).
 
 - API : `POST /api/v1/montage/editer` · outil MCP : `montage_editer`
 - Portée requise : `ecriture`
@@ -2408,6 +2408,150 @@ Corps de la demande (schéma JSON) :
             "properties": {
               "op": {
                 "type": "string",
+                "const": "animation"
+              },
+              "sceneId": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,32}$"
+              },
+              "entree": {
+                "type": "string",
+                "enum": [
+                  "aucune",
+                  "fondu",
+                  "glisse_haut",
+                  "glisse_bas",
+                  "zoom"
+                ]
+              },
+              "sortie": {
+                "type": "string",
+                "enum": [
+                  "aucune",
+                  "fondu",
+                  "zoom"
+                ]
+              },
+              "dureeMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 2000
+              },
+              "delaiMs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5000
+              }
+            },
+            "required": [
+              "op",
+              "sceneId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "transition"
+              },
+              "sceneId": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,32}$"
+              },
+              "transition": {
+                "type": "string",
+                "enum": [
+                  "coupe",
+                  "fondu"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "sceneId",
+              "transition"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "zoom"
+              },
+              "sceneId": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,32}$"
+              },
+              "actif": {
+                "type": "boolean"
+              },
+              "niveau": {
+                "type": "number",
+                "minimum": 1.1,
+                "maximum": 3
+              },
+              "decalageMs": {
+                "type": "integer",
+                "minimum": -2000,
+                "maximum": 2000
+              }
+            },
+            "required": [
+              "op",
+              "sceneId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "animation_carte"
+              },
+              "entree": {
+                "type": "string",
+                "enum": [
+                  "aucune",
+                  "fondu",
+                  "glisse_haut",
+                  "glisse_bas",
+                  "zoom"
+                ]
+              },
+              "sortie": {
+                "type": "string",
+                "enum": [
+                  "aucune",
+                  "fondu",
+                  "zoom"
+                ]
+              },
+              "dureeMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 2000
+              },
+              "delaiMs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5000
+              }
+            },
+            "required": [
+              "op"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
                 "const": "carte_fin"
               },
               "titre": {
@@ -2439,6 +2583,41 @@ Corps de la demande (schéma JSON) :
   "required": [
     "id",
     "operations"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `montage.regenerer`
+
+Regénère la vidéo d’un montage : met en file un nouveau rendu (et la voix de synthèse, si elle existe) à partir du montage tel qu’il est, sans le modifier. Le film rendu est la référence de ce que le montage donne ; le même montage, le même film brut et la même version du moteur donnent deux rendus identiques. Suis l’avancement avec `rendu.lire` (état en_file, en_cours, pret, bloque ou echec). Refusé avec SEANCE_PURGEE si les rushes ont été purgés (la date de purge est dans le message).
+
+- API : `POST /api/v1/montage/regenerer` · outil MCP : `montage_regenerer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "genre": {
+      "default": "allege",
+      "type": "string",
+      "enum": [
+        "allege",
+        "complet"
+      ]
+    }
+  },
+  "required": [
+    "id"
   ],
   "additionalProperties": false
 }

@@ -3,6 +3,7 @@
 // dessiné côté serveur (/montages/apercu.svg), sans rendu complet. Enregistrer passe par la même action que l'API et le
 // MCP (`montage.editer`) et crée une nouvelle version immuable. Les garde-fous sont évalués en direct sur ce qui est
 // saisi : une scène fautive est marquée, et la vidéo ne passera pas « prête » tant que ce n'est pas corrigé.
+import { ANIMATIONS, ANIMATIONS_SORTIE, TRANSITIONS } from '@regie/contrats';
 import chaines from '../../chaines.json' with { type: 'json' };
 import { evaluerMontage } from '../../domaine/montage.ts';
 import Base from '../../mises-en-page/Base.astro';
@@ -20,6 +21,9 @@ const t = chaines.montages;
 const e = t.editeur;
 const ctx = contexteInterface(services, session);
 const secondes = (ms: number): string => String(Math.round(ms / 100) / 10).replace('.', ',');
+// Pour les réglages d'animation, aucune valeur n'est arrondie : un champ non touché ne doit jamais créer de modification.
+const secondesExactes = (ms: number): string => String(ms / 1000).replace('.', ',');
+const noms = { animations: e.animations as Record<string, string>, transitions: e.transitions as Record<string, string> };
 
 let champs: LireChamp = (nom) => Astro.url.searchParams.get(nom);
 let id = Astro.url.searchParams.get('id') ?? '';
@@ -65,7 +69,8 @@ const enregistre = Astro.url.searchParams.get('ok') === '1';
 const valeur = (nom: string, defaut: string): string => champs(nom) ?? defaut;
 const paramsApercu = (sceneId: string): string => {
   const q = new URLSearchParams({ id: base.id, scene: sceneId });
-  for (const nom of [`accroche-${sceneId}`, `ecran-${sceneId}`, `voix-${sceneId}`, `duree-${sceneId}`, 'carte-titre', 'carte-soustitre', 'carte-duree']) {
+  const reglages = ['anim-entree', 'anim-sortie', 'anim-duree', 'anim-delai', 'transition', 'zoom-actif', 'zoom-niveau', 'zoom-decalage'].map((n) => `${n}-${sceneId}`);
+  for (const nom of [`accroche-${sceneId}`, `ecran-${sceneId}`, `voix-${sceneId}`, `duree-${sceneId}`, ...reglages, 'carte-titre', 'carte-soustitre', 'carte-duree', 'carte-anim-entree', 'carte-anim-sortie', 'carte-anim-duree', 'carte-anim-delai']) {
     const v = champs(nom);
     if (v !== null) q.set(nom, v);
   }
@@ -76,6 +81,7 @@ const paramsApercu = (sceneId: string): string => {
 <Base titre={`${e.titre} — ${t.version.replace('{numero}', String(base.numero))}`}>
   <h1>{e.titre}</h1>
   <p class="intro">{e.intro}</p>
+  <p class="doux">{e.apercuNote}</p>
   <p><a href={`/montages?id=${base.id}`}>{e.retourVideo}</a> · {t.version.replace('{numero}', String(base.numero))}</p>
   {enregistre && <p class="succes" role="status">{e.enregistre}</p>}
   {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
@@ -101,6 +107,21 @@ const paramsApercu = (sceneId: string): string => {
               <label>{e.texteEcran}<input type="text" name={`ecran-${s.id}`} value={valeur(`ecran-${s.id}`, s.texteEcran)} maxlength="120" /></label>
               <label>{e.voix}<textarea name={`voix-${s.id}`} rows="3" maxlength="500">{valeur(`voix-${s.id}`, s.voix)}</textarea></label>
               <label>{e.duree}<input type="text" inputmode="decimal" name={`duree-${s.id}`} value={valeur(`duree-${s.id}`, secondes(s.dureeMs))} /></label>
+              <fieldset class="reglages">
+                <legend>{e.animation}</legend>
+                <label>{e.animEntree}<select name={`anim-entree-${s.id}`}>{ANIMATIONS.map((a) => <option value={a} selected={valeur(`anim-entree-${s.id}`, s.animation.entree) === a}>{noms.animations[a]}</option>)}</select></label>
+                <label>{e.animSortie}<select name={`anim-sortie-${s.id}`}>{ANIMATIONS_SORTIE.map((a) => <option value={a} selected={valeur(`anim-sortie-${s.id}`, s.animation.sortie) === a}>{noms.animations[a]}</option>)}</select></label>
+                <label>{e.animDuree}<input type="text" inputmode="decimal" name={`anim-duree-${s.id}`} value={valeur(`anim-duree-${s.id}`, secondesExactes(s.animation.dureeMs))} /></label>
+                <label>{e.animDelai}<input type="text" inputmode="decimal" name={`anim-delai-${s.id}`} value={valeur(`anim-delai-${s.id}`, secondesExactes(s.animation.delaiMs))} /></label>
+                {i > 0 && <label>{e.transition}<select name={`transition-${s.id}`}>{TRANSITIONS.map((a) => <option value={a} selected={valeur(`transition-${s.id}`, s.transition) === a}>{noms.transitions[a]}</option>)}</select></label>}
+              </fieldset>
+              <fieldset class="reglages">
+                <legend>{e.zoomTitre}</legend>
+                {s.points.length === 0 && <p class="doux">{e.zoomSansClic}</p>}
+                <label>{e.zoomActif}<select name={`zoom-actif-${s.id}`}><option value="oui" selected={valeur(`zoom-actif-${s.id}`, s.zoom.actif ? 'oui' : 'non') === 'oui'}>{e.zoomOui}</option><option value="non" selected={valeur(`zoom-actif-${s.id}`, s.zoom.actif ? 'oui' : 'non') === 'non'}>{e.zoomNon}</option></select></label>
+                <label>{e.zoomNiveau}<input type="text" inputmode="decimal" name={`zoom-niveau-${s.id}`} value={valeur(`zoom-niveau-${s.id}`, String(s.zoom.niveau).replace('.', ','))} /></label>
+                <label>{e.zoomDecalage}<input type="text" inputmode="decimal" name={`zoom-decalage-${s.id}`} value={valeur(`zoom-decalage-${s.id}`, secondesExactes(s.zoom.decalageMs))} /></label>
+              </fieldset>
               {violations.filter((v) => v.segment === s.id).map((v) => <p class="probleme">{v.phrase}</p>)}
               <div class="gestes">
                 <button type="submit" name="geste" value={`deplacer:${s.id}:monter`} class="bouton" disabled={i === 0}>{e.monter}</button>
@@ -130,6 +151,13 @@ const paramsApercu = (sceneId: string): string => {
                 <label>{e.carteTitre}<input type="text" name="carte-titre" value={valeur('carte-titre', timeline.carteFin.titre)} maxlength="60" /></label>
                 <label>{e.carteSousTitre}<input type="text" name="carte-soustitre" value={valeur('carte-soustitre', timeline.carteFin.sousTitre)} maxlength="80" /></label>
                 <label>{e.carteDuree}<input type="text" inputmode="decimal" name="carte-duree" value={valeur('carte-duree', secondes(timeline.carteFin.dureeMs))} /></label>
+                <fieldset class="reglages">
+                  <legend>{e.carteAnimation}</legend>
+                  <label>{e.animEntree}<select name="carte-anim-entree">{ANIMATIONS.map((a) => <option value={a} selected={valeur('carte-anim-entree', timeline.carteFin!.animation.entree) === a}>{noms.animations[a]}</option>)}</select></label>
+                  <label>{e.animSortie}<select name="carte-anim-sortie">{ANIMATIONS_SORTIE.map((a) => <option value={a} selected={valeur('carte-anim-sortie', timeline.carteFin!.animation.sortie) === a}>{noms.animations[a]}</option>)}</select></label>
+                  <label>{e.animDuree}<input type="text" inputmode="decimal" name="carte-anim-duree" value={valeur('carte-anim-duree', secondesExactes(timeline.carteFin.animation.dureeMs))} /></label>
+                  <label>{e.animDelai}<input type="text" inputmode="decimal" name="carte-anim-delai" value={valeur('carte-anim-delai', secondesExactes(timeline.carteFin.animation.delaiMs))} /></label>
+                </fieldset>
                 {violations.filter((v) => v.segment === 'carte-fin').map((v) => <p class="probleme">{v.phrase}</p>)}
               </div>
             </div>
@@ -162,7 +190,7 @@ const paramsApercu = (sceneId: string): string => {
         scene,
         setTimeout(() => {
           const adresse = new URL(image.src);
-          for (const champ of scene.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input[name], textarea[name]')) adresse.searchParams.set(champ.name, champ.value);
+          for (const champ of scene.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input[name], textarea[name], select[name]')) adresse.searchParams.set(champ.name, champ.value);
           image.src = adresse.toString();
         }, 250),
       );
@@ -176,8 +204,9 @@ const paramsApercu = (sceneId: string): string => {
   @media (min-width: 700px) { .ligne-scene { grid-template-columns: 180px 1fr; align-items: start; } }
   .champs-scene { display: grid; gap: 10px; min-width: 0; }
   .champs-scene label { display: grid; gap: 4px; }
-  .champs-scene input, .champs-scene textarea { font: inherit; padding: 6px; border-radius: var(--rayon); border: 1px solid var(--trait); background: none; color: inherit; min-height: 44px; }
+  .champs-scene input, .champs-scene textarea, .champs-scene select { font: inherit; padding: 6px; border-radius: var(--rayon); border: 1px solid var(--trait); background: none; color: inherit; min-height: 44px; }
   .apercu-scene { max-width: 100%; height: auto; border: 1px solid var(--trait); border-radius: var(--rayon); background: #111; }
   #formulaire-montage fieldset { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px; margin: 16px 0; display: grid; gap: 12px; }
+  .reglages { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 8px 12px; display: grid; gap: 10px; }
   .bouton:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

@@ -165,7 +165,7 @@ export const montageDefinirVoix = definirAction({
 export const montageEditer = definirAction({
   domaine: 'montage',
   verbe: 'editer',
-  description: 'Modifie un montage par une liste d’opérations appliquées dans l’ordre : `texte` (accroche, texteEcran, voix d’une scène), `duree` (dureeMs d’une scène), `deplacer` (monter ou descendre), `dupliquer`, `retirer`, `carte_fin` (titre, sousTitre, dureeMs, ou retirer). Crée une NOUVELLE version du montage (l’ancienne ne change pas, les publications déjà parties restent liées à elle) à partir de la version donnée, sans lancer de rendu. Rend les violations des gardes de la nouvelle version, scène par scène : un texte hors zone sûre ou illisible n’empêche pas l’enregistrement, mais la vidéo ne passera pas « prête » tant qu’il n’est pas corrigé. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).',
+  description: 'Modifie un montage par une liste d’opérations appliquées dans l’ordre : `texte` (accroche, texteEcran, voix d’une scène), `duree` (dureeMs d’une scène), `deplacer` (monter ou descendre), `dupliquer`, `retirer`, `carte_fin` (titre, sousTitre, dureeMs, ou retirer), `animation` (entree, sortie, dureeMs, delaiMs des textes d’une scène ; catalogue : aucune, fondu, glisse_haut, glisse_bas, zoom en entrée ; aucune, fondu, zoom en sortie), `transition` (coupe ou fondu avec la scène précédente), `zoom` (actif, niveau de 1,1 à 3, decalageMs par rapport au clic) et `animation_carte` (la même chose pour la carte de fin). Crée une NOUVELLE version du montage (l’ancienne ne change pas, les publications déjà parties restent liées à elle) à partir de la version donnée, sans lancer de rendu. Rend les violations des gardes de la nouvelle version, scène par scène : un texte hors zone sûre ou illisible n’empêche pas l’enregistrement, mais la vidéo ne passera pas « prête » tant qu’il n’est pas corrigé. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).',
   portee: 'ecriture',
   entree: z.strictObject({ id: identifiant, operations: OperationsEdition }),
   executer: async (ctx, entree) => {
@@ -183,4 +183,37 @@ export const montageEditer = definirAction({
   objet: (entree) => `montage:${entree.id}`,
 });
 
-export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, renduLire, renduAdresse] as const;
+const dateFr = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'Europe/Paris' });
+
+/** Refuse (`SEANCE_PURGEE`, avec la date de purge) si le film brut du montage n'existe plus : rien ne peut être rendu sans lui. */
+async function exigerFilm(ctx: ContexteAction, m: Montage): Promise<void> {
+  const film = await ctx.services.montages.lireFichier(ctx.marqueId, ctx.utilisateurId, m.filmFichierId);
+  if (film === undefined) throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: m.id });
+  if (film.purgeLe !== null) throw new ErreurMetier('SEANCE_PURGEE', 409, { date: dateFr.format(film.purgeLe) });
+}
+
+/** Met en file la voix (si une voix locale existe et que du texte est à dire) puis le rendu, ou le rendu seul. */
+async function lancerRegeneration(ctx: ContexteAction, m: Montage, genre: 'allege' | 'complet') {
+  const qui = { marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId };
+  const aDire = ctx.services.voixLocale === true && m.timeline.scenes.some((s) => s.voix.trim() !== '');
+  const lance = aDire ? await lancerVoix(ctx.services, qui, m.id) : await lancerRendu(ctx.services, qui, m.id, genre);
+  if (lance === undefined) throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: m.id });
+  return lance;
+}
+
+export const montageRegenerer = definirAction({
+  domaine: 'montage',
+  verbe: 'regenerer',
+  description: 'Regénère la vidéo d’un montage : met en file un nouveau rendu (et la voix de synthèse, si elle existe) à partir du montage tel qu’il est, sans le modifier. Le film rendu est la référence de ce que le montage donne ; le même montage, le même film brut et la même version du moteur donnent deux rendus identiques. Suis l’avancement avec `rendu.lire` (état en_file, en_cours, pret, bloque ou echec). Refusé avec SEANCE_PURGEE si les rushes ont été purgés (la date de purge est dans le message).',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant, genre: z.enum(['allege', 'complet']).default('allege') }),
+  executer: async (ctx, entree) => {
+    const m = await montageAccessible(ctx, entree.id);
+    await exigerFilm(ctx, m);
+    const lance = await lancerRegeneration(ctx, m, entree.genre);
+    return { montageId: m.id, tacheId: lance.tacheId };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, montageRegenerer, renduLire, renduAdresse] as const;

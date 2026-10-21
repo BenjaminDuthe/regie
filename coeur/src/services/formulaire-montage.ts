@@ -13,6 +13,42 @@ export function millisecondesDepuisSecondes(texte: string): number | undefined {
   return Number.isFinite(n) && texte.trim() !== '' ? Math.round(n * 1000) : undefined;
 }
 
+const nombreDe = (texte: string | null): number | undefined => (texte === null || texte.trim() === '' || !Number.isFinite(Number(texte.trim().replace(',', '.'))) ? undefined : Number(texte.trim().replace(',', '.')));
+
+type ReglageLu = { entree?: string; sortie?: string; dureeMs?: number; delaiMs?: number };
+/** Lit les champs d'un réglage d'animation (entrée, sortie, durée et délai en secondes) ; ne garde que ce qui change. */
+function animationChangee(a: { entree: string; sortie: string; dureeMs: number; delaiMs: number }, lire: LireChamp, prefixe: string, suffixe: string): ReglageLu {
+  const entree = lire(`${prefixe}entree${suffixe}`);
+  const sortie = lire(`${prefixe}sortie${suffixe}`);
+  const duree = millisecondesDepuisSecondes(lire(`${prefixe}duree${suffixe}`) ?? '');
+  const delai = millisecondesDepuisSecondes(lire(`${prefixe}delai${suffixe}`) ?? '');
+  return {
+    ...(entree !== null && entree !== a.entree ? { entree } : {}),
+    ...(sortie !== null && sortie !== a.sortie ? { sortie } : {}),
+    ...(duree !== undefined && duree !== a.dureeMs ? { dureeMs: duree } : {}),
+    ...(delai !== undefined && delai !== a.delaiMs ? { delaiMs: delai } : {}),
+  };
+}
+
+/** Animation, transition et zoom d'une scène (histoire 3.11). Les valeurs hors catalogue sont refusées par le schéma. */
+function reglagesScene(s: Timeline['scenes'][number], lire: LireChamp): OperationEdition[] {
+  const operations: OperationEdition[] = [];
+  const anim = animationChangee(s.animation, lire, 'anim-', `-${s.id}`);
+  if (Object.keys(anim).length > 0) operations.push({ op: 'animation', sceneId: s.id, ...anim } as OperationEdition);
+  const transition = lire(`transition-${s.id}`);
+  if (transition !== null && transition !== s.transition) operations.push({ op: 'transition', sceneId: s.id, transition } as OperationEdition);
+  const actif = lire(`zoom-actif-${s.id}`);
+  const niveau = nombreDe(lire(`zoom-niveau-${s.id}`));
+  const decalage = millisecondesDepuisSecondes(lire(`zoom-decalage-${s.id}`) ?? '');
+  const zoom = {
+    ...(actif !== null && (actif === 'oui') !== s.zoom.actif ? { actif: actif === 'oui' } : {}),
+    ...(niveau !== undefined && niveau !== s.zoom.niveau ? { niveau } : {}),
+    ...(decalage !== undefined && decalage !== s.zoom.decalageMs ? { decalageMs: decalage } : {}),
+  };
+  if (Object.keys(zoom).length > 0) operations.push({ op: 'zoom', sceneId: s.id, ...zoom });
+  return operations;
+}
+
 /** Les champs de texte, de durée et de carte de fin qui diffèrent de la timeline de départ. */
 export function operationsDepuisChamps(base: Timeline, lire: LireChamp): OperationEdition[] {
   const operations: OperationEdition[] = [];
@@ -26,6 +62,7 @@ export function operationsDepuisChamps(base: Timeline, lire: LireChamp): Operati
       ...(voix !== null && voix.trim() !== s.voix ? { voix } : {}),
     };
     if (Object.keys(changes).length > 0) operations.push({ op: 'texte', sceneId: s.id, ...changes });
+    operations.push(...reglagesScene(s, lire));
     const duree = lire(`duree-${s.id}`);
     const ms = duree === null ? undefined : millisecondesDepuisSecondes(duree);
     // Une durée illisible devient une durée impossible : le refus nomme la scène fautive.
@@ -44,6 +81,8 @@ export function operationsDepuisChamps(base: Timeline, lire: LireChamp): Operati
       ...(ms !== undefined && ms !== c.dureeMs ? { dureeMs: ms } : {}),
     };
     if (Object.keys(changes).length > 0) operations.push({ op: 'carte_fin', ...changes });
+    const anim = animationChangee(c.animation, lire, 'carte-anim-', '');
+    if (Object.keys(anim).length > 0) operations.push({ op: 'animation_carte', ...anim } as OperationEdition);
   }
   return operations;
 }
