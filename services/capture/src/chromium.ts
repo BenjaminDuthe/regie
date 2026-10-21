@@ -47,8 +47,16 @@ export function optionsLancement(proxy: ReglagesProxy) {
   } as const;
 }
 
-/** Options du contexte de navigation : pas de téléchargement, pas de service worker, pas de permission. */
-export function optionsContexte(viewport: Readonly<{ largeur: number; hauteur: number }>) {
+/** Dossier du film dans le conteneur : le seul endroit où l'on écrit (tmpfs, détruit avec le conteneur). */
+export const DOSSIER_FILM = '/tmp/film';
+/** Format de tournage : vertical 1080 x 1920 (histoire 4.5). */
+export const FORMAT_FILM = Object.freeze({ width: 1080, height: 1920 });
+
+/**
+ * Options du contexte de navigation : pas de téléchargement, pas de service worker, pas de permission.
+ * `film` : enregistre la vidéo verticale de la session (jeu d'un script, histoire 4.5).
+ */
+export function optionsContexte(viewport: Readonly<{ largeur: number; hauteur: number }>, film = false) {
   return {
     viewport: { width: viewport.largeur, height: viewport.hauteur },
     acceptDownloads: false,
@@ -57,5 +65,6 @@ export function optionsContexte(viewport: Readonly<{ largeur: number; hauteur: n
     bypassCSP: false,
     ignoreHTTPSErrors: false,
     javaScriptEnabled: true,
+    ...(film ? { recordVideo: { dir: DOSSIER_FILM, size: FORMAT_FILM } } : {}),
   } as const;
 }

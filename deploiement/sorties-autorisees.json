@@ -21,6 +21,7 @@
   "fichiersReseau": [
     "coeur/src/infra/oidc.ts",
     "coeur/src/pages/taches.astro",
+    "coeur/src/pages/scripts.astro",
     "services/proxy-capture/src/adresses.ts",
     "services/proxy-capture/src/proxy.ts",
     "services/proxy-capture/src/principal.ts",

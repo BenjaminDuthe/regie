@@ -29,8 +29,11 @@ export interface Scripts {
   creer(n: { marqueId: string; utilisateurId: string; applicationId: string; origine: OrigineScript } & ChampsScript): Promise<Script | undefined>;
   /** Remplace nom et étapes si la version est celle que la personne a lue. Le dernier jeu est remis à vide. */
   remplacer(marqueId: string, utilisateurId: string, id: string, champs: ChampsScript, versionLue: number): Promise<ResultatRemplacement>;
-  /** Écrit le résultat du dernier jeu (capture, histoire 4.5). `false` si le script n'existe pas pour cette personne. */
-  enregistrerJeu(marqueId: string, utilisateurId: string, id: string, jeu: DernierJeu): Promise<boolean>;
+  /**
+   * Écrit le résultat du dernier jeu (capture, histoire 4.5). `false` si le script n'existe pas pour cette personne,
+   * ou si `versionJouee` est donnée et que le script a changé depuis (le résultat ne dirait rien des nouvelles étapes).
+   */
+  enregistrerJeu(marqueId: string, utilisateurId: string, id: string, jeu: DernierJeu, versionJouee?: number): Promise<boolean>;
 }
 
 /** Levée quand le nom est déjà pris pour cette application (contrainte d'unicité). */
@@ -102,9 +105,9 @@ export class ScriptsPg implements Scripts {
     }
   }
 
-  async enregistrerJeu(marqueId: string, utilisateurId: string, id: string, jeu: DernierJeu): Promise<boolean> {
+  async enregistrerJeu(marqueId: string, utilisateurId: string, id: string, jeu: DernierJeu, versionJouee?: number): Promise<boolean> {
     return dansTransactionUtilisateur(this.#pool, marqueId, utilisateurId, async (client) => {
-      const r = await client.query('UPDATE scripts SET dernier_jeu = $2::jsonb WHERE id = $1', [id, JSON.stringify(jeu)]);
+      const r = await client.query('UPDATE scripts SET dernier_jeu = $2::jsonb WHERE id = $1 AND ($3::int IS NULL OR version = $3::int)', [id, JSON.stringify(jeu), versionJouee ?? null]);
       return (r.rowCount ?? 0) > 0;
     });
   }

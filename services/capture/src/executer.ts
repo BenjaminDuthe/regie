@@ -2,10 +2,10 @@
 // l'entrée standard, ouvre la page d'accueil de l'application par le proxy de sortie, rend sur la sortie standard une
 // ligne JSON : l'hôte, le titre et une miniature PNG (base64). Rien n'est écrit sur disque (racine en lecture seule).
 // Playwright est installé dans l'image, pas dans le cœur : il est chargé à l'exécution, sa version est épinglée
-// dans deploiement/versions.json. Le jeu de scripts complet arrive avec l'histoire 4.5.
+// dans deploiement/versions.json. Le jeu d'un script (histoire 4.5) est dans jeu.ts, jouer.ts et pilote-playwright.ts.
 
 import { optionsContexte, optionsLancement } from './chromium.ts';
-import { lireDemande, type DemandeCapture, type EtapeConnexion, type ResultatCapture } from './demande.ts';
+import { lireDemande, type DemandeCapture, type EtapeConnexion, type ResultatCapture, type ResultatJeu } from './demande.ts';
 
 export type LocateurMinimal = Readonly<{
   count: () => Promise<number>;
@@ -123,12 +123,25 @@ async function lireEntree(): Promise<string> {
 }
 
 if (import.meta.main) {
-  let resultat: ResultatCapture;
+  let resultat: ResultatCapture | ResultatJeu;
   try {
     const demande = lireDemande(await lireEntree());
     const nom = 'playwright';
     const { chromium } = (await import(nom)) as { chromium: { launch: LancerNavigateur } };
-    resultat = await capturer(demande, (options) => chromium.launch(options));
+    if (demande.etapes !== undefined) {
+      // Jeu d'un script : une ligne `{"journal": ...}` par entrée, puis la ligne de résultat. Les modules du jeu ne sont
+      // chargés que pour ce mode (jouer.ts importe ce fichier : pas de dépendance circulaire à la charge).
+      const { jouerDemande } = await import('./jouer.ts');
+      const { stat } = await import('node:fs/promises');
+      resultat = await jouerDemande(
+        demande,
+        chromium.launch as unknown as Parameters<typeof jouerDemande>[1],
+        (entree) => void process.stdout.write(`${JSON.stringify({ journal: entree })}\n`),
+        async (chemin) => (await stat(chemin)).size,
+      );
+    } else {
+      resultat = await capturer(demande, (options) => chromium.launch(options));
+    }
   } catch {
     // Aucun détail : un message brut pourrait citer le laissez-passer ou une adresse interne.
     resultat = { ok: false, cause: 'CAPTURE_ECHEC' };

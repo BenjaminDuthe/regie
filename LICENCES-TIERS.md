@@ -540,6 +540,13 @@ autorisant l’usage commercial (NFR-26) ; la CI refuse tout autre cas et vérif
 
 Aucun pour l’instant.
 
+## Composants des images
+
+| Nom | Licence | Source |
+| --- | --- | --- |
+| Playwright 1.63.0 (image de capture) | Apache-2.0 | https://github.com/microsoft/playwright |
+| Chromium (livré par Playwright 1.63.0) | BSD-3-Clause | https://chromium.googlesource.com/chromium/src/+/main/LICENSE |
+
 ## Musiques
 
 Aucun pour l’instant.

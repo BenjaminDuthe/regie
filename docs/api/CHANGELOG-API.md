@@ -61,3 +61,8 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `script.creer` (écriture) : crée un script (nom, origine, étapes). Une étape invalide est refusée en `SCRIPT_ETAPE_INVALIDE` (422) qui nomme son numéro et la cause ; une étape vers un hôte non déclaré en `SCRIPT_HOTE_REFUSE` (422) qui nomme l'hôte.
 - Ajout de `script.definir` (écriture) : remplace le nom et toutes les étapes ; la version monte, le dernier jeu est remis à vide.
 - Ajout de `script.ajouteretape`, `script.deplaceretape`, `script.retireretape`, `script.modifieretape` (écriture) : ajouter, monter ou descendre, retirer (l'étape retirée est rendue, `script.ajouteretape` la remet) et remplacer une étape. Elles rendent la `version` lue ; une version périmée est refusée en `SCRIPT_VERSION_PERIMEE` (409).
+
+## 2026-10-21 — histoire 4.5
+
+- Ajout de `script.jouer` (écriture) : lance le jeu et le tournage vertical d'un script dans la capture isolée et rend `{tacheId, scriptId, version}` à suivre par `tache.lire`. Le jeu s'arrête à la première navigation hors de la liste d'hôtes de l'application ; le dernier jeu du script garde l'état, l'étape et la cause. `SCRIPT_SANS_ETAPE` (422), `SCRIPT_HOTE_REFUSE` (422), `COMPTE_ABSENT` (409) si le script se connecte sans compte déposé.
+- Nouveau flux `GET /flux/jeu?tache=<id>` (session seulement, hors API publique) : rejoue puis diffuse le journal horodaté du jeu (événements `journal`, `etat`, `fin`). `fin` porte l'heure estimée du brouillon prêt.

@@ -15,7 +15,7 @@ function depot({ npm = { ok: 'MIT' }, pip = '', declarations = {}, fichiers = {}
   const contenus = {
     'package-lock.json': JSON.stringify({ lockfileVersion: 3, packages }),
     'requirements.lock': pip,
-    'deploiement/licences-tiers.json': JSON.stringify({ pip: {}, polices: [], modeles: [], musiques: [], ...declarations }),
+    'deploiement/licences-tiers.json': JSON.stringify({ pip: {}, polices: [], modeles: [], musiques: [], images: [], ...declarations }),
     ...fichiers,
   };
   for (const [chemin, contenu] of Object.entries(contenus)) {
@@ -105,6 +105,8 @@ describe('verifier-licences', () => {
     ['modeles', { nom: 'M', licence: 'Llama-2-Community', source: 'https://exemple.test/m' }, 'sous « Llama-2-Community »'],
     ['musiques', { nom: 'Z', licence: 'libre de droits' }, 'sans source vérifiable'],
     ['musiques', { nom: 'Y', licence: 'CC-BY-NC-4.0', source: 'https://exemple.test/y' }, 'sous « CC-BY-NC-4.0 »'],
+    ['images', { nom: 'W', licence: 'Proprietary', source: 'https://exemple.test/w' }, 'sous « Proprietary »'],
+    ['images', { nom: 'V', licence: 'MIT' }, 'sans source vérifiable'],
   ])('échoue sur un composant de « %s » refusé', (liste, element, cause) => {
     const fautes = verifierLicences(depot({ declarations: { [liste]: [element] } }));
     expect(fautes.join('\n')).toContain(cause);

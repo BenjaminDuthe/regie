@@ -11,6 +11,7 @@ import { NomScriptPris, type ChampsScript, type ResultatRemplacement, type Scrip
 import type { DernierJeu, OrigineScript } from '@regie/contrats';
 import { NomApplicationPris, type Application, type Applications, type ChampsApplication } from '../src/infra/applications.ts';
 import type { ComptesDemo, CompteDemo, EtatCompteDemo } from '../src/infra/comptes-demo.ts';
+import { JournauxJeu } from '../src/services/journaux-jeu.ts';
 import type { Gabarit, Gabarits } from '../src/infra/gabarits.ts';
 import { idUtilisateur, trierEspaces, type Espace, type Espaces } from '../src/infra/espaces.ts';
 import { DUREE_MAX_JETON_JOURS, composerJeton, hacherJeton, marqueDuJeton, type JetonApi, type JetonsApi, type NouveauJeton, type Principal } from '../src/infra/jetons.ts';
@@ -451,9 +452,9 @@ export class ScriptsMemoire implements Scripts {
     this.lignes[i] = apres;
     return { etat: 'ok', script: apres };
   }
-  async enregistrerJeu(marqueId: string, utilisateurId: string, id: string, jeu: DernierJeu) {
+  async enregistrerJeu(marqueId: string, utilisateurId: string, id: string, jeu: DernierJeu, versionJouee?: number) {
     const avant = await this.lire(marqueId, utilisateurId, id);
-    if (avant === undefined) return false;
+    if (avant === undefined || (versionJouee !== undefined && avant.version !== versionJouee)) return false;
     const i = this.lignes.findIndex((l) => l.id === id);
     this.lignes[i] = { ...this.lignes[i]!, dernierJeu: jeu };
     return true;
@@ -476,7 +477,7 @@ export class ComptesDemoMemoire implements ComptesDemo {
   }
 }
 
-export type BancDeTest = { scripts: ScriptsMemoire; comptesDemo: ComptesDemoMemoire; services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
+export type BancDeTest = { journauxJeu: JournauxJeu; scripts: ScriptsMemoire; comptesDemo: ComptesDemoMemoire; services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
 
 export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
@@ -520,7 +521,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     applications,
     scripts,
     comptesDemo,
+    journauxJeu: new JournauxJeu(),
     maintenant: () => horloge.t,
   };
-  return { scripts, comptesDemo, services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
+  return { journauxJeu: services.journauxJeu, scripts, comptesDemo, services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
 }

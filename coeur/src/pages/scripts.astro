@@ -9,7 +9,7 @@ import { EtapeScript, VERBES_SCRIPT, type EtapeScript as Etape } from '@regie/co
 import chaines from '../chaines.json' with { type: 'json' };
 import Base from '../mises-en-page/Base.astro';
 import { applicationLister } from '../services/actions-application.ts';
-import { scriptAjouterEtape, scriptCreer, scriptDeplacerEtape, scriptLister, scriptModifierEtape, scriptRetirerEtape } from '../services/actions-script.ts';
+import { scriptAjouterEtape, scriptCreer, scriptDeplacerEtape, scriptJouer, scriptLister, scriptModifierEtape, scriptRetirerEtape } from '../services/actions-script.ts';
 import { contexteInterface } from '../services/contextes.ts';
 import { ErreurMetier } from '../services/erreurs.ts';
 import { executerAction } from '../services/registre.ts';
@@ -23,6 +23,8 @@ const ctx = contexteInterface(services, session);
 const NOM_COOKIE = 'regie_etape_retiree';
 const UUID = /^[0-9a-f-]{36}$/;
 let erreur: string | undefined;
+// Le jeu en cours à suivre : la tâche rendue par `script.jouer`, passée dans l'adresse après le geste.
+const tacheJeu = UUID.test(Astro.url.searchParams.get('jeu') ?? '') ? Astro.url.searchParams.get('jeu')! : undefined;
 
 const idDemande = Astro.url.searchParams.get('id') ?? '';
 type VueApp = { id: string; nom: string; hotes: string[] };
@@ -37,6 +39,10 @@ if (Astro.request.method === 'POST') {
   const position = Number(champ('position'));
   const nombre = (s: string): number | undefined => (s.trim() === '' ? undefined : Number(s.trim().replace(',', '.')));
   try {
+    if (geste === 'jouer') {
+      const r = (await executerAction(ctx, scriptJouer, { id })) as { tacheId: string };
+      return Astro.redirect(`/scripts?id=${id}&jeu=${r.tacheId}`, 303);
+    }
     if (geste === 'creer') {
       const r = (await executerAction(ctx, scriptCreer, { applicationId: champ('applicationId'), nom: champ('nom'), origine: 'claude', etapes: [] })) as { script: { id: string } };
       return Astro.redirect(`/scripts?id=${r.script.id}`, 303);
@@ -191,6 +197,44 @@ const champCible = (e: Etape): 'url' | 'cible' | undefined => (e.verbe === 'alle
         <p class:list={['jeu', jeu !== null && jeu.etat !== 'reussi' && 'probleme']}>{libelleJeu(jeu)}</p>
         {application !== undefined && <p class="doux">{t.editeur.hotesApplication.replace('{application}', application.nom).replace('{hotes}', application.hotes.join(', '))}</p>}
 
+        <form method="post" action="/scripts" class="jouer">
+          <input type="hidden" name="geste" value="jouer" />
+          <input type="hidden" name="id" value={courant.id} />
+          <button type="submit" class="bouton bouton-principal" disabled={courant.etapes.length === 0}>{t.jouer.bouton}</button>
+        </form>
+
+        {
+          tacheJeu !== undefined && (
+            <section
+              id="panneau-jeu"
+              class="panneau-jeu"
+              aria-labelledby="titre-jeu"
+              data-flux={`/flux/jeu?tache=${tacheJeu}`}
+              data-libelles={JSON.stringify({ ...t.jouer, causes: t.causesJeu, etapesConnexion: t.etapesConnexion })}
+            >
+              <h3 id="titre-jeu">{t.jouer.titre}</h3>
+              <p class="doux">{t.jouer.lance}</p>
+              <div class="jeu-corps">
+                <figure class="apercu-jeu">
+                  <div class="telephone" id="telephone" role="img" aria-label={t.jouer.apercu}>
+                    <span class="badge-capture">{t.jouer.badge}</span>
+                    <span class="curseur" id="curseur" hidden></span>
+                    <span class="onde" id="onde" hidden></span>
+                  </div>
+                  <figcaption class="doux">{t.jouer.apercu}</figcaption>
+                </figure>
+                <div class="journal-jeu">
+                  <h4>{t.jouer.journalTitre}</h4>
+                  <p id="statut-jeu" role="status" aria-live="polite" class="doux">{t.jouer.journalVide}</p>
+                  <ol id="journal-jeu" aria-live="off"></ol>
+                  <p id="annonce-jeu" role="status" class="succes" hidden></p>
+                  <p id="probleme-jeu" role="alert" class="probleme" hidden></p>
+                </div>
+              </div>
+            </section>
+          )
+        }
+
         <section aria-labelledby="titre-etapes">
           <h3 id="titre-etapes">{t.editeur.titre}</h3>
           {courant.etapes.length === 0 && <p class="doux">{t.sansEtape}</p>}
@@ -296,6 +340,89 @@ const champCible = (e: Etape): 'url' | 'cible' | undefined => (e.verbe === 'alle
   }
 </Base>
 
+<script>
+  // Suivi en direct du jeu : tout est écrit par textContent, jamais interprété comme du HTML. Le journal ne contient
+  // que des verbes, des cibles et des positions : jamais une valeur saisie.
+  type Entree = { t: number; etape: number; genre: string; cible?: string; x?: number; y?: number };
+  type Fin = { etat: string; cause: string | null; secondes: number | null; pretVers: string | null; jeu: { etat: string; etape?: number | null; cause?: string; hote?: string } | null };
+  const racine = document.getElementById('panneau-jeu');
+  if (racine !== null && 'EventSource' in window) {
+    const L = JSON.parse(racine.dataset['libelles'] ?? '{}') as Record<string, unknown> & { genres: Record<string, string>; causes: Record<string, string>; etapesConnexion: Record<string, string> };
+    const texte = (modele: unknown, valeurs: Record<string, string>): string => Object.entries(valeurs).reduce((m, [k, v]) => m.replaceAll(`{${k}}`, v), String(modele));
+    const journal = document.getElementById('journal-jeu')!;
+    const statut = document.getElementById('statut-jeu')!;
+    const annonce = document.getElementById('annonce-jeu')!;
+    const probleme = document.getElementById('probleme-jeu')!;
+    const telephone = document.getElementById('telephone')!;
+    const curseur = document.getElementById('curseur')!;
+    const onde = document.getElementById('onde')!;
+    const dessinerPointeur = (e: Entree): void => {
+      if (e.x === undefined || e.y === undefined) return;
+      curseur.hidden = false;
+      curseur.style.left = `${e.x / 10}%`;
+      curseur.style.top = `${e.y / 10}%`;
+      if (e.genre === 'clic') {
+        onde.hidden = false;
+        onde.style.left = `${e.x / 10}%`;
+        onde.style.top = `${e.y / 10}%`;
+        // Un zoom bref sur le clic, comme dans le film monté.
+        telephone.style.transformOrigin = `${e.x / 10}% ${e.y / 10}%`;
+        telephone.classList.add('zoom');
+        onde.classList.remove('joue');
+        void onde.offsetWidth;
+        onde.classList.add('joue');
+        setTimeout(() => telephone.classList.remove('zoom'), 600);
+      }
+    };
+    const source = new EventSource(racine.dataset['flux'] ?? '');
+    source.addEventListener('journal', (ev) => {
+      const e = JSON.parse((ev as MessageEvent<string>).data) as Entree;
+      const modele = L.genres[e.genre] ?? e.genre;
+      const li = document.createElement('li');
+      const t = document.createElement('span');
+      t.className = 'doux';
+      t.textContent = `${(e.t / 1000).toFixed(1).replace('.', ',')} s `;
+      li.append(t, document.createTextNode(texte(modele, { cible: e.cible ?? '' })));
+      if (e.genre === 'refus' || e.genre === 'echec') li.className = 'probleme';
+      journal.append(li);
+      li.scrollIntoView({ block: 'nearest' });
+      dessinerPointeur(e);
+    });
+    source.addEventListener('etat', (ev) => {
+      const { tache } = JSON.parse((ev as MessageEvent<string>).data) as { tache: { etat: string; position: number | null; finEstimeeEnClair: string | null } };
+      if (tache.etat === 'en_cours') statut.textContent = String(L['enCours']);
+      else if (tache.etat === 'prete') {
+        const rang = tache.position === 0 ? String(L['enCours']) : tache.position === 1 ? '1' : String(tache.position ?? '');
+        statut.textContent = tache.finEstimeeEnClair === null ? texte(L['attente'], { position: rang }) : texte(L['attenteHeure'], { heure: tache.finEstimeeEnClair });
+      }
+    });
+    source.addEventListener('fin', (ev) => {
+      const f = JSON.parse((ev as MessageEvent<string>).data) as Fin;
+      source.close();
+      curseur.hidden = true;
+      if (f.etat === 'terminee' && f.jeu?.etat === 'reussi') {
+        statut.textContent = texte(L['termine'], { secondes: String(f.secondes ?? 0) });
+        annonce.hidden = false;
+        annonce.textContent = f.pretVers === null ? '' : texte(L['pret'], { heure: f.pretVers });
+        return;
+      }
+      statut.textContent = '';
+      probleme.hidden = false;
+      if (f.jeu?.etat === 'hote_refuse') probleme.textContent = texte(L['refus'], { hote: f.jeu.hote ?? '' });
+      else if (f.jeu?.etat === 'echec') {
+        const cause = L.causes[f.jeu.cause ?? ''] ?? f.jeu.cause ?? '';
+        probleme.textContent = texte(L['echec'], { etape: String(f.jeu.etape ?? ''), cause });
+      } else probleme.textContent = texte(L['interrompu'], { cause: f.cause ?? '' });
+    });
+    source.addEventListener('error', () => {
+      if (source.readyState === EventSource.CLOSED) {
+        probleme.hidden = false;
+        probleme.textContent = String(L['fluxCoupe']);
+      }
+    });
+  }
+</script>
+
 <style is:global>
   .liste-scripts { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 16px; grid-template-columns: 1fr; }
   @media (min-width: 900px) { .liste-scripts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -314,4 +441,20 @@ const champCible = (e: Etape): 'url' | 'cible' | undefined => (e.verbe === 'alle
   .toast form { margin: 0; }
   @keyframes toast-fin { to { visibility: hidden; opacity: 0; pointer-events: none; } }
   .jeu { margin: 0 0 8px; }
+  .jouer { margin: 12px 0; }
+  .bouton-principal { background: var(--accent); color: var(--sur-accent, #fff); border-color: var(--accent); }
+  .bouton-principal[disabled] { opacity: 0.4; cursor: default; }
+  .panneau-jeu { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 16px; margin: 16px 0; }
+  .jeu-corps { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 700px) { .jeu-corps { grid-template-columns: 220px minmax(0, 1fr); } }
+  .apercu-jeu { margin: 0; }
+  .telephone { position: relative; aspect-ratio: 9 / 16; width: 100%; max-width: 220px; border: 2px solid var(--trait); border-radius: 18px; background: var(--surface); overflow: hidden; transition: transform 0.3s ease; }
+  .telephone.zoom { transform: scale(1.12); }
+  .badge-capture { position: absolute; top: 8px; left: 8px; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--jeter, #c0392b); color: #fff; }
+  .curseur { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--accent); border: 2px solid #fff; transition: left 0.3s ease, top 0.3s ease; }
+  .onde { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; }
+  .onde.joue { animation: onde 0.6s ease-out; }
+  @keyframes onde { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(4); } }
+  @media (prefers-reduced-motion: reduce) { .telephone, .curseur { transition: none; } .onde.joue { animation: none; } }
+  #journal-jeu { list-style: none; padding: 0; margin: 8px 0; max-height: 320px; overflow-y: auto; display: grid; gap: 4px; font-size: 14px; }
 </style>

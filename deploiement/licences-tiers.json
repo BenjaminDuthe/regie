@@ -1,5 +1,5 @@
 {
-  "$commentaire": "Licences des composants hors npm (AD-17, NFR-26). npm se lit dans package-lock.json ; pip se déclare ici, paquet par paquet, car requirements.lock ne porte pas les licences. Polices, modèles et musiques n'entrent qu'avec une licence libre et une source vérifiable. outils/ci/verifier-licences.mjs contrôle ce fichier et régénère LICENCES-TIERS.md.",
+  "$commentaire": "Licences des composants hors npm (AD-17, NFR-26). npm se lit dans package-lock.json ; pip se déclare ici, paquet par paquet, car requirements.lock ne porte pas les licences. Les composants des images de conteneur (Playwright et son Chromium, histoire 4.5) se déclarent sous « images ». Polices, modèles et musiques n'entrent qu'avec une licence libre et une source vérifiable. outils/ci/verifier-licences.mjs contrôle ce fichier et régénère LICENCES-TIERS.md.",
   "pip": {
     "annotated-types": "MIT",
     "argcomplete": "Apache-2.0",
@@ -24,6 +24,18 @@
     "typing-extensions": "PSF-2.0",
     "typing-inspection": "MIT"
   },
+  "images": [
+    {
+      "nom": "Playwright 1.63.0 (image de capture)",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/microsoft/playwright"
+    },
+    {
+      "nom": "Chromium (livré par Playwright 1.63.0)",
+      "licence": "BSD-3-Clause",
+      "source": "https://chromium.googlesource.com/chromium/src/+/main/LICENSE"
+    }
+  ],
   "polices": [
     {
       "nom": "Inter",

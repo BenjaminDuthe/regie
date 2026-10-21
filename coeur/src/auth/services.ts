@@ -5,6 +5,7 @@ import type { Applications } from '../infra/applications.ts';
 import type { Scripts } from '../infra/scripts.ts';
 import type { Audit } from '../infra/audit.ts';
 import type { ComptesDemo } from '../infra/comptes-demo.ts';
+import type { JournauxJeu } from '../services/journaux-jeu.ts';
 import type { Coffre } from '../infra/coffre.ts';
 import type { Espaces } from '../infra/espaces.ts';
 import type { File } from '../infra/file.ts';
@@ -47,5 +48,7 @@ export type Services = Readonly<{
   scripts: Scripts;
   /** Compte de démonstration de chaque application, au coffre (histoire 4.3). */
   comptesDemo: ComptesDemo;
+  /** Journaux de jeu en direct (histoire 4.5), en mémoire. */
+  journauxJeu: JournauxJeu;
   maintenant: () => number;
 }>;

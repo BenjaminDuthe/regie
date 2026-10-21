@@ -13,6 +13,7 @@ import type { Services } from '../auth/services.ts';
 import { COOKIE_SESSION, lireCookie } from '../auth/cookies.ts';
 import { idUtilisateur } from '../infra/espaces.ts';
 import { suivreTaches } from '../services/suivi.ts';
+import { enregistrerRouteFluxJeu } from './jeu.ts';
 
 export type OptionsFlux = Readonly<{ intervalleMs?: number; battementMs?: number; dureeMaxMs?: number; maxParPersonne?: number }>;
 
@@ -80,6 +81,8 @@ export function enregistrerRoutesFlux(app: FastifyInstance, services: Services, 
     echeance = setTimeout(fermer, dureeMaxMs);
     await tour();
   });
+
+  enregistrerRouteFluxJeu(app, services, options);
 
   // Arrêt du serveur : aucun flux ne retient la fermeture.
   app.addHook('onClose', async () => {

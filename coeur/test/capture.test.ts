@@ -58,6 +58,23 @@ describe('LanceurPodman', () => {
     expect(f.vus.entree).toContain('LAISSEZ-PASSER');
     expect(f.vus.args.join(' ')).not.toContain('LAISSEZ-PASSER');
   });
+  it('remet chaque ligne complète à surLigne dès qu’elle arrive, même coupée au milieu d’un caractère ; un écouteur fautif ne casse rien', async () => {
+    const octets = Buffer.from('{"journal":"é"}\n{"ok":true}');
+    const morceaux = [octets.subarray(0, 12), octets.subarray(12, 16), octets.subarray(16)];
+    const lancement: Lancement = () => {
+      let fermer: (c?: number | null) => void = () => undefined;
+      return {
+        stdin: { end: () => setTimeout(() => fermer(0), 10), on: () => undefined },
+        stdout: { on: (_e, f) => void morceaux.forEach((m, i) => setTimeout(() => f(m), i)) },
+        on: (e, f) => { if (e === 'close') fermer = f; },
+        kill: () => true,
+      };
+    };
+    const lignes: string[] = [];
+    const sortie = await new LanceurPodman(reglages, lancement).lancer(demande({ surLigne: (l) => { lignes.push(l); throw new Error('écouteur fautif'); } }));
+    expect(lignes).toEqual(['{"journal":"é"}', '{"ok":true}']);
+    expect(sortie).toBe('{"journal":"é"}\n{"ok":true}');
+  });
   it('rejette un code de sortie non nul, une sortie trop longue et une annulation', async () => {
     await expect(new LanceurPodman(reglages, faux('', 125).lancement).lancer(demande())).rejects.toThrow(/SORTIE_125/);
     await expect(new LanceurPodman(reglages, faux('x'.repeat(500_000)).lancement).lancer(demande())).rejects.toThrow(/SORTIE_TROP_LONGUE/);

@@ -104,3 +104,14 @@ Décisions que le codeur n'a pas à prendre seul (produit, accès, jeton tiers).
 8. **« Viser le … »** — un petit formulaire qui donne la nouvelle cible (ou la nouvelle adresse pour « aller ») et passe par `script.modifieretape` : l'hôte est revérifié. La sélection à la souris dans la capture est reportée.
 9. **Création à partir d'une phrase** — pas en 4.4 : c'est l'objet de 4.8 (MCP). L'interface crée un script vide.
 10. **`contrats` dépend de zod** — le schéma des étapes vit dans `@regie/contrats`, partagé par le cœur et l'exécutant de capture (4.5).
+
+## 4.5 Jouer et filmer mon script
+
+1. **Moteur sans Playwright** — `services/capture/src/jeu.ts` rejoue les étapes contre une interface `PiloteNavigateur` ; `pilote-playwright.ts` la branche sur Playwright 1.63.0 (chargé dynamiquement, dans l'image de capture seulement). Tests avec un faux pilote ; l'essai réel est ignoré sans `REGIE_TEST_NAVIGATEUR` et l'image n'a pas été construite ici.
+2. **Deux gardes sur les hôtes** — le proxy de sortie (4.2), puis le navigateur lui-même coupe toute requête hors liste ; chaque étape revérifie la page ouverte. Un hôte refusé prime sur toute autre cause et se trace (`refus`).
+3. **Journal sans valeur sensible** — verbe, cible visée, hôte, position du pointeur ; jamais une valeur saisie ni le compte. Il vit en mémoire du cœur (300 entrées, 50 jeux, 1 h) : un seul processus en V1.
+4. **Aperçu schématique** — le panneau dessine curseur, ondulation de clic et zoom d'après les coordonnées du journal, pas des images réelles. Le film n'est pas livré (seule sa taille est rendue) ; le recadrage 1080×1920 et le zoom du film sont reportés à 4.6.
+5. **« Session qui suit la file »** — approchée par la tâche `jeu_script` plus l'heure « prêt vers » = maintenant + durées typiques du montage et du rendu. La vraie session de montage naît avec 4.6.
+6. **Flux borné** — 2 flux par personne, 15 min au plus, cloisonné par marque et par personne (404 sinon).
+7. **Une tentative, pas de garde de doublon** — `jeu_script` ne se rejoue pas seul ; deux jeux simultanés d'un même script restent possibles. Le jeu d'une version périmée n'écrase pas le dernier jeu.
+8. **Licences** — nouvelle liste « images » dans `licences-tiers.json` (Playwright Apache-2.0, Chromium BSD-3-Clause) ; `scripts.astro` rejoint les fichiers réseau déclarés (EventSource vers l'origine seule).

@@ -150,7 +150,7 @@ function verifierListe(nomListe, liste, fautes) {
 /** Fautes de licence et données du récapitulatif. */
 export function analyserLicences(racine = RACINE_DEPOT) {
   const fautes = [];
-  const vide = { fautes, npm: [], pip: [], polices: [], modeles: [], musiques: [] };
+  const vide = { fautes, npm: [], pip: [], polices: [], modeles: [], musiques: [], images: [] };
   const npm = lireNpm(racine, fautes);
   for (const paquet of npm) {
     if (!licenceLibre(paquet.licence)) {
@@ -179,9 +179,12 @@ export function analyserLicences(racine = RACINE_DEPOT) {
   const polices = declarations.polices ?? [];
   const modeles = declarations.modeles ?? [];
   const musiques = declarations.musiques ?? [];
+  // Composants installés dans les images de conteneur (hors npm du dépôt) : Playwright et son Chromium, par exemple.
+  const images = declarations.images ?? [];
   verifierListe('police', polices, fautes);
   verifierListe('modèle', modeles, fautes);
   verifierListe('musique', musiques, fautes);
+  verifierListe('composant d’image', images, fautes);
 
   // Une police versionnée sans déclaration est une licence non vérifiée.
   const declarees = new Set((Array.isArray(polices) ? polices : []).map((police) => police?.fichier));
@@ -200,11 +203,11 @@ export function analyserLicences(racine = RACINE_DEPOT) {
     fautes.push(`deploiement/modeles.lock existe mais « modeles » est vide dans ${FICHIER_LICENCES} : déclare chaque modèle et sa licence`);
   }
 
-  return { fautes, npm, pip, polices, modeles, musiques };
+  return { fautes, npm, pip, polices, modeles, musiques, images };
 }
 
 /** Contenu de LICENCES-TIERS.md, déterministe. */
-export function produireRecapitulatif({ npm, pip, polices, modeles, musiques }) {
+export function produireRecapitulatif({ npm, pip, polices, modeles, musiques, images = [] }) {
   const lignes = [
     '# Licences des composants tiers',
     '',
@@ -228,6 +231,7 @@ export function produireRecapitulatif({ npm, pip, polices, modeles, musiques }) 
   tableau('pip', ['Paquet', 'Version', 'Licence'], pip.map((p) => [p.nom, p.version, p.licence ?? '?']));
   tableau('Polices', ['Nom', 'Licence', 'Source'], polices.map((p) => [p.nom, p.licence, p.source]));
   tableau('Modèles', ['Nom', 'Licence', 'Source'], modeles.map((p) => [p.nom, p.licence, p.source]));
+  tableau('Composants des images', ['Nom', 'Licence', 'Source'], images.map((p) => [p.nom, p.licence, p.source]));
   tableau('Musiques', ['Nom', 'Licence', 'Source'], musiques.map((p) => [p.nom, p.licence, p.source]));
   return lignes.join('\n');
 }

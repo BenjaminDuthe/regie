@@ -18,6 +18,8 @@ import { EspacesPg } from './infra/espaces.ts';
 import { ApplicationsPg } from './infra/applications.ts';
 import { ScriptsPg } from './infra/scripts.ts';
 import { ComptesDemoPg } from './infra/comptes-demo.ts';
+import { creerExecutantJeuScript } from './services/jeu-script.ts';
+import { JournauxJeu } from './services/journaux-jeu.ts';
 import { GabaritsPg } from './infra/gabarits.ts';
 import { JetonsApiPg } from './infra/jetons.ts';
 import { NotificationsPg } from './infra/notifications.ts';
@@ -74,6 +76,7 @@ export function construireServices(contexte: Contexte): Services {
     applications: new ApplicationsPg(contexte.pool),
     scripts: new ScriptsPg(contexte.pool),
     comptesDemo: new ComptesDemoPg(contexte.pool, contexte.coffre),
+    journauxJeu: new JournauxJeu(),
     maintenant: Date.now,
   };
 }
@@ -128,6 +131,7 @@ function servicesSansBase(): Services {
     gabarits: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus },
     applications: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus },
     scripts: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus, enregistrerJeu: refus },
+    journauxJeu: new JournauxJeu(),
     comptesDemo: { remplacer: refus, etat: async () => ({ depose: false, modifieLe: undefined }) },
     maintenant: Date.now,
   };
@@ -206,11 +210,13 @@ if (import.meta.main) {
       ...(env.REGIE_CAPTURE_SOCKET !== undefined && contexte.cleCapture !== undefined
         ? (() => {
             const lanceur = new LanceurPodman({ socket: env.REGIE_CAPTURE_SOCKET, image: env.REGIE_CAPTURE_IMAGE, reseau: RESEAU_CAPTURE });
+            const passerelle = new PasserelleSecretsCoffre({ file: services.file, service: nomService, lecteur: lecteurCoffre(contexte.pool, contexte.coffre) });
             return {
+              jeu_script: creerExecutantJeuScript({ applications: services.applications, scripts: services.scripts, passerelle, lanceur, journaux: services.journauxJeu, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
               capture: creerExecutantCapture({ applications: services.applications, lanceur, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
               test_connexion: creerExecutantTestConnexion({
                 applications: services.applications,
-                passerelle: new PasserelleSecretsCoffre({ file: services.file, service: nomService, lecteur: lecteurCoffre(contexte.pool, contexte.coffre) }),
+                passerelle,
                 lanceur,
                 cle: contexte.cleCapture,
                 proxy: env.REGIE_CAPTURE_PROXY,

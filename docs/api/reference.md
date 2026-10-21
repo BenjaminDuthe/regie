@@ -2003,3 +2003,30 @@ Corps de la demande (schéma JSON) :
   "additionalProperties": false
 }
 ```
+
+## `script.jouer`
+
+Joue le script dans la capture isolée et le filme en vertical. Rend la tâche à suivre (`tache.lire`) ; le résultat va au dernier jeu du script (`script.lire`) : réussi, échec à l’étape N, ou hôte refusé. Une navigation hors de la liste d’hôtes de l’application arrête le jeu.
+
+- API : `POST /api/v1/script/jouer` · outil MCP : `script_jouer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```

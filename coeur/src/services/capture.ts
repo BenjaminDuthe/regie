@@ -4,6 +4,7 @@
 // hôtes de l'application) passent par l'entrée standard du conteneur, jamais par argv ni par l'environnement.
 
 import { spawn } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import { z } from 'zod';
 import { signerLaissezPasser } from '@regie/contrats';
 import type { Applications } from '../infra/applications.ts';
@@ -16,6 +17,8 @@ export type DemandeLanceur = Readonly<{
   entree: string;
   delaiMs: number;
   signal: AbortSignal;
+  /** Reçoit chaque ligne complète de la sortie du conteneur dès qu'elle arrive (le journal du jeu, histoire 4.5). */
+  surLigne?: (ligne: string) => void;
 }>;
 
 /** Ce que le cœur sait demander : lancer un conteneur de capture et lire sa ligne de résultat. */
@@ -92,6 +95,22 @@ export class LanceurPodman implements LanceurCapture {
       const morceaux: Buffer[] = [];
       let total = 0;
       let fini = false;
+      let reste = '';
+      const decodeur = new StringDecoder('utf8');
+      const lignes = (texte: string): void => {
+        if (d.surLigne === undefined) return;
+        reste += texte;
+        let i: number;
+        while ((i = reste.indexOf('\n')) >= 0) {
+          const ligne = reste.slice(0, i);
+          reste = reste.slice(i + 1);
+          try {
+            d.surLigne(ligne);
+          } catch {
+            // Un écouteur fautif ne casse pas la capture.
+          }
+        }
+      };
       const terminer = (f: () => void) => {
         if (fini) return;
         fini = true;
@@ -117,10 +136,14 @@ export class LanceurPodman implements LanceurCapture {
           return;
         }
         morceaux.push(m);
+        lignes(decodeur.write(m));
       });
       p.stdin.on('error', () => undefined);
       p.on('error', () => terminer(() => rejeter(new Error('LANCEMENT'))));
-      p.on('close', (code) => terminer(() => (code === 0 ? resoudre(Buffer.concat(morceaux).toString('utf8')) : rejeter(new Error(`SORTIE_${code ?? 'inconnue'}`)))));
+      p.on('close', (code) => terminer(() => {
+        if (reste !== '') lignes('\n');
+        return code === 0 ? resoudre(Buffer.concat(morceaux).toString('utf8')) : rejeter(new Error(`SORTIE_${code ?? 'inconnue'}`));
+      }));
       p.stdin.end(d.entree);
     });
   }

@@ -12,6 +12,7 @@ import { TYPE_SECRET_COMPTE_DEMO } from '../infra/comptes-demo.ts';
 /** Qui peut lire quoi : type de tâche → types de secret. Tout ce qui n'y figure pas est refusé. */
 export const MATRICE_SECRETS: Readonly<Record<string, readonly string[]>> = Object.freeze({
   test_connexion: [TYPE_SECRET_COMPTE_DEMO],
+  jeu_script: [TYPE_SECRET_COMPTE_DEMO],
 });
 
 export class SecretRefuse extends Error {

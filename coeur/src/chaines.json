@@ -185,7 +185,8 @@
     "SCRIPT_VERSION_PERIMEE": "Ce script a changé depuis que tu l’as lu (version {actuelle}, tu as lu la {lue}) : relis-le puis recommence.",
     "SCRIPT_ETAPE_INTROUVABLE": "Ce script n’a pas d’étape {position} : il en compte {total}.",
     "SCRIPT_ETAPE_INVALIDE": "Le script n’est pas valable. {detail}",
-    "SCRIPT_HOTE_REFUSE": "L’étape {etape} vise l’hôte « {hote} », qui n’est pas déclaré pour cette application : ajoute-le d’abord à ses hôtes autorisés (Démos d’app), ou change l’adresse."
+    "SCRIPT_HOTE_REFUSE": "L’étape {etape} vise l’hôte « {hote} », qui n’est pas déclaré pour cette application : ajoute-le d’abord à ses hôtes autorisés (Démos d’app), ou change l’adresse.",
+    "SCRIPT_SANS_ETAPE": "Ce script n’a aucune étape : ajoute-en une avant de le jouer."
   },
   "jetons": {
     "titre": "Jetons d’API",
@@ -598,6 +599,55 @@
       "saisie": "{valeur} dans {cible}",
       "pixels": "{pixels} px",
       "secondes": "{secondes} s"
+    },
+    "hoteInconnu": "adresse non https",
+    "causesJeu": {
+      "PAGE_INJOIGNABLE": "La page n’a pas répondu.",
+      "ETAPE_ECHEC": "L’étape n’a pas pu être jouée : élément introuvable ou page trop lente.",
+      "DELAI_DEPASSE": "Le jeu a dépassé son temps maximal.",
+      "CAPTURE_ECHEC": "La capture s’est arrêtée avant la fin du jeu.",
+      "CONNEXION_ECHEC": "La connexion avec le compte de démonstration a échoué (étape : {etape})."
+    },
+    "etapesConnexion": {
+      "ouvrir": "ouvrir la page",
+      "trouver": "trouver le formulaire",
+      "saisir": "saisir le compte",
+      "valider": "valider la connexion"
+    },
+    "jouer": {
+      "bouton": "Jouer et filmer",
+      "titre": "Jeu en direct",
+      "badge": "Capture",
+      "apercu": "Aperçu du téléphone filmé : le curseur montre où regie agit.",
+      "journalTitre": "Journal du jeu",
+      "journalVide": "En attente du premier geste…",
+      "lance": "Jeu lancé. Suis-le ici.",
+      "attente": "En attente dans la file ({position}).",
+      "attenteHeure": "En attente dans la file, fin estimée {heure}.",
+      "enCours": "Jeu en cours…",
+      "termine": "Jeu terminé en {secondes} s.",
+      "pret": "Brouillon prêt {heure} dans Relire.",
+      "echec": "Le jeu s’est arrêté à l’étape {etape} : {cause}",
+      "refus": "Navigation refusée vers {hote} : le jeu est arrêté.",
+      "interrompu": "Le jeu s’est arrêté ({cause}).",
+      "fluxCoupe": "Le suivi en direct est coupé. Recharge la page pour reprendre.",
+      "compteAbsent": "Ce script se connecte avec le compte de démo : dépose-le d’abord dans Démos d’app.",
+      "genres": {
+        "navigation": "Ouverture de {cible}",
+        "clic": "Clic sur « {cible} »",
+        "survol": "Survol de « {cible} »",
+        "saisie": "Saisie dans « {cible} »",
+        "attente": "Attente de « {cible} »",
+        "defilement": "Défilement",
+        "pause": "Pause",
+        "narration": "Narration : {cible}",
+        "film_debut": "Tournage démarré",
+        "film_fin": "Tournage arrêté",
+        "connexion": "Connexion avec le compte de démo",
+        "refus": "Navigation refusée vers {cible}",
+        "echec": "Étape en échec",
+        "fin": "Fin du jeu"
+      }
     }
   }
 }

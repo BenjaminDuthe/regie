@@ -733,6 +733,12 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       // Le dernier jeu s'enregistre, puis un remplacement le remet à vide et fait monter la version.
       expect(await scripts.enregistrerJeu(marqueA, a.utilisateurId, cree.id, { etat: 'echec', etape: 2, cause: 'introuvable', capture: 'AAAA', jouLe: new Date().toISOString() })).toBe(true);
       expect((await scripts.lire(marqueA, a.utilisateurId, cree.id))!.dernierJeu).toMatchObject({ etat: 'echec', etape: 2 });
+      // Histoire 4.5 : un jeu d'une version périmée n'écrase rien ; la bonne version s'enregistre.
+      const jeuVieux = { etat: 'echec' as const, etape: 1, cause: 'introuvable', capture: 'BBBB', jouLe: new Date().toISOString() };
+      expect(await scripts.enregistrerJeu(marqueA, a.utilisateurId, cree.id, jeuVieux, 7)).toBe(false);
+      expect((await scripts.lire(marqueA, a.utilisateurId, cree.id))!.dernierJeu).toMatchObject({ etape: 2 });
+      expect(await scripts.enregistrerJeu(marqueA, a.utilisateurId, cree.id, jeuVieux, 1)).toBe(true);
+      expect((await scripts.lire(marqueA, a.utilisateurId, cree.id))!.dernierJeu).toMatchObject({ etape: 1 });
       const remplace = await scripts.remplacer(marqueA, a.utilisateurId, cree.id, { nom: 'Parcours', etapes: [etapes[0]!] }, 1);
       expect(remplace).toMatchObject({ etat: 'ok', script: { version: 2, dernierJeu: null } });
       expect(await scripts.remplacer(marqueA, a.utilisateurId, cree.id, { nom: 'Parcours', etapes }, 1)).toMatchObject({ etat: 'perimee' });

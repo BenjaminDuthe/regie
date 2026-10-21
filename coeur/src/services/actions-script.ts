@@ -240,4 +240,27 @@ export const scriptModifierEtape = definirAction({
   objet: (entree) => `script:${entree.id}`,
 });
 
-export const ACTIONS_SCRIPT = [scriptLister, scriptLire, scriptCreer, scriptDefinir, scriptAjouterEtape, scriptDeplacerEtape, scriptRetirerEtape, scriptModifierEtape] as const;
+export const scriptJouer = definirAction({
+  domaine: 'script',
+  verbe: 'jouer',
+  description: 'Joue le script dans la capture isolée et le filme en vertical. Rend la tâche à suivre (`tache.lire`) ; le résultat va au dernier jeu du script (`script.lire`) : réussi, échec à l’étape N, ou hôte refusé. Une navigation hors de la liste d’hôtes de l’application arrête le jeu.',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant }),
+  executer: async (ctx, entree) => {
+    const script = await scriptAccessible(ctx, entree.id);
+    if (script.etapes.length === 0) throw new ErreurMetier('SCRIPT_SANS_ETAPE', 422, { id: script.id });
+    const application = await applicationAccessible(ctx, script.applicationId);
+    // Les hôtes ont pu changer depuis l'écriture du script : on refuse avant de lancer un navigateur.
+    const refusee = premierHoteRefuse(script.etapes, application.hotes);
+    if (refusee !== undefined) throw new ErreurMetier('SCRIPT_HOTE_REFUSE', 422, refusee);
+    if (script.etapes.some((e) => e.verbe === 'connexion')) {
+      const etat = await ctx.services.comptesDemo.etat(ctx.marqueId, application.id);
+      if (!etat.depose) throw new ErreurMetier('COMPTE_ABSENT', 409, { applicationId: application.id });
+    }
+    const tache = await ctx.services.file.enfiler(ctx.marqueId, ctx.utilisateurId, 'jeu_script', { scriptId: script.id });
+    return { tacheId: tache.id, scriptId: script.id, version: script.version };
+  },
+  objet: (entree) => `script:${entree.id}`,
+});
+
+export const ACTIONS_SCRIPT = [scriptLister, scriptLire, scriptCreer, scriptDefinir, scriptAjouterEtape, scriptDeplacerEtape, scriptRetirerEtape, scriptModifierEtape, scriptJouer] as const;
