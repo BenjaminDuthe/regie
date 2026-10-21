@@ -70,11 +70,11 @@ Avant ce réglage, la tâche `update_mirrors` ne passait que toutes les 10 minut
 
 ## Reste à faire par toi, Benjamin
 
-1. **Ton mot de passe Forgejo** : saisi au clavier, masqué, puis connecte-toi sur http://192.168.20.130:3000/ :
+1. ~~**Ton mot de passe Forgejo**~~ changé le 2026-10-22 par Benjamin. Pour le refaire : saisi au clavier, masqué, puis connecte-toi sur http://192.168.20.130:3000/ :
    ```sh
    ssh -t root@192.168.20.200 pct exec 130 -- /root/installer.sh mot-de-passe
    ```
-2. **Jeton de statut GitHub.** Sur GitHub, *Settings → Developer settings → Fine-grained tokens* : dépôt `BenjaminDuthe/regie` seulement, permission **Commit statuses: Read and write**, rien d'autre. Dans Forgejo, *dépôt regie → Paramètres → Actions → Secrets* : secret `GITHUB_STATUTS`. Range aussi le jeton dans Vaultwarden. Ne le colle ni dans le dépôt ni dans le chat.
+2. ~~**Jeton de statut GitHub.**~~ Secret `GITHUB_STATUTS` posé le 2026-10-22 par Benjamin. Sur GitHub, *Settings → Developer settings → Fine-grained tokens* : dépôt `BenjaminDuthe/regie` seulement, permission **Commit statuses: Read and write**, rien d'autre. Dans Forgejo, *dépôt regie → Paramètres → Actions → Secrets* : secret `GITHUB_STATUTS`. Range aussi le jeton dans Vaultwarden. Ne le colle ni dans le dépôt ni dans le chat.
 3. ~~**Protection de `main` sur GitHub.**~~ Faite le 2026-10-22 par un *ruleset* (*Settings → Rules → Rulesets → main protegee*), car la protection classique ne propose que les statuts vus la semaine passée : suppression et force-push interdits, statut `forgejo/ci` exigé (toute source).
 
 Le job `statut-github` publie `success` seulement si `suites` et `python` passent ; sinon `failure`. Tant que le secret manque, il laisse un avertissement sur Forgejo et le commit GitHub reste sans statut. Une fois la protection de `main` en place, la fusion est alors bloquée.

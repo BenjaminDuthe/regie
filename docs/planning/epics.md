@@ -25,10 +25,10 @@ Le grill du 2026-10-18 recentre la V1 sur un seul utilisateur et une première t
 
 | # | Histoire | Ajustement du 2026-10-18 |
 |---|----------|--------------------------|
-| 1 | 0.1 Réparer Authentik et créer l'application « regie » | **en partie faite** (2026-10-19/20 : réseau, second facteur, ouverture publique) ; fournisseur OIDC et application `regie` créés le 2026-10-22, accès lié au seul `akadmin` ; reste à Benjamin de copier le client et son secret dans Vaultwarden, puis de relever le `sub` pour `REGIE_ADMIN_SUB` |
+| 1 | 0.1 Réparer Authentik et créer l'application « regie » | **en partie faite** (2026-10-19/20 : réseau, second facteur, ouverture publique) ; fournisseur OIDC et application `regie` créés le 2026-10-22, accès lié au seul `akadmin` ; client et secret rangés dans Vaultwarden ; reste le `sub` d'akadmin pour `REGIE_ADMIN_SUB` |
 | 2 | 0.2 Le LXC `regie` sur `pve-media` | **faite** (2026-10-20) : CT 140, Podman rootless, VAAPI sur l'Arc, pare-feu ; voir `deploiement/infra/lxc-regie.md` |
 | 3 | 0.3 `regie.etablia.fr` derrière nginx | **faite** (2026-10-20) ; correctif du 2026-10-21 déployé et contrôlé : limite renforcée sur `/connexion` et `/oauth/` au lieu de `/auth/` |
-| 4 | 0.4 La CI tourne sur Forgejo | **faite** côté Forgejo (2026-10-20 : miroir, runner, premier run vert) ; ruleset « main protegee » actif depuis le 2026-10-22 (suppression et force-push interdits, statut `forgejo/ci` exigé) ; reste à Benjamin le jeton de statut GitHub |
+| 4 | 0.4 La CI tourne sur Forgejo | **faite** côté Forgejo (2026-10-20 : miroir, runner, premier run vert) ; ruleset « main protegee » actif depuis le 2026-10-22 (suppression et force-push interdits, statut `forgejo/ci` exigé) ; jeton `GITHUB_STATUTS` posé le 2026-10-22 |
 | 5 | 1.1 Amorcer le dépôt, la CI et la première page | **faite** (238c584) ; CI verte sur Forgejo le 2026-10-20 |
 | 6 | 1.2 Une première page sûre, lisible et accessible | **faite** (2026-10-20) : CSP en en-tête, jetons UX-DR1, en-tête commun, lien vers le code source du commit en service |
 | 7 | 1.3 Des suites de conformité qui bloquent chaque commit | **faite** (2026-10-20) : licences, mots interdits, appels sortants dans `npm run ci` ; reportés : SBOM de l'image (avec le workflow d'image) et connexions observées (avec les conteneurs) |

@@ -38,7 +38,7 @@ Les étapes 2 à 4 ont été faites par Claude dans Chrome, pendant que Benjamin
 2. ~~**Fournisseur.**~~ Fait le 2026-10-22 par l'assistant d'application : `regie`, client **confidentiel**, retour `https://regie.etablia.fr/connexion/retour` en mode *strict*, portées `openid`, `profile` et `email`, flux `default-provider-authorization-explicit-consent`, clé `authentik Self-signed Certificate`. L'émetteur public répond (`.well-known/openid-configuration`, portées `email`, `openid`, `profile`).
 3. ~~**Application.**~~ Faite le 2026-10-22 : nom `regie`, *slug* `regie`, fournisseur `regie`.
 4. ~~**Accès.**~~ Fait le 2026-10-22. Aucun groupe n'est propre à Benjamin (seulement `authentik Admins`, `authentik Read-only` et les groupes `traiteur-*`) : l'application est donc liée au seul utilisateur `akadmin`, choisi par Benjamin.
-5. **Secrets.** Copie le *Client ID* et le *Client Secret* dans Vaultwarden, dans une entrée `regie — OIDC Authentik`. Ne les colle ni dans le dépôt ni dans le chat.
+5. ~~**Secrets.**~~ Client et secret copiés dans Vaultwarden le 2026-10-22 par Benjamin. Copie le *Client ID* et le *Client Secret* dans Vaultwarden, dans une entrée `regie — OIDC Authentik`. Ne les colle ni dans le dépôt ni dans le chat.
 
 **Qui est autorisé.** Règle `REGIE_ADMIN_SUB` (le `sub` Authentik de la personne) : c'est le réglage à préférer, et s'il est défini, seul le `sub` ouvre l'accès. `REGIE_ADMIN_EMAIL` n'est qu'un repli opt-in, utilisé seulement quand `REGIE_ADMIN_SUB` est absent : il n'est sûr que si Authentik garantit que `email_verified` est fiable (auto-inscription fermée, changement d'e-mail contrôlé par un administrateur). Sans cette garantie, ne l'utilise pas.
 
