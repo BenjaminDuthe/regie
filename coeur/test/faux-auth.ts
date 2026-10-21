@@ -8,6 +8,7 @@ import type { Services } from '../src/auth/services.ts';
 import { chainer, type Audit, type EntreeAudit, type LigneAudit } from '../src/infra/audit.ts';
 import { idUtilisateur, trierEspaces, type Espace, type Espaces } from '../src/infra/espaces.ts';
 import { DUREE_MAX_JETON_JOURS, composerJeton, hacherJeton, marqueDuJeton, type JetonApi, type JetonsApi, type NouveauJeton, type Principal } from '../src/infra/jetons.ts';
+import { ACCES_VIE_S, CONNEXION_VIE_MAX_JOURS, CLIENTS_MAX, CODE_VIE_S, REFRESH_VIE_JOURS, composerIdentifiantClient, composerSecret, marqueDuClient, marqueDuSecret, type ClientOauth, type CodeConsomme, type ConnexionClaude, type Emission, type NouveauCode, type Oauth, type Rafraichissement } from '../src/infra/oauth.ts';
 import { Coffre } from '../src/infra/coffre.ts';
 import type { Marques, MarqueUnique } from '../src/infra/marques.ts';
 import { composerCookie, decomposerCookie, hacherIdentifiant, nouvelIdentifiant, type MagasinSessions, type NouvelleSession, type Session } from '../src/infra/sessions.ts';
@@ -220,6 +221,81 @@ export class JetonsMemoire implements JetonsApi {
   }
 }
 
+/** OAuth en mémoire : même contrat que OauthPg (usage unique du code, rotation du refresh, révocation, cloisonnement). */
+export class OauthMemoire implements Oauth {
+  readonly clients: ClientOauth[] = [];
+  readonly codes = new Map<string, NouveauCode & { expireLe: number; utilise: boolean }>();
+  readonly connexions: { id: string; marqueId: string; clientId: string; utilisateurId: string; sub: string; portees: NouveauCode['portees']; espaceIds: readonly string[]; creeLe: number; revoqueLe: number | undefined; acces: string; accesExpireLe: number; refresh: string; refreshPrecedent: string | undefined; refreshExpireLe: number }[] = [];
+  maintenant = () => Date.now();
+
+  async enregistrerClient(marqueId: string, c: Readonly<{ nom: string; redirectUris: readonly string[] }>) {
+    if (this.clients.filter((k) => k.marqueId === marqueId).length >= CLIENTS_MAX) return undefined;
+    const client: ClientOauth = { clientId: composerIdentifiantClient(marqueId), marqueId, nom: c.nom, redirectUris: c.redirectUris };
+    this.clients.push(client);
+    return client;
+  }
+  async trouverClient(clientId: string) {
+    return marqueDuClient(clientId) === undefined ? undefined : this.clients.find((k) => k.clientId === clientId);
+  }
+  async emettreCode(n: NouveauCode) {
+    const clair = composerSecret('oac', n.marqueId);
+    this.codes.set(hacherJeton(clair).toString('hex'), { ...n, expireLe: this.maintenant() + CODE_VIE_S * 1000, utilise: false });
+    return clair;
+  }
+  async consommerCode(clair: string): Promise<CodeConsomme | undefined> {
+    const marqueId = marqueDuSecret('oac', clair);
+    const c = marqueId === undefined ? undefined : this.codes.get(hacherJeton(clair).toString('hex'));
+    if (c === undefined || c.utilise || c.expireLe <= this.maintenant() || c.marqueId !== marqueId) return undefined;
+    c.utilise = true;
+    const { expireLe: _e, utilise: _u, ...reste } = c;
+    return reste;
+  }
+  async ouvrirConnexion(code: CodeConsomme): Promise<Emission> {
+    const acces = composerSecret('oat', code.marqueId);
+    const refresh = composerSecret('ort', code.marqueId);
+    const t = this.maintenant();
+    const id = crypto.randomUUID();
+    this.connexions.push({ id, marqueId: code.marqueId, clientId: code.clientId, utilisateurId: code.utilisateurId, sub: code.sub, portees: code.portees, espaceIds: code.espaceIds, creeLe: t, revoqueLe: undefined, acces, accesExpireLe: t + ACCES_VIE_S * 1000, refresh, refreshPrecedent: undefined, refreshExpireLe: t + REFRESH_VIE_JOURS * 86_400_000 });
+    return { connexionId: id, acces, refresh, accesExpireDans: ACCES_VIE_S, portees: code.portees, espaceIds: code.espaceIds };
+  }
+  async rafraichir(refresh: string, clientId: string): Promise<Rafraichissement> {
+    const marqueId = marqueDuSecret('ort', refresh);
+    const c = marqueId === undefined ? undefined : this.connexions.find((x) => x.marqueId === marqueId && (x.refresh === refresh || x.refreshPrecedent === refresh));
+    if (c === undefined || c.clientId !== clientId || c.revoqueLe !== undefined) return { etat: 'invalide' };
+    if (c.refresh !== refresh) {
+      c.revoqueLe = this.maintenant();
+      return { etat: 'reutilise', marqueId: c.marqueId, sub: c.sub, connexionId: c.id };
+    }
+    const t = this.maintenant();
+    if (c.refreshExpireLe <= t) return { etat: 'invalide' };
+    c.acces = composerSecret('oat', c.marqueId);
+    c.accesExpireLe = t + ACCES_VIE_S * 1000;
+    c.refreshPrecedent = c.refresh;
+    c.refresh = composerSecret('ort', c.marqueId);
+    c.refreshExpireLe = Math.min(t + REFRESH_VIE_JOURS * 86_400_000, c.creeLe + CONNEXION_VIE_MAX_JOURS * 86_400_000);
+    return { etat: 'ok', emission: { connexionId: c.id, acces: c.acces, refresh: c.refresh, accesExpireDans: ACCES_VIE_S, portees: c.portees, espaceIds: c.espaceIds } };
+  }
+  async authentifierAcces(clair: string): Promise<Principal | undefined> {
+    const marqueId = marqueDuSecret('oat', clair);
+    const c = marqueId === undefined ? undefined : this.connexions.find((x) => x.marqueId === marqueId && x.acces === clair);
+    const t = this.maintenant();
+    if (c === undefined || c.revoqueLe !== undefined || c.accesExpireLe <= t || c.refreshExpireLe <= t) return undefined;
+    return { marqueId: c.marqueId, utilisateurId: c.utilisateurId, sub: c.sub, jetonId: c.id, portees: c.portees, espaceIds: c.espaceIds };
+  }
+  async lister(marqueId: string, utilisateurId: string): Promise<ConnexionClaude[]> {
+    return this.connexions
+      .filter((x) => x.marqueId === marqueId && x.utilisateurId === utilisateurId)
+      .sort((a, b) => b.creeLe - a.creeLe)
+      .map((x) => ({ id: x.id, clientNom: this.clients.find((k) => k.clientId === x.clientId)?.nom ?? '', portees: x.portees, espaceIds: x.espaceIds, creeLe: new Date(x.creeLe), expireLe: new Date(x.refreshExpireLe), revoqueLe: x.revoqueLe === undefined ? undefined : new Date(x.revoqueLe) }));
+  }
+  async revoquer(marqueId: string, utilisateurId: string, connexionId: string) {
+    const c = this.connexions.find((x) => x.id === connexionId && x.marqueId === marqueId && x.utilisateurId === utilisateurId && x.revoqueLe === undefined);
+    if (c === undefined) return false;
+    c.revoqueLe = this.maintenant();
+    return true;
+  }
+}
+
 export class MarquesMemoire implements Marques {
   ids: string[] = [];
   async trouverUnique(): Promise<MarqueUnique> {
@@ -239,7 +315,7 @@ export class AuditMemoire implements Audit {
   }
 }
 
-export type BancDeTest = { services: Services; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; horloge: { t: number } };
+export type BancDeTest = { services: Services; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; horloge: { t: number } };
 
 export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
@@ -250,6 +326,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
   const audit = new AuditMemoire();
   const jetons = new JetonsMemoire();
   jetons.maintenant = () => horloge.t;
+  const oauth = new OauthMemoire();
+  oauth.maintenant = () => horloge.t;
   const services: Services = {
     oidc,
     sessions,
@@ -261,7 +339,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     admin: options.admin ?? { sub: 'sub-benjamin', email: undefined },
     urlPublique: options.urlPublique ?? 'http://127.0.0.1:4321',
     jetons,
+    oauth,
     maintenant: () => horloge.t,
   };
-  return { services, sessions, marques, espaces, audit, jetons, horloge };
+  return { services, sessions, marques, espaces, audit, jetons, oauth, horloge };
 }

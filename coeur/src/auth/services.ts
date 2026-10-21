@@ -5,6 +5,7 @@ import type { Audit } from '../infra/audit.ts';
 import type { Coffre } from '../infra/coffre.ts';
 import type { Espaces } from '../infra/espaces.ts';
 import type { JetonsApi } from '../infra/jetons.ts';
+import type { Oauth } from '../infra/oauth.ts';
 import type { Marques } from '../infra/marques.ts';
 import type { FournisseurOidc } from '../infra/oidc.ts';
 import type { MagasinSessions } from '../infra/sessions.ts';
@@ -26,5 +27,7 @@ export type Services = Readonly<{
   urlPublique: string | undefined;
   /** Jetons d'API personnels : Bearer de l'API privée et du point d'entrée /mcp (histoire 1.11). */
   jetons: JetonsApi;
+  /** Clients, codes et connexions OAuth de Claude (histoire 1.12). */
+  oauth: Oauth;
   maintenant: () => number;
 }>;

@@ -17,6 +17,11 @@ export const ROUTES_PUBLIQUES: readonly RoutePublique[] = Object.freeze([
   { chemin: '/confidentialite', raison: 'politique de confidentialité, exigée par Meta (FR-51)' },
   { chemin: '/conditions', raison: 'conditions d’utilisation, exigées par Meta (FR-51)' },
   { chemin: '/mcp', raison: 'jeton Bearer OAuth 2.1 à la place de la session (FR-46) ; 401 sans jeton valide' },
+  { chemin: '/.well-known/oauth-protected-resource', raison: 'métadonnées de la ressource MCP (RFC 9728) : Claude les lit avant de se connecter' },
+  { chemin: '/.well-known/oauth-protected-resource/mcp', raison: 'variante de la précédente propre au chemin /mcp (RFC 9728)' },
+  { chemin: '/.well-known/oauth-authorization-server', raison: 'métadonnées du serveur d’autorisation (RFC 8414)' },
+  { chemin: '/oauth/register', raison: 'enregistrement dynamique de client (RFC 7591), borné : adresses contrôlées, plafond par marque' },
+  { chemin: '/oauth/token', raison: 'échange du code (PKCE S256) ou du jeton de rafraîchissement contre un jeton d’accès : la preuve est dans la requête' },
   { chemin: '/api/v1/:domaine/:verbe', raison: 'API privée : jeton Bearer à la place de la session (FR-45) ; 401 sans jeton valide' },
   { chemin: '/v/*', raison: 'adresses signées lues par les réseaux : signature valide et moins d’une heure (FR-72)' },
 ]);
@@ -53,7 +58,7 @@ export function estPublique(chemin: string): boolean {
  * ouverte). Tout ce qui ne ressemble pas à `/chemin?requete` donne `/`.
  */
 export function retourSur(valeur: string | null | undefined): string {
-  if (valeur === null || valeur === undefined || valeur === '' || valeur.length > 512) return '/';
+  if (valeur === null || valeur === undefined || valeur === '' || valeur.length > 1024) return '/';
   // Un seul « / » au début, ni « // » ni « /\ » (interprétés comme « http://… » par les navigateurs), aucun caractère de contrôle.
   if (!valeur.startsWith('/') || valeur.startsWith('//') || valeur.includes('\\')) return '/';
   // eslint-disable-next-line no-control-regex

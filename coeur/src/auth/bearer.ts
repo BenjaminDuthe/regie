@@ -1,5 +1,6 @@
-// regie — authentification par jeton Bearer (histoire 1.11) : l'API privée et /mcp.
-// Aujourd'hui un jeton d'API personnel ; les jetons OAuth de Claude s'y ajoutent avec l'histoire 1.12.
+// regie — authentification par jeton Bearer (histoires 1.11 et 1.12) : l'API privée et /mcp.
+// L'API n'accepte que les jetons d'API personnels ; /mcp accepte aussi les jetons d'accès que regie a émis à Claude
+// après le consentement OAuth.
 
 import type { Principal } from '../infra/jetons.ts';
 import type { Services } from './services.ts';
@@ -9,7 +10,9 @@ export function extraireBearer(entete: string | undefined): string | undefined {
   return /^Bearer ([\x21-\x7e]{8,512})$/.exec(entete ?? '')?.[1];
 }
 
-export async function authentifierBearer(services: Services, entete: string | undefined): Promise<Principal | undefined> {
+export async function authentifierBearer(services: Services, entete: string | undefined, options: { oauth?: boolean } = {}): Promise<Principal | undefined> {
   const jeton = extraireBearer(entete);
-  return jeton === undefined ? undefined : services.jetons.authentifier(jeton);
+  if (jeton === undefined) return undefined;
+  if (options.oauth === true && jeton.startsWith('regie_oat_')) return services.oauth.authentifierAcces(jeton);
+  return services.jetons.authentifier(jeton);
 }

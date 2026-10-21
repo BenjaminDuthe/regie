@@ -1,0 +1,122 @@
+---
+// Consentement de la connexion de Claude (histoire 1.12, FR-46) : sous la session Authentik, la personne choisit les
+// espaces et les droits (lecture seule, ou lecture et écriture) puis autorise ou refuse. La validation du client, de
+// l'adresse de retour et de PKCE est faite à l'affichage ET à l'envoi (auth/oauth.ts) : le formulaire ne fait confiance à rien.
+import chaines from '../../chaines.json' with { type: 'json' };
+import { adresseDeRetour, analyserDemande, emetteur } from '../../auth/oauth.ts';
+import { idUtilisateur } from '../../infra/espaces.ts';
+import Base from '../../mises-en-page/Base.astro';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+const t = chaines.oauth.autoriser;
+const base = emetteur(services);
+if (base === undefined) return new Response(null, { status: 503 });
+
+const post = Astro.request.method === 'POST';
+const form = post ? await Astro.request.formData() : undefined;
+// Le formulaire renvoie les paramètres d'origine dans des champs cachés : on les relit comme une nouvelle demande.
+const params = new URLSearchParams();
+if (form !== undefined) for (const [cle, valeur] of form) if (typeof valeur === 'string' && cle.startsWith('p_')) params.set(cle.slice(2), valeur);
+const demande = post ? params : Astro.url.searchParams;
+const analyse = await analyserDemande(services, demande);
+
+if (analyse.etat === 'redirection') return Astro.redirect(adresseDeRetour(analyse.redirectUri, base, { erreur: analyse.erreur }, analyse.state), 302);
+if (analyse.etat === 'page') Astro.response.status = 400;
+
+const espaces = Astro.locals.espaces;
+const libelleEspace = (e: { genre: string; nom: string }) => (e.genre === 'personnel' ? chaines.espaces.personnel : chaines.espaces.marque.replace('{nom}', e.nom));
+let retour: { url: string; refus: boolean } | undefined;
+let erreur: string | undefined;
+
+if (post && analyse.etat === 'ok') {
+  const d = analyse.demande;
+  const decision = form!.get('decision');
+  if (decision === 'refuser') {
+    await services.audit.ajouter(session.marqueId, { acteur: session.sub, action: 'oauth_consentement_refuse', objet: `client:${d.client.clientId}`, details: { origine: 'interface', client: d.client.nom } });
+    retour = { url: adresseDeRetour(d.redirectUri, base, { erreur: 'access_denied' }, d.state), refus: true };
+  } else {
+    const choisis = form!.getAll('espace').filter((v): v is string => typeof v === 'string');
+    const miens = espaces.filter((e) => choisis.includes(e.id));
+    if (miens.length === 0) {
+      erreur = t.aucunEspace;
+    } else {
+      // Jamais plus large que ce que Claude a demandé.
+      const portees = d.porteeDemandee === 'ecriture' && form!.get('portee') === 'ecriture' ? (['lecture', 'ecriture'] as const) : (['lecture'] as const);
+      const code = await services.oauth.emettreCode({
+        marqueId: session.marqueId,
+        clientId: d.client.clientId,
+        utilisateurId: idUtilisateur(session.marqueId, session.sub),
+        sub: session.sub,
+        redirectUri: d.redirectUri,
+        codeChallenge: d.codeChallenge,
+        portees,
+        espaceIds: miens.map((e) => e.id),
+      });
+      await services.audit.ajouter(session.marqueId, {
+        acteur: session.sub,
+        action: 'oauth_consentement',
+        objet: `client:${d.client.clientId}`,
+        details: { origine: 'interface', client: d.client.nom, portees: [...portees], espaces: miens.length },
+      });
+      retour = { url: adresseDeRetour(d.redirectUri, base, { code }, d.state), refus: false };
+    }
+  }
+}
+---
+
+<Base titre={t.titre}>
+  {retour !== undefined && <meta slot="tete" http-equiv="refresh" content={`0; url=${retour.url}`} />}
+  <h1>{t.titre}</h1>
+  {
+    analyse.etat === 'page' && (
+      <p class="erreur" role="alert">
+        {t.erreurPage[analyse.cle]}
+      </p>
+    )
+  }
+  {
+    retour !== undefined && (
+      <section aria-live="polite">
+        <p>{retour.refus ? t.refus : t.redirection}</p>
+        <a class="bouton" href={retour.url}>{t.reprendre}</a>
+      </section>
+    )
+  }
+  {
+    analyse.etat === 'ok' && retour === undefined && (
+      <form method="post" action="/oauth/autoriser" class="formulaire">
+        <p class="intro">{t.intro.replace('{client}', analyse.demande.client.nom)}</p>
+        {erreur !== undefined && <p class="erreur" role="alert">{erreur}</p>}
+        {[...demande].map(([cle, valeur]) => <input type="hidden" name={`p_${cle}`} value={valeur} />)}
+        <fieldset>
+          <legend>{t.portee}</legend>
+          <label class="choix"><input type="radio" name="portee" value="lecture" checked={analyse.demande.porteeDemandee === 'lecture'} />{t.porteeLecture}</label>
+          {analyse.demande.porteeDemandee === 'ecriture' && <label class="choix"><input type="radio" name="portee" value="ecriture" checked />{t.porteeEcriture}</label>}
+        </fieldset>
+        <fieldset>
+          <legend>{t.espaces}</legend>
+          {espaces.map((e) => <label class="choix"><input type="checkbox" name="espace" value={e.id} checked={e.genre === 'personnel'} />{libelleEspace(e)}</label>)}
+        </fieldset>
+        <p class="doux">{t.limites}</p>
+        <div class="actions">
+          <button type="submit" name="decision" value="autoriser" class="bouton">{t.autoriser}</button>
+          <button type="submit" name="decision" value="refuser" class="bouton secondaire">{t.refuser}</button>
+        </div>
+      </form>
+    )
+  }
+</Base>
+
+<style>
+  h1 { font-size: clamp(24px, 6vw, 32px); line-height: 1.15; margin: 8px 0 12px; }
+  .intro, .doux { color: var(--doux); max-width: 60ch; }
+  .erreur { color: var(--jeter); background: var(--jeter-fond); border-radius: var(--rayon); padding: 10px 14px; }
+  .formulaire { display: grid; gap: 14px; max-width: 460px; }
+  fieldset { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 8px 14px 12px; display: grid; gap: 6px; }
+  .choix { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .bouton { display: inline-block; padding: 10px 16px; border-radius: var(--rayon); border: 0; background: var(--accent); color: #17171a; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; }
+  .bouton.secondaire { background: none; border: 1px solid var(--trait); color: var(--doux); font-weight: 400; }
+</style>

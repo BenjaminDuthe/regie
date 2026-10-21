@@ -61,11 +61,13 @@ export function composerJeton(marqueId: string): string {
   return `regie_pat_${marqueId.replaceAll('-', '')}_${randomBytes(32).toString('base64url')}`;
 }
 
+/** Un identifiant de 32 caractères hexadécimaux remis sous la forme d'un uuid. */
+export const uuidDepuisHexa = (hexa: string): string => `${hexa.slice(0, 8)}-${hexa.slice(8, 12)}-${hexa.slice(12, 16)}-${hexa.slice(16, 20)}-${hexa.slice(20)}`;
+
 /** La marque écrite dans le jeton, ou `undefined` si la forme n'est pas la bonne (aucune requête alors). */
 export function marqueDuJeton(clair: string): string | undefined {
   const hexa = FORME.exec(clair)?.[1];
-  if (hexa === undefined) return undefined;
-  return `${hexa.slice(0, 8)}-${hexa.slice(8, 12)}-${hexa.slice(12, 16)}-${hexa.slice(16, 20)}-${hexa.slice(20)}`;
+  return hexa === undefined ? undefined : uuidDepuisHexa(hexa);
 }
 
 type Ligne = {

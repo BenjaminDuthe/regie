@@ -1,10 +1,9 @@
 // regie — routes fastify de la connexion et des entrées publiques à jeton (histoire 1.14).
-// GET /connexion, GET /connexion/retour, POST /deconnexion, /mcp (Bearer), GET /v/* (adresse signée).
+// GET /connexion, GET /connexion/retour, POST /deconnexion, GET /v/* (adresse signée).
 // Elles sont déclarées dans routes-publiques.ts, sauf /deconnexion qui contrôle la session elle-même.
 
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { retourSur } from '../routes-publiques.ts';
-import { authentifierBearer } from './bearer.ts';
 import { verifierAdresse } from './adresses-signees.ts';
 import { COOKIE_FLUX, COOKIE_SESSION, lireCookie } from './cookies.ts';
 import { ErreurConnexion, deconnecter, demarrerConnexion, terminerConnexion, type Motif } from './connexion.ts';
@@ -27,8 +26,9 @@ function origineAttendue(services: Services): string | undefined {
 }
 
 export function enregistrerRoutesAuth(app: FastifyInstance, services: Services): void {
-  // Le formulaire de déconnexion est en application/x-www-form-urlencoded ; son contenu n'a aucun usage.
-  app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string', bodyLimit: 2048 }, (_requete, _corps, fin) => fin(null, {}));
+  // Les formulaires de l'interface (déconnexion…) n'ont pas besoin de leur corps ; le point d'accès des jetons OAuth,
+  // lui, lit ses paramètres : le corps est rendu en URLSearchParams.
+  app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string', bodyLimit: 8192 }, (_requete, corps, fin) => fin(null, new URLSearchParams(corps as string)));
 
   app.get('/connexion', async (requete, reponse) => {
     const requeteQuery = requete.query as Record<string, unknown>;
@@ -82,15 +82,6 @@ export function enregistrerRoutesAuth(app: FastifyInstance, services: Services):
     await services.sessions.changerEspace(valeur, id);
     await services.audit.ajouter(session.marqueId, { acteur: session.sub, action: 'espace_change', objet: `espace:${id}`, details: { origine: 'interface' } });
     return vers(reponse, retourSur(texte((requete.query as Record<string, unknown>)['retour'])));
-  });
-
-  // Point d'entrée MCP : jeton Bearer (OAuth 2.1) à la place de la session. Le protocole arrive avec 1.11 et 1.12 ;
-  // ici, seulement le refus sans jeton valide.
-  app.all('/mcp', async (requete, reponse) => {
-    if ((await authentifierBearer(services, requete.headers.authorization)) === undefined) {
-      return reponse.header('www-authenticate', 'Bearer realm="regie"').header('cache-control', 'no-store').code(401).send({ erreur: 'jeton_requis' });
-    }
-    return reponse.code(501).send({ erreur: 'mcp_non_disponible' });
   });
 
   // Adresses signées lues par les réseaux : signature valide et moins d'une heure. Les fichiers eux-mêmes

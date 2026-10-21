@@ -110,11 +110,11 @@ describe('adresses signées /v/*', () => {
 
 describe('routes publiques et retour sûr', () => {
   it('reconnaît les routes déclarées, avec ou sans barre finale', () => {
-    for (const p of ['/sante', '/connexion', '/connexion/retour', '/confidentialite', '/conditions', '/conditions/', '/mcp', '/v/a/b']) expect(estPublique(p)).toBe(true);
+    for (const p of ['/sante', '/connexion', '/connexion/retour', '/oauth/token', '/oauth/register', '/.well-known/oauth-authorization-server', '/confidentialite', '/conditions', '/conditions/', '/mcp', '/v/a/b']) expect(estPublique(p)).toBe(true);
     for (const p of ['/', '/reglages', '/v', '/v/', '/mcp/x', '/connexion/autre/chose', '/deconnexion']) expect(estPublique(p)).toBe(false);
   });
   it('ne redirige jamais hors de regie', () => {
-    for (const mauvais of ['//pirate.example', 'https://pirate.example', '/\\pirate.example', '/\t/pirate.example', 'javascript:alert(1)', `/${'a'.repeat(600)}`, '/connexion', '/connexion/retour?x=1', '', null, undefined]) {
+    for (const mauvais of ['//pirate.example', 'https://pirate.example', '/\\pirate.example', '/\t/pirate.example', 'javascript:alert(1)', `/${'a'.repeat(1100)}`, '/connexion', '/connexion/retour?x=1', '', null, undefined]) {
       expect(retourSur(mauvais)).toBe('/');
     }
     expect(retourSur('/relire?x=1&y=2')).toBe('/relire?x=1&y=2');

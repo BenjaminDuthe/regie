@@ -125,3 +125,48 @@ Corps de la demande (schéma JSON) :
   "additionalProperties": false
 }
 ```
+
+## `connexion.lister`
+
+Liste les connexions de Claude à tes espaces (jamais leurs jetons).
+
+- API : `POST /api/v1/connexion/lister` · outil MCP : `connexion_lister`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+## `connexion.revoquer`
+
+Révoque une connexion de Claude : son prochain appel est refusé.
+
+- API : `POST /api/v1/connexion/revoquer` · outil MCP : `connexion_revoquer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```

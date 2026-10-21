@@ -21,6 +21,7 @@ const { titre } = Astro.props;
     <meta name="referrer" content="no-referrer" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>{titre}</title>
+    <slot name="tete" />
   </head>
   <body>
     <EnTete />

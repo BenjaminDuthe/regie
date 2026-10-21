@@ -1,0 +1,73 @@
+---
+// Connexions de Claude (histoire 1.12, FR-46) : la liste de ce que Claude peut faire à ta place, et la révocation
+// (l'appel suivant est refusé). Les actions passent par le registre : mêmes règles et même journal que l'API et le MCP.
+import chaines from '../chaines.json' with { type: 'json' };
+import Base from '../mises-en-page/Base.astro';
+import { connexionLister, connexionRevoquer } from '../services/actions.ts';
+import { contexteInterface } from '../services/contextes.ts';
+import { ErreurMetier } from '../services/erreurs.ts';
+import { executerAction } from '../services/registre.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const ctx = contexteInterface(services, session);
+const t = chaines.connexions;
+const formatDate = (iso: string) => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+let erreur: string | undefined;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  try {
+    await executerAction(ctx, connexionRevoquer, { id: typeof form.get('id') === 'string' ? form.get('id') : '' });
+    return Astro.redirect('/connexions', 303);
+  } catch (e) {
+    if (!(e instanceof ErreurMetier)) throw e;
+    erreur = e.message;
+  }
+}
+
+type Ligne = { id: string; client: string; portees: string[]; creeLe: string; expireLe: string; revoqueLe: string | null };
+const connexions = ((await connexionLister.executer(ctx, {})) as { connexions: Ligne[] }).connexions;
+const maintenant = Date.now();
+---
+
+<Base titre={t.titre}>
+  <h1>{t.titre}</h1>
+  <p class="intro">{t.intro}</p>
+  {erreur !== undefined && <p class="erreur" role="alert">{erreur}</p>}
+  {connexions.length === 0 && <p class="doux">{t.vide}</p>}
+  <ul class="liste">
+    {
+      connexions.map((c) => (
+        <li>
+          <div>
+            <strong>{c.client}</strong>
+            <span class="doux">
+              {c.portees.includes('ecriture') ? chaines.jetons.creer.porteeEcriture : chaines.jetons.creer.porteeLecture} · {t.cree.replace('{date}', formatDate(c.creeLe))} ·{' '}
+              {c.revoqueLe !== null ? t.revoque.replace('{date}', formatDate(c.revoqueLe)) : new Date(c.expireLe).getTime() <= maintenant ? t.expire_deja : t.expire.replace('{date}', formatDate(c.expireLe))}
+            </span>
+          </div>
+          {c.revoqueLe === null && new Date(c.expireLe).getTime() > maintenant && (
+            <form method="post" action="/connexions">
+              <input type="hidden" name="id" value={c.id} />
+              <button type="submit" class="bouton secondaire">{t.revoquer}</button>
+            </form>
+          )}
+        </li>
+      ))
+    }
+  </ul>
+</Base>
+
+<style>
+  h1 { font-size: clamp(24px, 6vw, 32px); line-height: 1.15; margin: 8px 0 12px; }
+  .intro, .doux { color: var(--doux); }
+  .intro { max-width: 60ch; margin: 0 0 16px; }
+  .erreur { color: var(--jeter); background: var(--jeter-fond); border-radius: var(--rayon); padding: 10px 14px; }
+  .bouton { padding: 10px 16px; border-radius: var(--rayon); border: 1px solid var(--trait); background: none; color: var(--doux); font: inherit; cursor: pointer; }
+  .liste { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .liste li { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--trait); padding-bottom: 10px; }
+  .liste li div { display: grid; gap: 2px; font-size: 14px; }
+</style>

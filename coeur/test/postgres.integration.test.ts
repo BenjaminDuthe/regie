@@ -18,6 +18,7 @@ import { AuditPg, verifierChaine } from '../src/infra/audit.ts';
 import { EspacesPg, idUtilisateur } from '../src/infra/espaces.ts';
 import { JetonsApiPg, hacherJeton } from '../src/infra/jetons.ts';
 import { MarquesPg } from '../src/infra/marques.ts';
+import { OauthPg } from '../src/infra/oauth.ts';
 import { MagasinSessionsPg } from '../src/infra/sessions.ts';
 
 declare module 'vitest' {
@@ -269,6 +270,57 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       expect(await jetons.revoquer(marqueA, a.utilisateurId, jeton.id)).toBe(false);
       expect(await jetons.authentifier(clair)).toBeUndefined();
       expect((await jetons.lister(marqueA, a.utilisateurId)).find((j) => j.id === jeton.id)?.revoqueLe).toBeInstanceOf(Date);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('OAuth : codes à usage unique, jetons hachés, refresh tournant avec détection de réutilisation, RLS par marque', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const oauth = new OauthPg(contexte.pool);
+      const marqueA = await marques.creer(`Oauth A ${suffixe}`);
+      const marqueB = await marques.creer(`Oauth B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-oa', undefined, 'Établia');
+      const b = await espaces.assurer(marqueB, 'sub-ob', undefined, 'Autre');
+      const client = (await oauth.enregistrerClient(marqueA, { nom: 'Claude', redirectUris: ['https://claude.ai/api/mcp/auth_callback'] }))!;
+      expect(await oauth.trouverClient(client.clientId)).toMatchObject({ marqueId: marqueA, nom: 'Claude' });
+      const demande = { marqueId: marqueA, clientId: client.clientId, utilisateurId: a.utilisateurId, sub: 'sub-oa', redirectUri: 'https://claude.ai/api/mcp/auth_callback', codeChallenge: 'x'.repeat(43), portees: ['lecture' as const], espaceIds: [a.espaces[0]!.id] };
+      const code = await oauth.emettreCode(demande);
+      const brut = await dansTransactionMarque(contexte.pool, marqueA, (c) => c.query<{ texte: string }>('SELECT oauth_codes::text AS texte FROM oauth_codes'));
+      expect(brut.rows.map((r) => r.texte).join('')).not.toContain(code);
+      const consomme = await oauth.consommerCode(code);
+      expect(consomme).toMatchObject({ utilisateurId: a.utilisateurId, clientId: client.clientId });
+      expect(await oauth.consommerCode(code)).toBeUndefined();
+
+      const em = await oauth.ouvrirConnexion(consomme!);
+      const connexions = await dansTransactionMarque(contexte.pool, marqueA, (c) => c.query<{ texte: string }>('SELECT oauth_connexions::text AS texte FROM oauth_connexions'));
+      const texte = connexions.rows.map((r) => r.texte).join('');
+      expect(texte).not.toContain(em.acces);
+      expect(texte).not.toContain(em.refresh);
+      expect(await oauth.authentifierAcces(em.acces)).toMatchObject({ marqueId: marqueA, utilisateurId: a.utilisateurId, jetonId: em.connexionId });
+
+      const r1 = await oauth.rafraichir(em.refresh, client.clientId);
+      expect(r1.etat).toBe('ok');
+      const suivant = r1.etat === 'ok' ? r1.emission : undefined;
+      expect(await oauth.authentifierAcces(em.acces)).toBeUndefined();
+      expect(await oauth.authentifierAcces(suivant!.acces)).toBeDefined();
+      // Rejouer l'ancien refresh révoque toute la connexion.
+      expect((await oauth.rafraichir(em.refresh, client.clientId)).etat).toBe('reutilise');
+      expect(await oauth.authentifierAcces(suivant!.acces)).toBeUndefined();
+      expect((await oauth.rafraichir(suivant!.refresh, client.clientId)).etat).toBe('invalide');
+
+      // Cloisonnement : la marque B ne voit ni client ni connexion d'A, et ne peut rien révoquer.
+      expect(await oauth.lister(marqueB, a.utilisateurId)).toEqual([]);
+      expect(await oauth.revoquer(marqueB, b.utilisateurId, em.connexionId)).toBe(false);
+      expect((await oauth.lister(marqueA, a.utilisateurId)).find((x) => x.id === em.connexionId)?.revoqueLe).toBeInstanceOf(Date);
+      await dansTransactionMarque(contexte.pool, marqueB, async (c) => {
+        expect((await c.query('SELECT 1 FROM oauth_connexions')).rowCount).toBe(0);
+        expect((await c.query('SELECT 1 FROM oauth_clients')).rowCount).toBe(0);
+      });
+      expect((await contexte.pool.query('SELECT 1 FROM oauth_connexions')).rowCount).toBe(0);
     } finally {
       await contexte.fermer();
     }

@@ -4,6 +4,7 @@
 // exceptions-parite.ts, avec sa raison.
 
 import { z } from 'zod';
+import type { ConnexionClaude } from '../infra/oauth.ts';
 import { DUREE_MAX_JETON_JOURS, PORTEES, type JetonApi } from '../infra/jetons.ts';
 import { ErreurMetier } from './erreurs.ts';
 import { Registre, definirAction } from './registre.ts';
@@ -88,5 +89,38 @@ export const jetonCreer = definirAction({
   objet: (_entree, sortie) => `jeton:${sortie.jeton.id}`,
 });
 
-export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer]);
+const connexionVisible = (c: ConnexionClaude) => ({
+  id: c.id,
+  client: c.clientNom,
+  portees: [...c.portees],
+  espaceIds: [...c.espaceIds],
+  creeLe: c.creeLe.toISOString(),
+  expireLe: c.expireLe.toISOString(),
+  revoqueLe: c.revoqueLe?.toISOString() ?? null,
+});
+
+export const connexionLister = definirAction({
+  domaine: 'connexion',
+  verbe: 'lister',
+  description: 'Liste les connexions de Claude à tes espaces (jamais leurs jetons).',
+  portee: 'lecture',
+  entree: z.object({}).strict(),
+  executer: async (ctx) => ({ connexions: (await ctx.services.oauth.lister(ctx.marqueId, ctx.utilisateurId)).map(connexionVisible) }),
+  objet: () => 'connexion',
+});
+
+export const connexionRevoquer = definirAction({
+  domaine: 'connexion',
+  verbe: 'revoquer',
+  description: 'Révoque une connexion de Claude : son prochain appel est refusé.',
+  portee: 'ecriture',
+  entree: z.object({ id: identifiant }).strict(),
+  executer: async (ctx, entree) => {
+    if (!(await ctx.services.oauth.revoquer(ctx.marqueId, ctx.utilisateurId, entree.id))) throw new ErreurMetier('CONNEXION_INTROUVABLE', 404, { id: entree.id });
+    return { id: entree.id, revoque: true as const };
+  },
+  objet: (entree) => `connexion:${entree.id}`,
+});
+
+export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer, connexionLister, connexionRevoquer]);
 export const REGISTRE = new Registre(ACTIONS);

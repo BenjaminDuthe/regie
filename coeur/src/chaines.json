@@ -16,7 +16,8 @@
     "deconnexion": "Se déconnecter",
     "espaces": "Espaces",
     "espaceActif": "Espace actif",
-    "jetons": "Jetons"
+    "jetons": "Jetons",
+    "connexions": "Connexions de Claude"
   },
   "connexion": {
     "titre": "Connexion",
@@ -159,7 +160,10 @@
     "JETON_INTROUVABLE": "Ce jeton n’existe pas, ou il est déjà révoqué.",
     "ESPACE_INTROUVABLE": "Cet espace n’existe pas, ou tu n’y as pas accès.",
     "ACTION_INCONNUE": "Cette action n’existe pas.",
-    "ADMIN_REQUIS": "Seul l’administrateur de regie peut faire ça."
+    "ADMIN_REQUIS": "Seul l’administrateur de regie peut faire ça.",
+    "CONNEXION_INTROUVABLE": "Cette connexion n’existe pas, ou elle est déjà révoquée.",
+    "MCP_ORIGINE_REFUSEE": "Cette demande vient d’une origine que regie n’accepte pas.",
+    "MCP_METHODE_REFUSEE": "Le point d’entrée MCP n’accepte que des requêtes POST."
   },
   "jetons": {
     "titre": "Jetons d’API",
@@ -192,5 +196,47 @@
       "nom": "Donne un nom au jeton (80 caractères au plus).",
       "espaces": "Choisis au moins un espace."
     }
+  },
+  "oauth": {
+    "clientSansNom": "Client sans nom",
+    "erreurs": {
+      "invalid_request": "La demande est incomplète ou mal formée.",
+      "invalid_client": "Ce client n’est pas enregistré auprès de regie.",
+      "invalid_grant": "Ce code ou ce jeton n’est plus valable : recommence la connexion depuis Claude.",
+      "unsupported_grant_type": "Ce type d’échange n’est pas pris en charge.",
+      "unsupported_response_type": "Seule la réponse par code est prise en charge.",
+      "invalid_client_metadata": "Les informations du client sont refusées : adresses de retour en https (ou http en local), au plus 5, nom de 80 caractères au plus.",
+      "temporarily_unavailable": "regie ne peut pas enregistrer de client pour l’instant.",
+      "access_denied": "Tu as refusé la connexion."
+    },
+    "autoriser": {
+      "titre": "Connecter Claude",
+      "intro": "{client} demande à agir sur regie à ta place. Choisis ce qu’il peut faire et où.",
+      "portee": "Ce que Claude peut faire",
+      "porteeLecture": "Lire seulement",
+      "porteeEcriture": "Lire et écrire",
+      "espaces": "Espaces accessibles",
+      "limites": "La connexion dure au plus 90 jours ; tu peux la révoquer à tout moment depuis « Connexions de Claude ».",
+      "autoriser": "Autoriser",
+      "refuser": "Refuser",
+      "aucunEspace": "Choisis au moins un espace.",
+      "reprendre": "Retourner dans Claude",
+      "redirection": "Connexion accordée. Si rien ne se passe, utilise le lien ci-dessous.",
+      "refus": "Connexion refusée. Si rien ne se passe, utilise le lien ci-dessous.",
+      "erreurPage": {
+        "client_inconnu": "Ce client n’est pas enregistré auprès de regie. Reprends la connexion depuis Claude.",
+        "redirection_refusee": "L’adresse de retour de ce client n’est pas celle qu’il a enregistrée. La connexion est refusée."
+      }
+    }
+  },
+  "connexions": {
+    "titre": "Connexions de Claude",
+    "intro": "Ces connexions laissent Claude agir sur regie à ta place. Révoque-en une : son prochain appel est refusé.",
+    "vide": "Claude n’est connecté à aucun de tes espaces.",
+    "cree": "connectée le {date}",
+    "expire": "expire le {date}",
+    "revoque": "révoquée le {date}",
+    "expire_deja": "expirée",
+    "revoquer": "Révoquer"
   }
 }
