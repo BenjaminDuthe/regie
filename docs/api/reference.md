@@ -3040,7 +3040,7 @@ Corps de la demande (schéma JSON) :
 
 ## `montage.supprimer`
 
-Supprime définitivement une vidéo : toutes ses versions, ses rendus, ses voix, sa légende et les fichiers (octets effacés du disque). Irréversible : `confirmer` doit valoir vrai. Refusé (VIDEO_PUBLIEE) tant qu’une publication de cette vidéo est publiée : archive-la plutôt. Les publications programmées ne sont pas concernées ici.
+Supprime définitivement une vidéo : toutes ses versions, ses rendus, ses voix, sa légende et les fichiers (octets effacés du disque). Irréversible : `confirmer` doit valoir vrai. Refusé (VIDEO_PUBLIEE) tant qu’une publication de cette vidéo est en cours d’envoi, publiée ou d’état incertain : archive-la plutôt.
 
 - API : `POST /api/v1/montage/supprimer` · outil MCP : `montage_supprimer`
 - Portée requise : `ecriture`
@@ -3318,6 +3318,116 @@ Corps de la demande (schéma JSON) :
   "required": [
     "compteId"
   ],
+  "additionalProperties": false
+}
+```
+
+## `publication.publier`
+
+Publie maintenant une vidéo sur un compte de réseau relié (Instagram). Contrôle avant tout envoi : compte connecté, rendu complet prêt, bornes du réseau (PUBLICATION_BORNE, en nommant la borne) et quota (PUBLICATION_QUOTA). La publication fige le montage, le rendu et la légende enregistrée de la vidéo pour ce réseau (à défaut, la légende proposée). Une seule publication par compte et par vidéo (PUBLICATION_EXISTANTE). Rend la publication `en_file` : suis-la avec `publication.lire`. Un envoi n’est jamais fait deux fois ; après une coupure, l’état est `incertaine` et regie ne renvoie pas.
+
+- API : `POST /api/v1/publication/publier` · outil MCP : `publication_publier`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "montageId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "compteId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "montageId",
+    "compteId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `publication.lire`
+
+Lit une publication : son état (`en_file`, `programmee`, `en_attente_confirmation`, `envoi_en_cours`, `publiee`, `en_echec`, `incertaine` ou `annulee`), le résultat (identifiant et lien du réseau quand elle est publiée, cause et action à faire quand elle a échoué ou qu’elle est incertaine) et l’historique de chaque tentative (numéro, origine, jeton d’API, début, fin, issue).
+
+- API : `POST /api/v1/publication/lire` · outil MCP : `publication_lire`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `publication.lister`
+
+Liste les publications, la plus récente d’abord (200 au plus). Filtres : `montageId` (toutes celles de la vidéo), `espaceId`, `reseau`, `etat`.
+
+- API : `POST /api/v1/publication/lister` · outil MCP : `publication_lister`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "montageId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "espaceId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "reseau": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "facebook",
+        "tiktok"
+      ]
+    },
+    "etat": {
+      "type": "string",
+      "enum": [
+        "en_file",
+        "programmee",
+        "en_attente_confirmation",
+        "envoi_en_cours",
+        "publiee",
+        "en_echec",
+        "incertaine",
+        "annulee"
+      ]
+    }
+  },
   "additionalProperties": false
 }
 ```

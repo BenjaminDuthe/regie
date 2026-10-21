@@ -138,6 +138,11 @@ export class MontagesMemoire implements Montages {
   async supprimerVideo(_m: string, utilisateurId: string, serieId: string): Promise<SuppressionVideo | undefined> {
     const versions = this.montages.filter((m) => m.serieId === serieId);
     if (versions.length === 0 || !this.#visible(versions[0]!.espaceId)) return undefined;
+    if (this.publiees.has(serieId)) {
+      const e = new Error('VIDEO_PUBLIEE');
+      e.name = 'ErreurVideoPubliee';
+      throw e;
+    }
     const ids = new Set(versions.map((m) => m.id));
     const aRetirer = new Set([...versions.map((m) => m.filmFichierId), ...this.rendus.filter((r) => ids.has(r.montageId) && r.fichierId !== null).map((r) => r.fichierId!), ...this.fichiers.filter((f) => f.montageId !== null && ids.has(f.montageId)).map((f) => f.id)]);
     const retires = this.fichiers.filter((f) => aRetirer.has(f.id)).map((f) => ({ id: f.id, espaceId: f.espaceId }));

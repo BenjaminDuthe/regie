@@ -234,3 +234,17 @@ Question : quelles décisions et quelles preuves manquent pour relier un vrai co
 4. **Bornes de la vidéo publiée** (`publication.instagram` dans `deploiement/bornes.json` : 3 s à 15 min, 1 Gio) — valeurs de départ à confirmer contre la documentation de Meta en vigueur à l'inscription. **Recommandation** : les confirmer à la revue d'application, puis les durcir si besoin (le test de bornes nomme la borne dépassée).
 5. **PKCE** — non utilisé : Instagram Login n'expose pas PKCE pour les applications serveur confidentielles ; la protection repose sur le `state` lié à la session et le secret d'application. À revoir si Meta l'ajoute.
 6. **Un compte par espace** — un compte est relié à l'espace actif de la session et la personne qui le relie reçoit les rappels. Recommandation : rouvrir si deux personnes d'un même espace doivent être prévenues.
+
+## 7.3 Publier maintenant, jamais deux fois
+
+Question : quelles décisions et quelles preuves manquent pour publier réellement sur Instagram ?
+
+1. **Pas de clé d'idempotence côté Meta** — l'API Graph n'en offre pas pour `media_publish` : la garantie « jamais deux fois » repose sur regie (tâche sans reprise, passage `en_file` → `envoi_en_cours` en compare-and-set, point de non-retour). La clé d'idempotence est conservée en base mais n'est pas transmise. **Recommandation** : vérifier à l'inscription si Meta en accepte une et la transmettre alors.
+2. **État `incertaine`** — après une coupure ou un redémarrage une fois la publication partie, regie ne renvoie jamais : la publication est `incertaine`, cause et action « vérifier sur Instagram », non rejouable, vidéo non supprimable. Options : laisser la personne trancher (retenu) ou interroger Instagram pour retrouver le média (réconciliation par lecture). **Recommandation** : garder ainsi en V1, ajouter la lecture du dernier média du compte une fois l'API éprouvée.
+3. **Quota réel** — le connecteur lit le quota de publication du compte ; le calcul n'a été éprouvé que contre le faux Meta. À confirmer avec un compte réel.
+4. **Réconciliateur périodique** — un balayage déclare incertaines les publications dont la tâche a disparu ; la période est une valeur de départ.
+5. **Adresse publique requise** — Meta lit la vidéo à une adresse signée `/v/publication/…` (moins d'une heure, valable seulement pendant l'envoi) : sans `urlPublique` joignable depuis Internet, rien ne peut être publié.
+6. **Légende et hashtags** — leur somme peut dépasser 2 200 caractères : le refus nomme la borne ; à confirmer contre la règle en vigueur.
+7. **Inscription de l'application Meta et jeton réel** — requis pour tout essai réel (voir 7.1 et 7.6).
+8. **Cas limite** — si le lien de la tâche à la publication échoue après la mise en file, la publication reste `en_file` sans tâche ; le réconciliateur la signale. Recommandation : la déclarer en échec sûr au prochain balayage.
+

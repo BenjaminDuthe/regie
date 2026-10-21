@@ -3,7 +3,7 @@
 // changement de gabarit aussi (2.13). Un rendu est un passage de FFmpeg sur un montage. Tout passe par
 // `dansTransactionUtilisateur` : la RLS cloisonne par marque, et par espace visible de la personne.
 
-import type { Pool } from 'pg';
+import type { ClientBase, Pool } from 'pg';
 import { Timeline } from '@regie/contrats';
 import { GabaritFige } from '../domaine/montage.ts';
 import type { Violation } from '../domaine/gardes.ts';
@@ -114,8 +114,8 @@ export interface Montages {
    */
   supprimerVideo(marqueId: string, utilisateurId: string, serieId: string): Promise<SuppressionVideo | undefined>;
   /**
-   * Une publication publiée existe-t-elle pour cette vidéo ? Il n'y a pas encore de publication (épopée 7) : le
-   * stockage PostgreSQL répond toujours `false` ; le faux de test permet d'exercer le refus.
+   * Une publication en ligne (en cours d'envoi, publiée ou d'état incertain) existe-t-elle pour cette vidéo ? Une vidéo
+   * en ligne ne se supprime pas (histoires 3.9 et 7.3) ; `supprimerVideo` refait ce contrôle sous le verrou.
    */
   aPublicationPubliee(marqueId: string, utilisateurId: string, serieId: string): Promise<boolean>;
 
@@ -148,6 +148,19 @@ type LigneLegende = { serie_id: string; reseau: string; legende: string; hashtag
 const versLegende = (l: LigneLegende): LegendeEnregistree => ({ serieId: l.serie_id, reseau: l.reseau, legende: l.legende, hashtags: l.hashtags, majLe: l.maj_le });
 
 const estDoublon = (e: unknown): boolean => typeof e === 'object' && e !== null && (e as { code?: string }).code === '23505';
+
+/** Levée par `supprimerVideo` quand une publication de la vidéo est en ligne ; l'action la traduit en `VIDEO_PUBLIEE`. */
+export class ErreurVideoPubliee extends Error {
+  constructor() {
+    super('VIDEO_PUBLIEE');
+    this.name = 'ErreurVideoPubliee';
+  }
+}
+
+async function publicationEnLigne(client: ClientBase, serieId: string): Promise<boolean> {
+  const r = await client.query("SELECT 1 FROM publications WHERE serie_id = $1 AND etat IN ('envoi_en_cours', 'publiee', 'incertaine') LIMIT 1", [serieId]);
+  return r.rows.length > 0;
+}
 
 export class MontagesPg implements Montages {
   readonly #pool: Pool;
@@ -344,6 +357,8 @@ export class MontagesPg implements Montages {
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [serieId]);
       const montages = await client.query<{ id: string; film_fichier_id: string }>('SELECT id, film_fichier_id FROM montages WHERE serie_id = $1', [serieId]);
       if (montages.rows.length === 0) return undefined;
+      // Le contrôle de l'action peut dater : une publication a pu partir entre-temps.
+      if (await publicationEnLigne(client, serieId)) throw new ErreurVideoPubliee();
       const ids = montages.rows.map((m) => m.id);
       const fichiers = new Map<string, string>();
       const noter = (rows: { id: string; espace_id: string }[]) => rows.forEach((f) => fichiers.set(f.id, f.espace_id));
@@ -358,8 +373,8 @@ export class MontagesPg implements Montages {
     });
   }
 
-  async aPublicationPubliee(_marqueId: string, _utilisateurId: string, _serieId: string): Promise<boolean> {
-    return false;
+  async aPublicationPubliee(marqueId: string, utilisateurId: string, serieId: string): Promise<boolean> {
+    return dansTransactionUtilisateur(this.#pool, marqueId, utilisateurId, (client) => publicationEnLigne(client, serieId));
   }
 
   async lireLegende(marqueId: string, utilisateurId: string, serieId: string, reseau: string): Promise<LegendeEnregistree | undefined> {

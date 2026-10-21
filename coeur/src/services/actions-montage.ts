@@ -428,13 +428,20 @@ export const montageArchiver = definirAction({
 export const montageSupprimer = definirAction({
   domaine: 'montage',
   verbe: 'supprimer',
-  description: 'Supprime définitivement une vidéo : toutes ses versions, ses rendus, ses voix, sa légende et les fichiers (octets effacés du disque). Irréversible : `confirmer` doit valoir vrai. Refusé (VIDEO_PUBLIEE) tant qu’une publication de cette vidéo est publiée : archive-la plutôt. Les publications programmées ne sont pas concernées ici.',
+  description: 'Supprime définitivement une vidéo : toutes ses versions, ses rendus, ses voix, sa légende et les fichiers (octets effacés du disque). Irréversible : `confirmer` doit valoir vrai. Refusé (VIDEO_PUBLIEE) tant qu’une publication de cette vidéo est en cours d’envoi, publiée ou d’état incertain : archive-la plutôt.',
   portee: 'ecriture',
   entree: z.strictObject({ id: identifiant, confirmer: z.literal(true) }),
   executer: async (ctx, entree) => {
     const m = await montageAccessible(ctx, entree.id);
     if (await ctx.services.montages.aPublicationPubliee(ctx.marqueId, ctx.utilisateurId, m.serieId)) throw new ErreurMetier('VIDEO_PUBLIEE', 409, { id: entree.id });
-    const r = await ctx.services.montages.supprimerVideo(ctx.marqueId, ctx.utilisateurId, m.serieId);
+    let r;
+    try {
+      r = await ctx.services.montages.supprimerVideo(ctx.marqueId, ctx.utilisateurId, m.serieId);
+    } catch (e) {
+      // Une publication est partie entre le contrôle et le verrou : reconnue par son nom (pas d'instanceof entre dist et src).
+      if (e instanceof Error && e.name === 'ErreurVideoPubliee') throw new ErreurMetier('VIDEO_PUBLIEE', 409, { id: entree.id });
+      throw e;
+    }
     if (r === undefined) throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
     // La base est déjà à jour (une seule transaction) : un fichier qui résiste est signalé, pas une raison d'échouer.
     let nonSupprimes = 0;

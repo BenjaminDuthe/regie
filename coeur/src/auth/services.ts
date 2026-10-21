@@ -16,6 +16,7 @@ import type { Oauth } from '../infra/oauth.ts';
 import type { Marques } from '../infra/marques.ts';
 import type { Reseaux } from '../infra/reseaux.ts';
 import type { ComptesReseau } from '../infra/comptes-reseau.ts';
+import type { Publications } from '../infra/publications.ts';
 import type { Connecteurs } from '../publication/connecteur.ts';
 import type { Montages } from '../infra/montages.ts';
 import type { Stockage } from '../infra/stockage.ts';
@@ -67,5 +68,7 @@ export type Services = Readonly<{
   comptesReseau: ComptesReseau;
   /** Un connecteur par réseau ouvert : seul passage vers les réseaux (histoire 7.1). */
   connecteurs: Connecteurs;
+  /** Publications sur les réseaux : montage, rendu et légende figés, une par compte et par vidéo (histoire 7.3). */
+  publications: Publications;
   maintenant: () => number;
 }>;

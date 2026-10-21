@@ -21,7 +21,10 @@ import { ScriptsPg } from './infra/scripts.ts';
 import { ComptesDemoPg } from './infra/comptes-demo.ts';
 import { ReseauxPg } from './infra/reseaux.ts';
 import { ComptesReseauPg } from './infra/comptes-reseau.ts';
+import { PublicationsPg } from './infra/publications.ts';
 import { ConnecteurInstagram } from './publication/connecteur-instagram.ts';
+import { executantReseau } from './publication/executant-reseau.ts';
+import { demarrerReconciliation } from './publication/reconciliation.ts';
 import { creerExecutantJeuScript } from './services/jeu-script.ts';
 import { JournauxJeu } from './services/journaux-jeu.ts';
 import { GabaritsPg } from './infra/gabarits.ts';
@@ -94,6 +97,7 @@ export function construireServices(contexte: Contexte): Services {
     reseaux: new ReseauxPg(contexte.pool, contexte.coffre),
     comptesReseau: new ComptesReseauPg(contexte.pool, contexte.coffre),
     connecteurs: { instagram: new ConnecteurInstagram() },
+    publications: new PublicationsPg(contexte.pool),
     journauxJeu: new JournauxJeu(),
     voixLocale: voixBranchee(),
     maintenant: Date.now,
@@ -164,6 +168,11 @@ function servicesSansBase(): Services {
     reseaux: { remplacerCle: refus, lireCle: async () => undefined, etatCle: async () => ({ deposee: false, modifieLe: undefined }) },
     comptesReseau: { connecter: refus, lister: async () => [], lire: async () => undefined, lireJeton: async () => undefined, deconnecter: refus },
     connecteurs: {},
+    publications: {
+      creer: refus, lire: async () => undefined, lister: async () => [], tentatives: async () => [], lierTache: refus, demarrerEnvoi: async () => undefined,
+      echouerAvantEnvoi: async () => undefined, conclure: async () => undefined, rejouer: async () => undefined, annuler: async () => undefined,
+      fichierEnEnvoi: async () => false, rattraper: async () => undefined,
+    },
     maintenant: Date.now,
   };
 }
@@ -249,6 +258,8 @@ if (import.meta.main) {
     marques: () => services.marques.lister(),
     executants: {
       ...EXECUTANTS,
+      // L'envoi d'une publication ne dépend pas de la capture : il part dès que l'adresse publique et un connecteur existent.
+      reseau: executantReseau(services),
       ...(env.REGIE_CAPTURE_SOCKET !== undefined && contexte.cleCapture !== undefined
         ? (() => {
             const lanceur = new LanceurPodman({ socket: env.REGIE_CAPTURE_SOCKET, image: env.REGIE_CAPTURE_IMAGE, reseau: RESEAU_CAPTURE });
@@ -299,11 +310,13 @@ if (import.meta.main) {
     journal: app.log,
   });
   let arreterEcoute: () => void = () => undefined;
+  let arreterReconciliation: () => void = () => undefined;
   // Arrêt propre : en PID 1 du conteneur, node n'a pas de gestionnaire de SIGTERM par défaut.
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     process.once(signal, () => {
       planificateur.arreter();
       travailleur.arreter();
+      arreterReconciliation();
       arreterEcoute();
       Promise.all([app.close(), contexte.fermer()]).then(
         () => process.exit(0),
@@ -314,6 +327,7 @@ if (import.meta.main) {
   await app.listen({ host: env.HOTE, port: env.PORT });
   arreterEcoute = ecouterResultats(contexte.pool, () => travailleur.surNotification(), (message) => app.log.warn({ erreur: message }, 'écoute de la file interrompue'));
   await travailleur.demarrer();
+  arreterReconciliation = demarrerReconciliation(contexte.pool, services, app.log);
   // Le planificateur prend place en dernier (AR-3) : tout ce qu'il déclenche trouve la file prête.
   await planificateur.demarrer();
 }

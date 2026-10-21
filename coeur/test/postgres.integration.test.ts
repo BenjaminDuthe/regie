@@ -13,6 +13,7 @@ import { dansTransactionMarque, dansTransactionUtilisateur, deposerSecret, lireS
 import { Coffre } from '../src/infra/coffre.ts';
 import { ComptesDemoPg } from '../src/infra/comptes-demo.ts';
 import { ComptesReseauPg } from '../src/infra/comptes-reseau.ts';
+import { PublicationsPg, tachesReseauFinies } from '../src/infra/publications.ts';
 import { lecteurCoffre } from '../src/services/passerelle-secrets.ts';
 import { nomSecretCompteDemo, TYPE_SECRET_COMPTE_DEMO } from '../src/infra/comptes-demo.ts';
 import { DOSSIER_MIGRATIONS, ErreurDemarrage, FICHIERS_SECRETS, demarrerBase } from '../src/infra/demarrage.ts';
@@ -908,6 +909,133 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE suppressions SET fichiers = 0'))).rejects.toThrow(/permission denied/);
       await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('DELETE FROM suppressions'))).rejects.toThrow(/permission denied/);
       await expect(dansTransactionMarque(contexte.pool, marqueB, (c) => c.query("INSERT INTO suppressions (marque_id, utilisateur_id, genre, objet_id, fichiers) VALUES ($1, $2, 'video', $3, 0)", [marqueA, a.utilisateurId, m.serieId]))).rejects.toThrow(/row-level security/);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('publications : une par compte et par vidéo, envoi en compare-and-set, vidéo en ligne protégée, tentatives, cloisonnement, RLS forcée (histoire 7.3)', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const montages = new MontagesPg(contexte.pool);
+      const comptes = new ComptesReseauPg(contexte.pool, contexte.coffre);
+      const publications = new PublicationsPg(contexte.pool);
+      const marqueA = await marques.creer(`Publi A ${suffixe}`);
+      const marqueB = await marques.creer(`Publi B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-pa', undefined, 'Établia');
+      const a2 = await espaces.assurer(marqueA, 'sub-pa2', undefined, 'Autre');
+      const b = await espaces.assurer(marqueB, 'sub-pb', undefined, 'Autre');
+      const espaceA = a.espaces[0]!.id;
+      const timeline = depuisJournal([{ t: 0, genre: 'film_debut' }, { t: 100, genre: 'narration', cible: 'Bonjour.' }, { t: 3000, genre: 'film_fin' }], { filmDureeMs: 3000 });
+      const gabarit = figerGabarit({ id: randomUUID(), nom: 'Départ', version: 1, definition: GABARIT_DE_DEPART });
+      const film = { id: randomUUID(), genre: 'film' as const, mime: 'video/webm' as const, octets: 12, sha256: 'a'.repeat(64) };
+      const m = (await montages.creerDepuisFilm({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espaceA, scriptId: null, montageId: randomUUID(), film, timeline, gabarit }))!;
+      const rendu = (await montages.creerRendu({ marqueId: marqueA, utilisateurId: a.utilisateurId, montageId: m.id, genre: 'complet' }))!;
+      const sortie = await montages.ajouterFichier(marqueA, a.utilisateurId, espaceA, { id: randomUUID(), genre: 'rendu', mime: 'video/mp4', octets: 10, sha256: 'b'.repeat(64) });
+      await montages.terminerRendu(marqueA, a.utilisateurId, rendu.id, { etat: 'pret', fichierId: sortie.id } as never);
+      const compte = (await comptes.connecter({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espaceA, reseau: 'instagram', compteExterne: '17841400000000002', nom: 'compte_demo', jeton: randomBytes(20).toString('hex'), expireLe: new Date(Date.now() + 60 * 86_400_000) }, new Date()))!;
+      const nouvelle = { marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espaceA, compteId: compte.id, reseau: 'instagram' as const, serieId: m.serieId, montageId: m.id, renduId: rendu.id, legende: 'Ma légende', hashtags: ['regie'], etat: 'en_file' as const };
+
+      // Une seule publication vivante par compte et par vidéo ; cloisonnement à la création.
+      const creation = await publications.creer(nouvelle);
+      if (creation.etat !== 'ok') throw new Error('création refusée');
+      const p = creation.publication;
+      expect(p).toMatchObject({ etat: 'en_file', montageId: m.id, renduId: rendu.id, tentatives: 0 });
+      expect(await publications.creer(nouvelle)).toEqual({ etat: 'existe', id: p.id });
+      expect(await publications.creer({ ...nouvelle, utilisateurId: a2.utilisateurId })).toEqual({ etat: 'introuvable' });
+      expect(await publications.creer({ ...nouvelle, marqueId: marqueB, utilisateurId: b.utilisateurId })).toEqual({ etat: 'introuvable' });
+      expect(await publications.lire(marqueA, a2.utilisateurId, p.id)).toBeUndefined();
+      expect(await publications.lire(marqueB, b.utilisateurId, p.id)).toBeUndefined();
+      expect(await publications.lister(marqueA, a2.utilisateurId)).toEqual([]);
+
+      // En file : la vidéo n'est pas « en ligne » et son fichier n'est pas servi à un réseau.
+      expect(await montages.aPublicationPubliee(marqueA, a.utilisateurId, m.serieId)).toBe(false);
+      expect(await publications.fichierEnEnvoi(marqueA, a.utilisateurId, sortie.id)).toBe(false);
+
+      // Compare-and-set : seule la tâche liée franchit en_file -> envoi_en_cours, une seule fois.
+      const tache = randomUUID();
+      await publications.lierTache(marqueA, a.utilisateurId, p.id, tache);
+      const qui = { origine: 'api' as const, pat: randomUUID() };
+      expect(await publications.demarrerEnvoi(marqueA, a.utilisateurId, p.id, randomUUID(), qui)).toBeUndefined();
+      expect(await publications.demarrerEnvoi(marqueA, a2.utilisateurId, p.id, tache, qui)).toBeUndefined();
+      expect(await publications.demarrerEnvoi(marqueA, a.utilisateurId, p.id, tache, qui)).toBe(1);
+      expect(await publications.demarrerEnvoi(marqueA, a.utilisateurId, p.id, tache, qui)).toBeUndefined();
+      expect(await publications.fichierEnEnvoi(marqueA, a.utilisateurId, sortie.id)).toBe(true);
+      expect(await publications.fichierEnEnvoi(marqueB, b.utilisateurId, sortie.id)).toBe(false);
+
+      // En cours d'envoi : la vidéo ne se supprime pas, même si le contrôle de l'action a été contourné.
+      expect(await montages.aPublicationPubliee(marqueA, a.utilisateurId, m.serieId)).toBe(true);
+      await expect(montages.supprimerVideo(marqueA, a.utilisateurId, m.serieId)).rejects.toMatchObject({ name: 'ErreurVideoPubliee' });
+      expect(await montages.lireRendu(marqueA, a.utilisateurId, rendu.id)).toBeDefined();
+
+      // Conclusion : publiée une fois ; une seconde conclusion ne change rien.
+      const publiee = await publications.conclure(marqueA, a.utilisateurId, p.id, { etat: 'publiee', idExterne: 'media-1', lien: 'https://www.instagram.com/reel/X/' });
+      expect(publiee).toMatchObject({ etat: 'publiee', idExterne: 'media-1', tentatives: 1 });
+      expect(await publications.conclure(marqueA, a.utilisateurId, p.id, { etat: 'en_echec', cause: 'RESEAU_INJOIGNABLE', action: 'rejouer' })).toBeUndefined();
+      expect(await publications.fichierEnEnvoi(marqueA, a.utilisateurId, sortie.id)).toBe(false);
+      expect(await publications.rejouer(marqueA, a.utilisateurId, p.id)).toBeUndefined();
+      expect(await publications.annuler(marqueA, a.utilisateurId, p.id)).toBeUndefined();
+      expect(await montages.aPublicationPubliee(marqueA, a.utilisateurId, m.serieId)).toBe(true);
+      const historique = await publications.tentatives(marqueA, a.utilisateurId, p.id);
+      expect(historique).toMatchObject([{ numero: 1, origine: 'api', pat: qui.pat, issue: 'publiee' }]);
+      expect(await publications.tentatives(marqueA, a2.utilisateurId, p.id)).toEqual([]);
+
+      // RLS forcée : sans marque rien ne se lit, jamais de DELETE, états hors liste refusés par la base.
+      expect((await contexte.pool.query('SELECT count(*)::int AS n FROM publications')).rows[0].n).toBe(0);
+      expect((await contexte.pool.query('SELECT count(*)::int AS n FROM publication_tentatives')).rows[0].n).toBe(0);
+      await expect(dansTransactionMarque(contexte.pool, marqueA, (cl) => cl.query('DELETE FROM publications'))).rejects.toThrow(/permission denied/);
+      await expect(dansTransactionUtilisateur(contexte.pool, marqueA, a.utilisateurId, (cl) => cl.query("UPDATE publications SET etat = 'inconnu'"))).rejects.toThrow(/check/i);
+      expect((await dansTransactionMarque(contexte.pool, marqueB, (cl) => cl.query('SELECT 1 FROM publications'))).rowCount).toBe(0);
+      expect(await tachesReseauFinies(contexte.pool, marqueB, new Date(0))).toEqual([]);
+      await comptes.deconnecter(marqueA, a.utilisateurId, compte.id);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('publications : un échec sûr se rejoue avec une nouvelle clé, une publication partie sans issue devient incertaine (histoire 7.3)', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const montages = new MontagesPg(contexte.pool);
+      const comptes = new ComptesReseauPg(contexte.pool, contexte.coffre);
+      const publications = new PublicationsPg(contexte.pool);
+      const marque = await marques.creer(`Publi C ${suffixe}`);
+      const a = await espaces.assurer(marque, 'sub-pc', undefined, 'Établia');
+      const espace = a.espaces[0]!.id;
+      const timeline = depuisJournal([{ t: 0, genre: 'film_debut' }, { t: 3000, genre: 'film_fin' }], { filmDureeMs: 3000 });
+      const gabarit = figerGabarit({ id: randomUUID(), nom: 'Départ', version: 1, definition: GABARIT_DE_DEPART });
+      const m = (await montages.creerDepuisFilm({ marqueId: marque, utilisateurId: a.utilisateurId, espaceId: espace, scriptId: null, montageId: randomUUID(), film: { id: randomUUID(), genre: 'film' as const, mime: 'video/webm' as const, octets: 12, sha256: 'a'.repeat(64) }, timeline, gabarit }))!;
+      const rendu = (await montages.creerRendu({ marqueId: marque, utilisateurId: a.utilisateurId, montageId: m.id, genre: 'complet' }))!;
+      const compte = (await comptes.connecter({ marqueId: marque, utilisateurId: a.utilisateurId, espaceId: espace, reseau: 'instagram', compteExterne: '17841400000000003', nom: 'compte_demo', jeton: randomBytes(20).toString('hex'), expireLe: new Date(Date.now() + 60 * 86_400_000) }, new Date()))!;
+      const creation = await publications.creer({ marqueId: marque, utilisateurId: a.utilisateurId, espaceId: espace, compteId: compte.id, reseau: 'instagram', serieId: m.serieId, montageId: m.id, renduId: rendu.id, legende: '', hashtags: [], etat: 'en_file' });
+      if (creation.etat !== 'ok') throw new Error('création refusée');
+      const p = creation.publication;
+      const tache = randomUUID();
+      await publications.lierTache(marque, a.utilisateurId, p.id, tache);
+      const qui = { origine: 'interface' as const, pat: null };
+      expect(await publications.demarrerEnvoi(marque, a.utilisateurId, p.id, tache, qui)).toBe(1);
+      const echec = await publications.conclure(marque, a.utilisateurId, p.id, { etat: 'en_echec', cause: 'RESEAU_VIDEO_REFUSEE', action: 'rejouer' });
+      expect(echec).toMatchObject({ etat: 'en_echec', cause: 'RESEAU_VIDEO_REFUSEE', action: 'rejouer' });
+      // Un échec se rejoue : nouvelle clé d'idempotence, retour en file, historique conservé.
+      const rejouee = (await publications.rejouer(marque, a.utilisateurId, p.id))!;
+      expect(rejouee).toMatchObject({ etat: 'en_file', cause: null });
+      expect(rejouee.cleIdempotence).not.toBe(p.cleIdempotence);
+      const tache2 = randomUUID();
+      await publications.lierTache(marque, a.utilisateurId, p.id, tache2);
+      expect(await publications.demarrerEnvoi(marque, a.utilisateurId, p.id, tache, qui)).toBeUndefined();
+      expect(await publications.demarrerEnvoi(marque, a.utilisateurId, p.id, tache2, qui)).toBe(2);
+      // Le processus meurt : la tâche est déclarée échouée sans issue. Le rattrapage rend la publication incertaine, sans renvoi.
+      const incertaine = await publications.rattraper(marque, a.utilisateurId, tache2, { terminee: false, cause: 'RESULTAT_INCONNU' });
+      expect(incertaine).toMatchObject({ etat: 'incertaine', cause: 'RESULTAT_INCONNU', action: 'verifier' });
+      expect(await publications.rattraper(marque, a.utilisateurId, tache2, { terminee: false, cause: 'RESULTAT_INCONNU' })).toBeUndefined();
+      expect(await publications.rejouer(marque, a.utilisateurId, p.id)).toBeUndefined();
+      expect(await publications.annuler(marque, a.utilisateurId, p.id)).toBeUndefined();
+      expect((await publications.tentatives(marque, a.utilisateurId, p.id)).map((t) => [t.numero, t.issue])).toEqual([[1, 'en_echec'], [2, 'incertaine']]);
+      await comptes.deconnecter(marque, a.utilisateurId, compte.id);
     } finally {
       await contexte.fermer();
     }

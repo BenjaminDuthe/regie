@@ -135,3 +135,10 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `reseau.comptes` (lecture) : les comptes de réseau reliés (nom, état, échéance de la connexion), éventuellement d’un seul espace ; jamais le jeton.
 - Ajout de `reseau.deconnecter` (écriture) : déconnecte un compte et retire son jeton du coffre ; `COMPTE_RESEAU_INTROUVABLE` (404) si le compte n’existe pas ou n’est pas accessible.
 - `reseau.connecter` existe pour l’interface seulement (raison dans `coeur/src/services/exceptions-parite.ts`) : un compte ne se relie que par le parcours OAuth du navigateur, aucun jeton de réseau ne passe par l’API.
+
+## 2026-10-21 — histoire 7.3
+
+- Ajout de `publication.publier` (écriture) : publie une vidéo maintenant sur un compte relié ; fige le montage, le rendu et la légende ; refuse avec la cause si une garde, une borne ou le quota l'interdit ; une seule publication par compte et par vidéo (`PUBLICATION_EXISTE`, 409).
+- Ajout de `publication.lire` (lecture) : une publication avec son état, son identifiant et son lien chez le réseau, la cause et l'action en cas d'échec ou d'incertitude.
+- Ajout de `publication.lister` (lecture) : les publications, filtrables par vidéo, espace, réseau et état.
+- `montage.supprimer` refuse désormais une vidéo publiée (`VIDEO_PUBLIEE`, 409).
