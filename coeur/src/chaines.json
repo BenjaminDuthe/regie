@@ -15,7 +15,8 @@
   "entete": {
     "deconnexion": "Se déconnecter",
     "espaces": "Espaces",
-    "espaceActif": "Espace actif"
+    "espaceActif": "Espace actif",
+    "jetons": "Jetons"
   },
   "connexion": {
     "titre": "Connexion",
@@ -149,5 +150,47 @@
     "personnel": "Personnel",
     "marque": "{nom}",
     "changer": "Passer à l’espace {nom}"
+  },
+  "erreurs": {
+    "ERREUR_INCONNUE": "Quelque chose s’est mal passé de notre côté. Réessaie dans un instant.",
+    "ENTREE_INVALIDE": "La demande n’est pas valable : vérifie {champs}.",
+    "AUTH_JETON_REQUIS": "Cette demande exige un jeton valide, non expiré et non révoqué.",
+    "JETON_PORTEE_INSUFFISANTE": "Ce jeton n’a pas le droit d’écrire : l’action {action} demande la portée {portee}.",
+    "JETON_INTROUVABLE": "Ce jeton n’existe pas, ou il est déjà révoqué.",
+    "ESPACE_INTROUVABLE": "Cet espace n’existe pas, ou tu n’y as pas accès.",
+    "ACTION_INCONNUE": "Cette action n’existe pas.",
+    "ADMIN_REQUIS": "Seul l’administrateur de regie peut faire ça."
+  },
+  "jetons": {
+    "titre": "Jetons d’API",
+    "intro": "Un jeton laisse un outil, par exemple Claude, agir à ta place sur regie. Il a une portée, des espaces et une durée de vie limitée à 90 jours. Tu le vois une seule fois, à sa création.",
+    "creer": {
+      "titre": "Créer un jeton",
+      "nom": "Nom (pour t’y retrouver)",
+      "duree": "Durée de vie",
+      "jours": "{jours} jours",
+      "portee": "Ce que le jeton peut faire",
+      "porteeLecture": "Lire seulement",
+      "porteeEcriture": "Lire et écrire",
+      "espaces": "Espaces accessibles",
+      "bouton": "Créer le jeton"
+    },
+    "nouveau": {
+      "titre": "Ton nouveau jeton",
+      "consigne": "Copie-le maintenant : regie ne le montrera plus jamais. S’il se perd, révoque-le et crée-en un autre."
+    },
+    "liste": {
+      "titre": "Tes jetons",
+      "vide": "Tu n’as encore créé aucun jeton.",
+      "cree": "créé le {date}",
+      "expire": "expire le {date}",
+      "revoque": "révoqué le {date}",
+      "expire_deja": "expiré",
+      "revoquer": "Révoquer"
+    },
+    "erreurs": {
+      "nom": "Donne un nom au jeton (80 caractères au plus).",
+      "espaces": "Choisis au moins un espace."
+    }
   }
 }

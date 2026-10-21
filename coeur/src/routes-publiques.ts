@@ -17,6 +17,7 @@ export const ROUTES_PUBLIQUES: readonly RoutePublique[] = Object.freeze([
   { chemin: '/confidentialite', raison: 'politique de confidentialité, exigée par Meta (FR-51)' },
   { chemin: '/conditions', raison: 'conditions d’utilisation, exigées par Meta (FR-51)' },
   { chemin: '/mcp', raison: 'jeton Bearer OAuth 2.1 à la place de la session (FR-46) ; 401 sans jeton valide' },
+  { chemin: '/api/v1/:domaine/:verbe', raison: 'API privée : jeton Bearer à la place de la session (FR-45) ; 401 sans jeton valide' },
   { chemin: '/v/*', raison: 'adresses signées lues par les réseaux : signature valide et moins d’une heure (FR-72)' },
 ]);
 

@@ -15,10 +15,12 @@ import { masqueurProcessus } from './infra/masquage.ts';
 import { calculerSante } from './infra/sante.ts';
 import { AuditPg } from './infra/audit.ts';
 import { EspacesPg } from './infra/espaces.ts';
+import { JetonsApiPg } from './infra/jetons.ts';
 import { MarquesPg } from './infra/marques.ts';
 import { ClientOidc } from './infra/oidc.ts';
 import { MagasinSessionsPg } from './infra/sessions.ts';
 import { enregistrerRoutesAuth } from './auth/routes.ts';
+import { enregistrerRoutesApi } from './api/routes.ts';
 import type { Services } from './auth/services.ts';
 
 type HandlerAstro = (
@@ -46,8 +48,7 @@ export function construireServices(contexte: Contexte): Services {
     cleAdresses: contexte.cleAdresses,
     admin: { sub: env.REGIE_ADMIN_SUB, email: env.REGIE_ADMIN_EMAIL },
     urlPublique: env.REGIE_URL_PUBLIQUE,
-    // Les jetons MCP arrivent avec les histoires 1.11 et 1.12 : aucun n'existe encore, donc aucun n'est valide.
-    verifierJetonMcp: async () => false,
+    jetons: new JetonsApiPg(contexte.pool),
     maintenant: Date.now,
   };
 }
@@ -67,7 +68,7 @@ function servicesSansBase(): Services {
     cleAdresses: randomBytes(32),
     admin: { sub: undefined, email: undefined },
     urlPublique: undefined,
-    verifierJetonMcp: async () => false,
+    jetons: { creer: refus, lister: async () => [], revoquer: async () => false, authentifier: async () => undefined },
     maintenant: Date.now,
   };
 }
@@ -104,6 +105,7 @@ export async function construireServeur(
   });
   // Le type de l'instance dépend du journal choisi ; les routes n'en ont pas besoin.
   enregistrerRoutesAuth(app as unknown as FastifyInstance, services);
+  enregistrerRoutesApi(app as unknown as FastifyInstance, services);
   await app.register(fastifyStatic, { root: RACINE_CLIENT });
   await app.register(middie);
   // Les services passent au middleware d'Astro (la garde de session) par `locals`.

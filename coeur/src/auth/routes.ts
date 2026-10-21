@@ -4,6 +4,7 @@
 
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { retourSur } from '../routes-publiques.ts';
+import { authentifierBearer } from './bearer.ts';
 import { verifierAdresse } from './adresses-signees.ts';
 import { COOKIE_FLUX, COOKIE_SESSION, lireCookie } from './cookies.ts';
 import { ErreurConnexion, deconnecter, demarrerConnexion, terminerConnexion, type Motif } from './connexion.ts';
@@ -86,9 +87,7 @@ export function enregistrerRoutesAuth(app: FastifyInstance, services: Services):
   // Point d'entrée MCP : jeton Bearer (OAuth 2.1) à la place de la session. Le protocole arrive avec 1.11 et 1.12 ;
   // ici, seulement le refus sans jeton valide.
   app.all('/mcp', async (requete, reponse) => {
-    const entete = requete.headers.authorization ?? '';
-    const jeton = /^Bearer ([\x21-\x7e]{8,512})$/.exec(entete)?.[1];
-    if (jeton === undefined || !(await services.verifierJetonMcp(jeton))) {
+    if ((await authentifierBearer(services, requete.headers.authorization)) === undefined) {
       return reponse.header('www-authenticate', 'Bearer realm="regie"').header('cache-control', 'no-store').code(401).send({ erreur: 'jeton_requis' });
     }
     return reponse.code(501).send({ erreur: 'mcp_non_disponible' });

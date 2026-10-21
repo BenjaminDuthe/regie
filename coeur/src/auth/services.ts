@@ -4,6 +4,7 @@
 import type { Audit } from '../infra/audit.ts';
 import type { Coffre } from '../infra/coffre.ts';
 import type { Espaces } from '../infra/espaces.ts';
+import type { JetonsApi } from '../infra/jetons.ts';
 import type { Marques } from '../infra/marques.ts';
 import type { FournisseurOidc } from '../infra/oidc.ts';
 import type { MagasinSessions } from '../infra/sessions.ts';
@@ -23,7 +24,7 @@ export type Services = Readonly<{
   admin: Readonly<{ sub: string | undefined; email: string | undefined }>;
   /** Adresse publique de regie ; sert à vérifier l'Origin des formulaires. */
   urlPublique: string | undefined;
-  /** Vérifie un jeton Bearer du point d'entrée /mcp (arrive avec les histoires 1.11 et 1.12). */
-  verifierJetonMcp: (jeton: string) => Promise<boolean>;
+  /** Jetons d'API personnels : Bearer de l'API privée et du point d'entrée /mcp (histoire 1.11). */
+  jetons: JetonsApi;
   maintenant: () => number;
 }>;

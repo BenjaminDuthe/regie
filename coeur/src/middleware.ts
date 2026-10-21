@@ -4,6 +4,13 @@ import { defineMiddleware } from 'astro:middleware';
 import { decider } from './garde.ts';
 
 export const onRequest = defineMiddleware(async (contexte, suite) => {
+  // Anti-CSRF des formulaires de l'interface : tout envoi (POST…) doit venir de l'adresse publique de regie.
+  const methode = contexte.request.method;
+  if (methode !== 'GET' && methode !== 'HEAD' && methode !== 'OPTIONS') {
+    const urlPublique = contexte.locals.regie?.urlPublique;
+    const attendue = urlPublique === undefined ? undefined : new URL(urlPublique).origin;
+    if (attendue === undefined || contexte.request.headers.get('origin') !== attendue) return new Response(null, { status: 403 });
+  }
   const decision = await decider(
     { chemin: contexte.url.pathname, recherche: contexte.url.search, cookie: contexte.request.headers.get('cookie') },
     contexte.locals.regie?.sessions,

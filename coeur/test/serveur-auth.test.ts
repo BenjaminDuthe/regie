@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { signerAdresse } from '../src/auth/adresses-signees.ts';
 import { COOKIE_FLUX, COOKIE_SESSION, lireCookie } from '../src/auth/cookies.ts';
+import { idUtilisateur } from '../src/infra/espaces.ts';
 import { ClientOidc } from '../src/infra/oidc.ts';
 import { ROUTES_AVEC_SESSION_PROPRE, ROUTES_PUBLIQUES, ROUTES_STATIQUES, estPublique, normaliser } from '../src/routes-publiques.ts';
 import { construireServeur } from '../src/serveur.ts';
@@ -51,14 +52,14 @@ describe('garde et routes d’authentification', () => {
   let faux: FauxFournisseur;
   const vues: Route[] = [];
   let cookieSession = '';
+  let jetonValide = '';
 
   beforeAll(async () => {
     if (!existsSync(ENTREE)) throw new Error('coeur/dist absent : lance `npm run build` avant les tests.');
     faux = await demarrerFauxFournisseur({ finSession: true });
-    banc = creerServicesDeTest(new ClientOidc({ emetteur: faux.emetteur, clientId: faux.clientId, clientSecret: faux.clientSecret, urlPublique: ORIGINE }), {
-      verifierJetonMcp: async (jeton) => jeton === 'jeton-mcp-valide',
-    });
+    banc = creerServicesDeTest(new ClientOidc({ emetteur: faux.emetteur, clientId: faux.clientId, clientSecret: faux.clientSecret, urlPublique: ORIGINE }));
     const marqueId = await banc.marques.creer();
+    jetonValide = (await banc.jetons.creer({ marqueId, utilisateurId: idUtilisateur(marqueId, 'sub-benjamin'), sub: 'sub-benjamin', nom: 'test', portees: ['lecture'], espaceIds: [crypto.randomUUID()], dureeJours: 30 })).clair;
     cookieSession = `${COOKIE_SESSION}=${await banc.sessions.creer({ marqueId, sub: 'sub-benjamin', email: undefined, authentifieLe: new Date() })}`;
     app = await construireServeur({
       services: banc.services,
@@ -162,7 +163,7 @@ describe('garde et routes d’authentification', () => {
     expect(sans.headers['www-authenticate']).toMatch(/^Bearer/);
     expect((await app.inject({ method: 'POST', url: '/mcp', headers: { authorization: 'Bearer mauvais-jeton' } })).statusCode).toBe(401);
     expect((await app.inject({ method: 'POST', url: '/mcp', headers: { authorization: 'Basic abcdefghij' } })).statusCode).toBe(401);
-    expect((await app.inject({ method: 'POST', url: '/mcp', headers: { authorization: 'Bearer jeton-mcp-valide' } })).statusCode).not.toBe(401);
+    expect((await app.inject({ method: 'POST', url: '/mcp', headers: { authorization: `Bearer ${jetonValide}` } })).statusCode).not.toBe(401);
   });
 
   it('/v/* : 403 sans signature valide, signature expirée ou chemin différent', async () => {

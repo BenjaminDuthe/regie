@@ -27,6 +27,7 @@ const retour = encodeURIComponent(Astro.url.pathname + Astro.url.search);
       </nav>
     )
   }
+  {connecte && <a class="lien" href="/jetons">{chaines.entete.jetons}</a>}
   {
     connecte && (
       <form method="post" action="/deconnexion">
@@ -75,6 +76,11 @@ const retour = encodeURIComponent(Astro.url.pathname + Astro.url.search);
     color: var(--texte);
     border-color: var(--accent);
     cursor: default;
+  }
+  .lien {
+    color: var(--doux);
+    font-size: 13px;
+    text-decoration: none;
   }
   .deconnexion {
     background: none;

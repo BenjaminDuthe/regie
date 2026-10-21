@@ -16,6 +16,7 @@ import { Masqueur } from '../src/infra/masquage.ts';
 import { calculerSante } from '../src/infra/sante.ts';
 import { AuditPg, verifierChaine } from '../src/infra/audit.ts';
 import { EspacesPg, idUtilisateur } from '../src/infra/espaces.ts';
+import { JetonsApiPg, hacherJeton } from '../src/infra/jetons.ts';
 import { MarquesPg } from '../src/infra/marques.ts';
 import { MagasinSessionsPg } from '../src/infra/sessions.ts';
 
@@ -217,6 +218,57 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       expect((await sessions.trouver(cookie))?.espaceActifId).toBe(a.espaces[0]!.id);
       expect(await sessions.changerEspace(cookie, a.espaces[1]!.id)).toBe(true);
       expect((await sessions.trouver(cookie))?.espaceActifId).toBe(a.espaces[1]!.id);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('jetons d’API : seul le haché est stocké, expiration ≤ 90 jours, révocation, cloisonnement par marque et par utilisateur', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const jetons = new JetonsApiPg(contexte.pool);
+      const marqueA = await marques.creer(`Jetons A ${suffixe}`);
+      const marqueB = await marques.creer(`Jetons B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-a', undefined, 'Établia');
+      const a2 = await espaces.assurer(marqueA, 'sub-a2', undefined, 'Établia');
+      const b = await espaces.assurer(marqueB, 'sub-b', undefined, 'Autre');
+      const nouveau = (m: string, u: string, sub: string, e: string, jours = 30) => ({ marqueId: m, utilisateurId: u, sub, nom: 'test', portees: ['lecture' as const], espaceIds: [e], dureeJours: jours });
+
+      const { jeton, clair } = await jetons.creer(nouveau(marqueA, a.utilisateurId, 'sub-a', a.espaces[0]!.id));
+      // Seul le haché SHA-256 est en base : le jeton n'y figure sous aucune forme.
+      const brut = await dansTransactionMarque(contexte.pool, marqueA, (c) => c.query<{ hache: Buffer; texte: string }>('SELECT hache, jetons_api::text AS texte FROM jetons_api WHERE id = $1', [jeton.id]));
+      expect(brut.rows[0]!.hache.equals(hacherJeton(clair))).toBe(true);
+      expect(brut.rows[0]!.texte).not.toContain(clair);
+      expect(brut.rows[0]!.texte).not.toContain(clair.split('_').at(-1)!);
+
+      expect(await jetons.authentifier(clair)).toMatchObject({ marqueId: marqueA, utilisateurId: a.utilisateurId, sub: 'sub-a', jetonId: jeton.id });
+      expect(await jetons.authentifier(`${clair.slice(0, -1)}${clair.endsWith('A') ? 'B' : 'A'}`)).toBeUndefined();
+
+      // Expiration : la base refuse plus de 90 jours, et un jeton échu n'authentifie plus.
+      await expect(jetons.creer(nouveau(marqueA, a.utilisateurId, 'sub-a', a.espaces[0]!.id, 91))).rejects.toThrow(/check|jetons_api/);
+      const court = await jetons.creer(nouveau(marqueA, a.utilisateurId, 'sub-a', a.espaces[0]!.id, 1));
+      await dansTransactionMarque(contexte.pool, marqueA, (c) => c.query("UPDATE jetons_api SET cree_le = now() - interval '3 days', expire_le = now() - interval '1 day' WHERE id = $1", [court.jeton.id]));
+      expect(await jetons.authentifier(court.clair)).toBeUndefined();
+
+      // Cloisonnement : A2 ne voit ni ne révoque le jeton de A ; la marque B non plus (RLS), sans variable d'utilisateur.
+      expect((await jetons.lister(marqueA, a2.utilisateurId)).map((j) => j.id)).toEqual([]);
+      expect(await jetons.revoquer(marqueA, a2.utilisateurId, jeton.id)).toBe(false);
+      expect((await jetons.lister(marqueB, a.utilisateurId)).map((j) => j.id)).toEqual([]);
+      expect(await jetons.revoquer(marqueB, a.utilisateurId, jeton.id)).toBe(false);
+      await dansTransactionMarque(contexte.pool, marqueB, async (c) => {
+        expect((await c.query('SELECT 1 FROM jetons_api')).rowCount).toBe(0);
+        await expect(c.query('INSERT INTO jetons_api (marque_id, utilisateur_id, sub, nom, hache, portees, espace_ids, expire_le) VALUES ($1,$2,$3,$4,$5,$6,$7, now() + interval \'1 day\')', [marqueA, a.utilisateurId, 'sub-a', 'vol', Buffer.alloc(32, 1), ['lecture'], [a.espaces[0]!.id]])).rejects.toThrow(/row-level security/);
+      });
+      expect((await contexte.pool.query('SELECT 1 FROM jetons_api')).rowCount).toBe(0);
+      expect(await jetons.authentifier(clair.replace(marqueA.replaceAll('-', ''), b.utilisateurId.replaceAll('-', '').slice(0, 32)))).toBeUndefined();
+
+      // Révocation : effective tout de suite, une seule fois ; la ligne reste (trace).
+      expect(await jetons.revoquer(marqueA, a.utilisateurId, jeton.id)).toBe(true);
+      expect(await jetons.revoquer(marqueA, a.utilisateurId, jeton.id)).toBe(false);
+      expect(await jetons.authentifier(clair)).toBeUndefined();
+      expect((await jetons.lister(marqueA, a.utilisateurId)).find((j) => j.id === jeton.id)?.revoqueLe).toBeInstanceOf(Date);
     } finally {
       await contexte.fermer();
     }

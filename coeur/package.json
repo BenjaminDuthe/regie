@@ -8,7 +8,8 @@
   "scripts": {
     "build": "astro build",
     "check": "astro check",
-    "start": "node src/serveur.ts"
+    "start": "node src/serveur.ts",
+    "api:reference": "node scripts/generer-reference.ts"
   },
   "dependencies": {
     "@astrojs/node": "11.1.6",

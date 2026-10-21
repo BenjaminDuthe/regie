@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import type { Services } from '../src/auth/services.ts';
 import { chainer, type Audit, type EntreeAudit, type LigneAudit } from '../src/infra/audit.ts';
 import { idUtilisateur, trierEspaces, type Espace, type Espaces } from '../src/infra/espaces.ts';
+import { DUREE_MAX_JETON_JOURS, composerJeton, hacherJeton, marqueDuJeton, type JetonApi, type JetonsApi, type NouveauJeton, type Principal } from '../src/infra/jetons.ts';
 import { Coffre } from '../src/infra/coffre.ts';
 import type { Marques, MarqueUnique } from '../src/infra/marques.ts';
 import { composerCookie, decomposerCookie, hacherIdentifiant, nouvelIdentifiant, type MagasinSessions, type NouvelleSession, type Session } from '../src/infra/sessions.ts';
@@ -190,6 +191,35 @@ export class EspacesMemoire implements Espaces {
   }
 }
 
+/** Jetons d'API en mémoire : même contrat que JetonsApiPg (haché seul gardé, expiration, révocation, cloisonnement). */
+export class JetonsMemoire implements JetonsApi {
+  readonly lignes: (JetonApi & { marqueId: string; utilisateurId: string; sub: string; hache: string })[] = [];
+  maintenant = () => Date.now();
+  async creer(n: NouveauJeton) {
+    if (n.dureeJours < 1 || n.dureeJours > DUREE_MAX_JETON_JOURS) throw new Error('durée hors limites');
+    const clair = composerJeton(n.marqueId);
+    const cree = this.maintenant();
+    const jeton: JetonApi = { id: crypto.randomUUID(), nom: n.nom, portees: n.portees, espaceIds: n.espaceIds, creeLe: new Date(cree), expireLe: new Date(cree + n.dureeJours * 86_400_000), revoqueLe: undefined };
+    this.lignes.push({ ...jeton, marqueId: n.marqueId, utilisateurId: n.utilisateurId, sub: n.sub, hache: hacherJeton(clair).toString('hex') });
+    return { jeton, clair };
+  }
+  async lister(marqueId: string, utilisateurId: string) {
+    return this.lignes.filter((l) => l.marqueId === marqueId && l.utilisateurId === utilisateurId).sort((a, b) => b.creeLe.getTime() - a.creeLe.getTime());
+  }
+  async revoquer(marqueId: string, utilisateurId: string, jetonId: string) {
+    const ligne = this.lignes.find((l) => l.id === jetonId && l.marqueId === marqueId && l.utilisateurId === utilisateurId && l.revoqueLe === undefined);
+    if (ligne === undefined) return false;
+    (ligne as { revoqueLe: Date | undefined }).revoqueLe = new Date(this.maintenant());
+    return true;
+  }
+  async authentifier(clair: string): Promise<Principal | undefined> {
+    const marqueId = marqueDuJeton(clair);
+    const ligne = marqueId === undefined ? undefined : this.lignes.find((l) => l.hache === hacherJeton(clair).toString('hex'));
+    if (marqueId === undefined || ligne === undefined || ligne.marqueId !== marqueId || ligne.revoqueLe !== undefined || ligne.expireLe.getTime() <= this.maintenant()) return undefined;
+    return { marqueId, utilisateurId: ligne.utilisateurId, sub: ligne.sub, jetonId: ligne.id, portees: ligne.portees, espaceIds: ligne.espaceIds };
+  }
+}
+
 export class MarquesMemoire implements Marques {
   ids: string[] = [];
   async trouverUnique(): Promise<MarqueUnique> {
@@ -209,15 +239,17 @@ export class AuditMemoire implements Audit {
   }
 }
 
-export type BancDeTest = { services: Services; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; horloge: { t: number } };
+export type BancDeTest = { services: Services; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; horloge: { t: number } };
 
-export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique' | 'verifierJetonMcp'>> = {}): BancDeTest {
+export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
   const sessions = new SessionsMemoire();
   sessions.maintenant = () => horloge.t;
   const marques = new MarquesMemoire();
   const espaces = new EspacesMemoire();
   const audit = new AuditMemoire();
+  const jetons = new JetonsMemoire();
+  jetons.maintenant = () => horloge.t;
   const services: Services = {
     oidc,
     sessions,
@@ -228,8 +260,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     cleAdresses: randomBytes(32),
     admin: options.admin ?? { sub: 'sub-benjamin', email: undefined },
     urlPublique: options.urlPublique ?? 'http://127.0.0.1:4321',
-    verifierJetonMcp: options.verifierJetonMcp ?? (async () => false),
+    jetons,
     maintenant: () => horloge.t,
   };
-  return { services, sessions, marques, espaces, audit, horloge };
+  return { services, sessions, marques, espaces, audit, jetons, horloge };
 }
