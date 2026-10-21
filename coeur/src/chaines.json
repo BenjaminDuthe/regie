@@ -187,6 +187,10 @@
     "SCRIPT_ETAPE_INTROUVABLE": "Ce script n’a pas d’étape {position} : il en compte {total}.",
     "SCRIPT_ETAPE_INVALIDE": "Le script n’est pas valable. {detail}",
     "SCRIPT_HOTE_REFUSE": "L’étape {etape} vise l’hôte « {hote} », qui n’est pas déclaré pour cette application : ajoute-le d’abord à ses hôtes autorisés (Démos d’app), ou change l’adresse.",
+    "MONTAGE_INTROUVABLE": "Ce montage n’existe pas, ou tu n’y as pas accès.",
+    "RENDU_INTROUVABLE": "Ce rendu n’existe pas, ou tu n’y as pas accès.",
+    "RENDU_PAS_PRET": "Cette vidéo n’est pas encore rendue (état : {etat}) : attends la fin du rendu ou relance-le.",
+    "SEANCE_PURGEE": "Les rushes de cette séance ont été purgés : le film brut n’existe plus, la vidéo ne peut plus être rendue de nouveau.",
     "SCRIPT_SANS_ETAPE": "Ce script n’a aucune étape : ajoute-en une avant de le jouer.",
     "MCP_SEULEMENT": "Créer un script à partir d’une phrase n’est possible que par Claude connecté en MCP. Ici, crée le script étape par étape."
   },

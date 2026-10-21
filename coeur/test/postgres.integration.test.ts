@@ -21,6 +21,9 @@ import { AuditPg, verifierChaine } from '../src/infra/audit.ts';
 import { EspacesPg, idUtilisateur } from '../src/infra/espaces.ts';
 import { ApplicationsPg, NomApplicationPris } from '../src/infra/applications.ts';
 import { NomScriptPris, ScriptsPg } from '../src/infra/scripts.ts';
+import { MontagesPg } from '../src/infra/montages.ts';
+import { figerGabarit } from '../src/domaine/montage.ts';
+import { depuisJournal } from '@regie/contrats';
 import { GabaritsPg } from '../src/infra/gabarits.ts';
 import { GABARIT_DE_DEPART } from '../src/domaine/gabarit.ts';
 import { JetonsApiPg, hacherJeton } from '../src/infra/jetons.ts';
@@ -756,6 +759,58 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE scripts SET marque_id = marque_id'))).rejects.toThrow(/permission denied/);
       const trop = Array.from({ length: 101 }, () => ({ verbe: 'connexion' as const }));
       await expect(scripts.creer({ marqueId: marqueA, utilisateurId: a.utilisateurId, applicationId: app.id, origine: 'claude', nom: 'Trop', etapes: trop })).rejects.toThrow(/check/i);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('montages : versions immuables, rendus qui avancent, cloisonnés par marque et par personne, RLS forcée (histoire 4.6)', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const montages = new MontagesPg(contexte.pool);
+      const marqueA = await marques.creer(`Montages A ${suffixe}`);
+      const marqueB = await marques.creer(`Montages B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-ma', undefined, 'Établia');
+      const a2 = await espaces.assurer(marqueA, 'sub-ma2', undefined, 'Autre');
+      const b = await espaces.assurer(marqueB, 'sub-mb', undefined, 'Autre');
+      const espaceA = a.espaces[0]!.id;
+      const timeline = depuisJournal([{ t: 0, genre: 'film_debut' }, { t: 100, genre: 'narration', cible: 'Bonjour.' }, { t: 3000, genre: 'film_fin' }], { filmDureeMs: 3000 });
+      const gabarit = figerGabarit({ id: randomUUID(), nom: 'Départ', version: 1, definition: GABARIT_DE_DEPART });
+      const film = { id: randomUUID(), genre: 'film' as const, mime: 'video/webm' as const, octets: 12, sha256: 'a'.repeat(64) };
+
+      const premier = (await montages.creerDepuisFilm({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espaceA, scriptId: null, montageId: randomUUID(), film, timeline, gabarit }))!;
+      expect(premier).toMatchObject({ numero: 1, origine: 'jeu', parentId: null });
+      expect(premier.serieId).toBe(premier.id);
+
+      // Une nouvelle version est une nouvelle ligne ; éditer une version dépassée est refusé.
+      const v2 = await montages.creerVersion({ marqueId: marqueA, utilisateurId: a.utilisateurId, parentId: premier.id, origine: 'edition', timeline });
+      expect(v2).toMatchObject({ etat: 'ok', montage: { numero: 2, parentId: premier.id, filmFichierId: premier.filmFichierId } });
+      expect(await montages.creerVersion({ marqueId: marqueA, utilisateurId: a.utilisateurId, parentId: premier.id, origine: 'edition', timeline })).toMatchObject({ etat: 'perimee', derniere: 2 });
+      expect((await montages.listerSerie(marqueA, a.utilisateurId, premier.serieId)).map((m) => m.numero)).toEqual([2, 1]);
+
+      // Un rendu avance, mais ne revient pas en arrière ; les violations sont gardées.
+      const rendu = (await montages.creerRendu({ marqueId: marqueA, utilisateurId: a.utilisateurId, montageId: premier.id, genre: 'allege' }))!;
+      expect(rendu.etat).toBe('en_file');
+      await montages.demarrerRendu(marqueA, a.utilisateurId, rendu.id);
+      await montages.terminerRendu(marqueA, a.utilisateurId, rendu.id, { etat: 'bloque', violations: [{ code: 'CONTRASTE', segment: 'sc-1', element: 'sc-1-accroche', mesure: 2, seuil: 4.5 }] as never });
+      expect(await montages.lireRendu(marqueA, a.utilisateurId, rendu.id)).toMatchObject({ etat: 'bloque' });
+
+      // Cloisonnement : autre personne de la marque, autre marque.
+      expect(await montages.lire(marqueA, a2.utilisateurId, premier.id)).toBeUndefined();
+      expect(await montages.lire(marqueB, b.utilisateurId, premier.id)).toBeUndefined();
+      expect(await montages.lireRendu(marqueB, b.utilisateurId, rendu.id)).toBeUndefined();
+      expect(await montages.listerDernieres(marqueB, b.utilisateurId)).toHaveLength(0);
+      expect(await montages.creerRendu({ marqueId: marqueA, utilisateurId: a2.utilisateurId, montageId: premier.id, genre: 'allege' })).toBeUndefined();
+      expect(await montages.creerDepuisFilm({ marqueId: marqueA, utilisateurId: a2.utilisateurId, espaceId: espaceA, scriptId: null, montageId: randomUUID(), film: { ...film, id: randomUUID() }, timeline, gabarit })).toBeUndefined();
+
+      // RLS forcée : sans marque, rien ; jamais d'UPDATE ni de DELETE sur les montages ; pas de film hors liste.
+      for (const t of ['fichiers', 'montages', 'rendus']) expect((await contexte.pool.query(`SELECT count(*)::int AS n FROM ${t}`)).rows[0].n).toBe(0);
+      await expect(contexte.pool.query('DELETE FROM montages')).rejects.toThrow(/permission denied/);
+      await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE montages SET timeline = timeline'))).rejects.toThrow(/permission denied/);
+      await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE fichiers SET octets = 0'))).rejects.toThrow(/permission denied/);
+      await expect(montages.ajouterFichier(marqueA, a.utilisateurId, espaceA, { ...film, id: randomUUID(), mime: 'audio/wav' as const, genre: 'rendu' as const, sha256: 'xyz' })).rejects.toThrow(/check/i);
     } finally {
       await contexte.fermer();
     }

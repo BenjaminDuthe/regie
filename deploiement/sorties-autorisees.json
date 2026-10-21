@@ -4,7 +4,8 @@
     "publication": "envoi vers les réseaux sociaux choisis par la personne",
     "proxy-capture": "hôtes autorisés de la capture d'application",
     "coeur": "relais SMTP réglé par l'administrateur seulement",
-    "proxy-tls": "ACME (certificats)"
+    "proxy-tls": "ACME (certificats)",
+    "rendu": "aucune : `--network none`, le film et les voix arrivent par l'entrée standard"
   },
   "hotes": [
     {

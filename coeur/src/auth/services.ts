@@ -14,6 +14,8 @@ import type { JetonsApi } from '../infra/jetons.ts';
 import type { Notifications } from '../infra/notifications.ts';
 import type { Oauth } from '../infra/oauth.ts';
 import type { Marques } from '../infra/marques.ts';
+import type { Montages } from '../infra/montages.ts';
+import type { Stockage } from '../infra/stockage.ts';
 import type { FournisseurOidc } from '../infra/oidc.ts';
 import type { MagasinSessions } from '../infra/sessions.ts';
 
@@ -48,6 +50,10 @@ export type Services = Readonly<{
   scripts: Scripts;
   /** Compte de démonstration de chaque application, au coffre (histoire 4.3). */
   comptesDemo: ComptesDemo;
+  /** Films, montages et rendus (histoire 4.6). */
+  montages: Montages;
+  /** Fichiers sur disque, par marque (histoire 4.6). */
+  stockage: Stockage;
   /** Journaux de jeu en direct (histoire 4.5), en mémoire. */
   journauxJeu: JournauxJeu;
   maintenant: () => number;

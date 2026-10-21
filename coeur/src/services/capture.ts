@@ -31,16 +31,24 @@ export type ReglagesPodman = Readonly<{
   socket: string;
   image: string;
   reseau: string;
+  /** Ressources du conteneur ; par défaut celles d'une capture. Le rendu en demande plus et peut recevoir le GPU. */
+  ressources?: Readonly<{ memoire: string; tmpfs: string; cpus: number; peripherique?: string }>;
 }>;
+
+const RESSOURCES_CAPTURE: NonNullable<ReglagesPodman['ressources']> = Object.freeze({ memoire: '1g', tmpfs: '256m', cpus: 2 });
 
 export const RESEAU_CAPTURE = 'capture-interne';
 export const SORTIE_MAX_OCTETS = 400_000;
+/** Début des lignes qui portent le film (histoire 4.6) : elles vont à l'écouteur, hors du plafond de la sortie. */
+export const PREFIXE_FILM = '{"film":';
+const LIGNE_MAX_CARACTERES = 200_000;
 
 /**
- * Arguments de `podman` : fonction pure, testée. Aucun volume, aucun privilège, aucun périphérique ; racine en
+ * Arguments de `podman` : fonction pure, testée. Aucun volume, aucun privilège, aucun périphérique (sauf le GPU du rendu, si demandé) ; racine en
  * lecture seule ; réseau interne sans DNS. Rien de secret : le laissez-passer arrive par l'entrée standard.
  */
 export function argumentsPodman(r: ReglagesPodman, nom: string, delaiS: number): string[] {
+  const res = r.ressources ?? RESSOURCES_CAPTURE;
   return [
     '--url', `unix://${r.socket}`,
     'run',
@@ -49,18 +57,20 @@ export function argumentsPodman(r: ReglagesPodman, nom: string, delaiS: number):
     '--name', nom,
     '--pull=never',
     '--network', r.reseau,
-    '--dns', 'none',
+    // `--dns` est refusé avec `--network none` (le rendu n'a aucun réseau).
+    ...(r.reseau === 'none' ? [] : ['--dns', 'none']),
     '--no-hosts',
     '--cap-drop=ALL',
     '--security-opt', 'no-new-privileges',
     '--read-only',
     '--read-only-tmpfs=false',
-    '--tmpfs', '/tmp:rw,noexec,nosuid,nodev,size=256m',
+    '--tmpfs', `/tmp:rw,noexec,nosuid,nodev,size=${res.tmpfs}`,
     '--shm-size', '256m',
     '--pids-limit', '512',
-    '--memory', '1g',
-    '--memory-swap', '1g',
-    '--cpus', '2',
+    '--memory', res.memoire,
+    '--memory-swap', res.memoire,
+    '--cpus', String(res.cpus),
+    ...(res.peripherique !== undefined ? ['--device', res.peripherique] : []),
     '--timeout', String(delaiS),
     '--log-driver', 'none',
     '--user', '1000:1000',
@@ -92,25 +102,11 @@ export class LanceurPodman implements LanceurCapture {
     return new Promise((resoudre, rejeter) => {
       const delaiS = Math.ceil(d.delaiMs / 1000);
       const p = this.#lancement('podman', argumentsPodman(this.#reglages, d.nom, delaiS));
-      const morceaux: Buffer[] = [];
+      const gardees: string[] = [];
       let total = 0;
       let fini = false;
       let reste = '';
       const decodeur = new StringDecoder('utf8');
-      const lignes = (texte: string): void => {
-        if (d.surLigne === undefined) return;
-        reste += texte;
-        let i: number;
-        while ((i = reste.indexOf('\n')) >= 0) {
-          const ligne = reste.slice(0, i);
-          reste = reste.slice(i + 1);
-          try {
-            d.surLigne(ligne);
-          } catch {
-            // Un écouteur fautif ne casse pas la capture.
-          }
-        }
-      };
       const terminer = (f: () => void) => {
         if (fini) return;
         fini = true;
@@ -122,27 +118,48 @@ export class LanceurPodman implements LanceurCapture {
         p.kill('SIGKILL');
         terminer(() => rejeter(new Error('ANNULE')));
       };
+      const trop = () => {
+        p.kill('SIGKILL');
+        terminer(() => rejeter(new Error('SORTIE_TROP_LONGUE')));
+      };
       const minuteur = setTimeout(() => {
         p.kill('SIGKILL');
         terminer(() => rejeter(new Error('DELAI')));
       }, d.delaiMs + 5000);
       d.signal.addEventListener('abort', arret, { once: true });
       if (d.signal.aborted) return arret();
-      p.stdout.on('data', (m) => {
-        total += m.length;
-        if (total > SORTIE_MAX_OCTETS) {
-          p.kill('SIGKILL');
-          terminer(() => rejeter(new Error('SORTIE_TROP_LONGUE')));
-          return;
+      // Une ligne complète : le film (histoire 4.6) n'est ni gardé ni compté, il va seulement à l'écouteur ; le reste est
+      // gardé, et la somme de ce qui est gardé reste plafonnée.
+      const ligne = (texte: string, terminee = true): void => {
+        if (texte.startsWith(PREFIXE_FILM)) {
+          if (d.surLigne === undefined) return;
+        } else {
+          total += Buffer.byteLength(texte) + 1;
+          if (total > SORTIE_MAX_OCTETS) return trop();
+          gardees.push(terminee ? `${texte}\n` : texte);
         }
-        morceaux.push(m);
-        lignes(decodeur.write(m));
+        try {
+          d.surLigne?.(texte);
+        } catch {
+          // Un écouteur fautif ne casse pas la capture.
+        }
+      };
+      p.stdout.on('data', (m) => {
+        if (fini) return;
+        reste += decodeur.write(m);
+        let i: number;
+        while (!fini && (i = reste.indexOf('\n')) >= 0) {
+          const texte = reste.slice(0, i);
+          reste = reste.slice(i + 1);
+          ligne(texte);
+        }
+        if (!fini && reste.length > LIGNE_MAX_CARACTERES) trop();
       });
       p.stdin.on('error', () => undefined);
       p.on('error', () => terminer(() => rejeter(new Error('LANCEMENT'))));
       p.on('close', (code) => terminer(() => {
-        if (reste !== '') lignes('\n');
-        return code === 0 ? resoudre(Buffer.concat(morceaux).toString('utf8')) : rejeter(new Error(`SORTIE_${code ?? 'inconnue'}`));
+        if (reste !== '') ligne(reste, false);
+        return code === 0 ? resoudre(gardees.join('')) : rejeter(new Error(`SORTIE_${code ?? 'inconnue'}`));
       }));
       p.stdin.end(d.entree);
     });

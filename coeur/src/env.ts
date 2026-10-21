@@ -66,6 +66,11 @@ const schema = z.object({
     .regex(/^\d{1,3}(\.\d{1,3}){3}:\d{1,5}$/, 'doit être ip:port du proxy de sortie')
     .default('10.89.77.2:3128'),
   REGIE_CAPTURE_IMAGE: z.string().regex(/^[\w./:@-]{1,200}$/, 'doit être un nom d’image').default('localhost/regie-capture:local'),
+  // Films, voix et rendus (histoire 4.6) : un dossier par marque. Le rendu réutilise le socket Podman de la capture ;
+  // l'encodeur matériel donne aussi le périphérique de rendu au conteneur (sans réseau).
+  REGIE_DONNEES: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu').default('/var/lib/regie/fichiers'),
+  REGIE_RENDU_IMAGE: z.string().regex(/^[\w./:@-]{1,200}$/, 'doit être un nom d’image').default('localhost/regie-rendu:local'),
+  REGIE_RENDU_ENCODEUR: z.enum(['libx264', 'h264_vaapi']).default('libx264'),
 }).superRefine((valeurs, contexte) => {
   const adresseSure = (valeur: string) => {
     const url = new URL(valeur);
@@ -124,6 +129,9 @@ export function lireEnvironnement(source: Readonly<Record<string, string | undef
     REGIE_CAPTURE_SOCKET: source['REGIE_CAPTURE_SOCKET'] || undefined,
     REGIE_CAPTURE_PROXY: source['REGIE_CAPTURE_PROXY'] || undefined,
     REGIE_CAPTURE_IMAGE: source['REGIE_CAPTURE_IMAGE'] || undefined,
+    REGIE_DONNEES: source['REGIE_DONNEES'] || undefined,
+    REGIE_RENDU_IMAGE: source['REGIE_RENDU_IMAGE'] || undefined,
+    REGIE_RENDU_ENCODEUR: source['REGIE_RENDU_ENCODEUR'] || undefined,
   });
   if (!resultat.success) {
     throw new ErreurEnvironnement(

@@ -187,11 +187,17 @@ if (import.meta.main) {
       // chargés que pour ce mode (jouer.ts importe ce fichier : pas de dépendance circulaire à la charge).
       const { jouerDemande } = await import('./jouer.ts');
       const { stat } = await import('node:fs/promises');
+      const { diffuserFilm } = await import('./film.ts');
       resultat = await jouerDemande(
         demande,
         chromium.launch as unknown as Parameters<typeof jouerDemande>[1],
         (entree) => void process.stdout.write(`${JSON.stringify({ journal: entree })}\n`),
-        async (chemin) => (await stat(chemin)).size,
+        async (chemin) => {
+          const taille = (await stat(chemin)).size;
+          // Le film part sur la sortie standard avant la ligne de résultat (histoire 4.6) ; trop gros, il n'est pas diffusé.
+          await diffuserFilm(chemin, (ligne) => void process.stdout.write(`${ligne}\n`));
+          return taille;
+        },
       );
     } else {
       resultat = await capturer(demande, (options) => chromium.launch(options));

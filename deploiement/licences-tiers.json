@@ -34,6 +34,11 @@
       "nom": "Chromium (livré par Playwright 1.63.0)",
       "licence": "BSD-3-Clause",
       "source": "https://chromium.googlesource.com/chromium/src/+/main/LICENSE"
+    },
+    {
+      "nom": "FFmpeg 7.x de Debian trixie, avec libx264 et libass (image de rendu, processus séparé)",
+      "licence": "GPL-2.0-or-later",
+      "source": "https://www.debian.org/distrib/packages#ffmpeg (code source : apt-get source ffmpeg)"
     }
   ],
   "polices": [

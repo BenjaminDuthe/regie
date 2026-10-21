@@ -72,3 +72,10 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `script.explorer` (écriture) : lance l'exploration d'une page de l'application (tâche `exploration`, sans compte de démonstration), dans les hôtes déclarés.
 - Ajout de `script.exploration` (lecture) : lit la page vue (titre, éléments, capture) ; tout texte venant de la page est dans un champ `non_fiable`.
 - Ajout de `script.proposer` (écriture) : crée un script à partir d'étapes écrites par Claude, vérifiées toutes ensemble (une erreur par étape fautive). **Outil MCP seulement** : ni API ni interface (raison dans `coeur/src/services/exceptions-parite.ts`, champ `seulement: 'mcp'`).
+
+## 2026-10-21 — histoire 4.6
+
+- Ajout de `montage.lister` (lecture) : tes vidéos, la dernière version de chaque montage (script d’origine, gabarit, durée), la plus récente d’abord.
+- Ajout de `montage.lire` (lecture) : un montage avec sa timeline, le gabarit figé à sa création, ses rendus (état, violations des gardes avec mesure et seuil) et les autres versions de la série. `MONTAGE_INTROUVABLE` (404).
+- Ajout de `rendu.lire` (lecture) : un rendu, sa progression et, s’il est bloqué, ses violations. `RENDU_INTROUVABLE` (404).
+- Ajout de `rendu.adresse` (lecture) : l’adresse signée (moins d’une heure) de la vidéo d’un rendu, servie sous `/v/session/…`. Un rendu bloqué reste lisible, marqué `bloque`. `RENDU_PAS_PRET` (409) pour un rendu en file, en cours ou en échec.

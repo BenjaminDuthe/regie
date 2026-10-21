@@ -12,6 +12,8 @@ import type { Applications } from '../infra/applications.ts';
 import { TYPE_SECRET_COMPTE_DEMO, compteLieA, lireCompteSerialise, nomSecretCompteDemo, sortieCiteMotDePasse } from '../infra/comptes-demo.ts';
 import type { Scripts } from '../infra/scripts.ts';
 import { DUREE_LAISSEZ_PASSER_S, VIEWPORT, hoteDeAccueil, type LanceurCapture } from './capture.ts';
+import { creerMontageDuJeu, type MontageDuJeu, type OptionsMontageJeu } from './film-jeu.ts';
+import { FILM_MAX_OCTETS, Reassembleur } from './flux-fichiers.ts';
 import { EntreeJournalJeu, type JournauxJeu } from './journaux-jeu.ts';
 import { SecretRefuse, type PasserelleSecrets } from './passerelle-secrets.ts';
 import { causeEtape, ETAPES_CONNEXION } from './test-connexion.ts';
@@ -40,7 +42,7 @@ const resultatConteneur = z.discriminatedUnion('ok', [
   }),
 ]);
 
-export type ResultatJeuScript = Readonly<{ dureeMs: number; etapes: number; hote: string; video: Readonly<{ octets: number }> | null }>;
+export type ResultatJeuScript = Readonly<{ dureeMs: number; etapes: number; hote: string; video: Readonly<{ octets: number }> | null; montage?: MontageDuJeu }>;
 
 export type OptionsExecutantJeuScript = Readonly<{
   applications: Applications;
@@ -50,8 +52,13 @@ export type OptionsExecutantJeuScript = Readonly<{
   journaux: JournauxJeu;
   cle: Buffer;
   proxy: string;
+  /** Avec lui, un jeu réussi range son film, crée le premier montage et met son rendu allégé dans la file (histoire 4.6). */
+  montage?: OptionsMontageJeu;
   maintenant?: () => number;
 }>;
+
+/** Au plus autant d'entrées de journal gardées pour le montage (un jeu en produit quelques dizaines). */
+const JOURNAL_MONTAGE_MAX = 2000;
 
 const causeEcrite = (cause: (typeof CAUSES_ECHEC)[number] | 'CONNEXION_ECHEC', etapeConnexion?: string): string => {
   const modele = chaines.scripts.causesJeu[cause];
@@ -101,6 +108,8 @@ export function creerExecutantJeuScript(o: OptionsExecutantJeuScript): Executant
       }
       const secret = compte?.motDePasse;
 
+      const reassembleur = new Reassembleur(FILM_MAX_OCTETS);
+      const entreesJournal: EntreeJournalJeu[] = [];
       const laissezPasser = signerLaissezPasser(o.cle, tache.id, application.hotes, DUREE_LAISSEZ_PASSER_S, o.maintenant?.());
       let sortie: string;
       try {
@@ -119,6 +128,8 @@ export function creerExecutantJeuScript(o: OptionsExecutantJeuScript): Executant
           delaiMs: DELAI_JEU_MS + 15_000,
           signal: aide.signal,
           surLigne: (ligne) => {
+            // Le film passe d'abord : ses lignes sont du base64, jamais interprétées comme un journal.
+            if (reassembleur.ajouter(ligne)) return;
             // Ceinture et bretelles : une ligne qui citerait le mot de passe n'est ni gardée ni diffusée.
             if (secret !== undefined && sortieCiteMotDePasse(ligne, secret)) return;
             let brut: unknown;
@@ -129,7 +140,10 @@ export function creerExecutantJeuScript(o: OptionsExecutantJeuScript): Executant
             }
             const journal = (brut as { journal?: unknown } | null)?.journal;
             const lue = EntreeJournalJeu.safeParse(journal);
-            if (lue.success) o.journaux.publier(tache.marqueId, tache.id, lue.data);
+            if (lue.success) {
+              o.journaux.publier(tache.marqueId, tache.id, lue.data);
+              if (entreesJournal.length < JOURNAL_MONTAGE_MAX) entreesJournal.push(lue.data);
+            }
           },
         });
       } catch (erreur) {
@@ -156,7 +170,10 @@ export function creerExecutantJeuScript(o: OptionsExecutantJeuScript): Executant
           throw new ErreurTache('HOTE_REFUSE', 'verifier', false);
         }
         await ecrireJeu({ etat: 'reussi', jouLe: jouLe() });
-        return { dureeMs: r.dureeMs, etapes: r.etapes, hote: r.hote, video: r.video ?? null } satisfies ResultatJeuScript;
+        const base = { dureeMs: r.dureeMs, etapes: r.etapes, hote: r.hote, video: r.video ?? null };
+        if (o.montage === undefined || r.video === undefined) return base satisfies ResultatJeuScript;
+        const montage = await creerMontageDuJeu(o.montage, { marqueId: tache.marqueId, utilisateurId: tache.utilisateurId }, script, reassembleur.fichier, r.video.octets, entreesJournal, r.dureeMs);
+        return { ...base, montage } satisfies ResultatJeuScript;
       }
       // Les numéros d'étape du jeu vont de 1 (0 : l'ouverture de l'accueil, qui compte pour la première).
       const etape = Math.min(Math.max(1, r.etape), Math.max(1, etapes.data.length));

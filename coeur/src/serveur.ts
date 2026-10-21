@@ -37,6 +37,9 @@ import { enregistrerRoutesFlux, type OptionsFlux } from './flux/routes.ts';
 import type { Services } from './auth/services.ts';
 import { EXECUTANTS } from './services/executants.ts';
 import { creerExecutantCapture, LanceurPodman, RESEAU_CAPTURE } from './services/capture.ts';
+import { MontagesPg } from './infra/montages.ts';
+import { StockageDisque } from './infra/stockage.ts';
+import { creerExecutantRendu, LanceurRenduConteneur } from './services/rendu.ts';
 import { creerExecutantTestConnexion } from './services/test-connexion.ts';
 import { PasserelleSecretsCoffre, lecteurCoffre } from './services/passerelle-secrets.ts';
 import { Travailleur } from './services/travailleur.ts';
@@ -76,6 +79,8 @@ export function construireServices(contexte: Contexte): Services {
     gabarits: new GabaritsPg(contexte.pool),
     applications: new ApplicationsPg(contexte.pool),
     scripts: new ScriptsPg(contexte.pool),
+    montages: new MontagesPg(contexte.pool),
+    stockage: new StockageDisque(env.REGIE_DONNEES),
     comptesDemo: new ComptesDemoPg(contexte.pool, contexte.coffre),
     journauxJeu: new JournauxJeu(),
     maintenant: Date.now,
@@ -86,6 +91,12 @@ export function construireServices(contexte: Contexte): Services {
 function servicesSansBase(): Services {
   const refus = async () => {
     throw new Error('base indisponible');
+  };
+  const montagesVides: Services['montages'] = {
+    creerDepuisFilm: refus, creerVersion: refus, lire: async () => undefined, listerSerie: async () => [], listerDernieres: async () => [],
+    ajouterFichier: refus, lireFichier: async () => undefined, listerVoix: async () => [], marquerPurge: async () => false,
+    creerRendu: refus, lierTache: refus, lireRendu: async () => undefined, lireRenduDeTache: async () => undefined, listerRendus: async () => [],
+    demarrerRendu: refus, terminerRendu: refus,
   };
   return {
     oidc: undefined,
@@ -132,6 +143,8 @@ function servicesSansBase(): Services {
     gabarits: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus },
     applications: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus },
     scripts: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus, enregistrerJeu: refus },
+    montages: montagesVides,
+    stockage: { ecrire: refus, lire: async () => undefined, ouvrir: async () => undefined, supprimer: refus },
     journauxJeu: new JournauxJeu(),
     comptesDemo: { remplacer: refus, supprimer: async () => false, etat: async () => ({ depose: false, modifieLe: undefined }) },
     maintenant: Date.now,
@@ -212,8 +225,16 @@ if (import.meta.main) {
         ? (() => {
             const lanceur = new LanceurPodman({ socket: env.REGIE_CAPTURE_SOCKET, image: env.REGIE_CAPTURE_IMAGE, reseau: RESEAU_CAPTURE });
             const passerelle = new PasserelleSecretsCoffre({ file: services.file, service: nomService, lecteur: lecteurCoffre(contexte.pool, contexte.coffre) });
+            // Le rendu : même socket, mais sans réseau, avec plus de ressources, et le GPU si l'encodeur est matériel.
+            const lanceurRendu = new LanceurRenduConteneur(new LanceurPodman({
+              socket: env.REGIE_CAPTURE_SOCKET,
+              image: env.REGIE_RENDU_IMAGE,
+              reseau: 'none',
+              ressources: { memoire: '4g', tmpfs: '2g', cpus: 4, ...(env.REGIE_RENDU_ENCODEUR === 'h264_vaapi' ? { peripherique: '/dev/dri/renderD128' } : {}) },
+            }));
             return {
-              jeu_script: creerExecutantJeuScript({ applications: services.applications, scripts: services.scripts, passerelle, lanceur, journaux: services.journauxJeu, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
+              rendu: creerExecutantRendu({ montages: services.montages, stockage: services.stockage, lanceur: lanceurRendu, encodeur: env.REGIE_RENDU_ENCODEUR }),
+              jeu_script: creerExecutantJeuScript({ applications: services.applications, scripts: services.scripts, passerelle, lanceur, journaux: services.journauxJeu, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY, montage: { montages: services.montages, stockage: services.stockage, gabarits: services.gabarits, file: services.file } }),
               exploration: creerExecutantExploration({ applications: services.applications, lanceur, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
               capture: creerExecutantCapture({ applications: services.applications, lanceur, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
               test_connexion: creerExecutantTestConnexion({

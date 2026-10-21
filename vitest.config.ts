@@ -13,6 +13,8 @@ export default defineConfig({
       // Socket Podman et image de capture pour le test d'intégration de la capture (histoire 4.2) ; vides : ignoré.
       socketPodmanTest: process.env['REGIE_TEST_PODMAN'] ?? '',
       imageCaptureTest: process.env['REGIE_TEST_PODMAN_IMAGE'] ?? '',
+      // Chemin de ffmpeg pour le test d'intégration du rendu (histoire 4.6) ; vide : ignoré.
+      ffmpegTest: process.env['REGIE_TEST_FFMPEG'] ?? '',
     },
   },
 });

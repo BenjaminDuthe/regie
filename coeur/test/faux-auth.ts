@@ -7,6 +7,8 @@ import type { AddressInfo } from 'node:net';
 import type { Services } from '../src/auth/services.ts';
 import { chainer, type Audit, type EntreeAudit, type LigneAudit } from '../src/infra/audit.ts';
 import { GABARIT_DE_DEPART, NOM_GABARIT_DE_DEPART, type DefinitionGabarit } from '../src/domaine/gabarit.ts';
+import { MontagesMemoire } from './faux-montages.ts';
+import { StockageMemoire } from './faux-stockage.ts';
 import { NomScriptPris, type ChampsScript, type ResultatRemplacement, type Script, type Scripts } from '../src/infra/scripts.ts';
 import type { DernierJeu, OrigineScript } from '@regie/contrats';
 import { NomApplicationPris, type Application, type Applications, type ChampsApplication } from '../src/infra/applications.ts';
@@ -483,7 +485,7 @@ export class ComptesDemoMemoire implements ComptesDemo {
   }
 }
 
-export type BancDeTest = { journauxJeu: JournauxJeu; scripts: ScriptsMemoire; comptesDemo: ComptesDemoMemoire; services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
+export type BancDeTest = { montages: MontagesMemoire; stockage: StockageMemoire; journauxJeu: JournauxJeu; scripts: ScriptsMemoire; comptesDemo: ComptesDemoMemoire; services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
 
 export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
@@ -506,6 +508,9 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
   scripts.maintenant = () => horloge.t;
   const comptesDemo = new ComptesDemoMemoire();
   comptesDemo.maintenant = () => horloge.t;
+  const montages = new MontagesMemoire();
+  montages.maintenant = () => horloge.t;
+  const stockage = new StockageMemoire();
   const notifications = new NotificationsMemoire();
   notifications.maintenant = () => horloge.t;
   file.surEchec = notifications.surEchec;
@@ -527,8 +532,10 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     applications,
     scripts,
     comptesDemo,
+    montages,
+    stockage,
     journauxJeu: new JournauxJeu(),
     maintenant: () => horloge.t,
   };
-  return { journauxJeu: services.journauxJeu, scripts, comptesDemo, services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
+  return { montages, stockage, journauxJeu: services.journauxJeu, scripts, comptesDemo, services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
 }

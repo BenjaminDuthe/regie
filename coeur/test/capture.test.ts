@@ -33,6 +33,23 @@ describe('argumentsPodman', () => {
   });
 });
 
+describe('argumentsPodman pour le rendu', () => {
+  const rendu = { ...reglages, image: 'localhost/regie-rendu:test', reseau: 'none', ressources: { memoire: '4g', tmpfs: '1g', cpus: 4 } };
+  it('aucun réseau (donc pas de --dns), plus de ressources, jamais de périphérique par défaut', () => {
+    const args = argumentsPodman(rendu, 'regie-rendu-t1', 840);
+    expect(args.join(' ')).toContain('--network none');
+    expect(args).not.toContain('--dns');
+    expect(args.join(' ')).toContain('--memory 4g');
+    expect(args.join(' ')).toContain('size=1g');
+    expect(args).not.toContain('--device');
+  });
+  it('le GPU n’est donné que sur demande, et un seul périphérique', () => {
+    const args = argumentsPodman({ ...rendu, ressources: { ...rendu.ressources, peripherique: '/dev/dri/renderD128' } }, 'regie-rendu-t1', 840);
+    expect(args.filter((a) => a === '--device')).toHaveLength(1);
+    expect(args).toContain('/dev/dri/renderD128');
+  });
+});
+
 describe('LanceurPodman', () => {
   function faux(sortie: string, code = 0) {
     const vus: { commande: string; args: string[]; entree: string } = { commande: '', args: [], entree: '' };
@@ -143,5 +160,37 @@ describe('environnement de la capture', () => {
     expect(lireEnvironnement({ REGIE_CAPTURE_SOCKET: '/run/user/1500/podman/podman.sock' })).toMatchObject({ REGIE_CAPTURE_PROXY: '10.89.77.2:3128' });
     expect(() => lireEnvironnement({ REGIE_CAPTURE_SOCKET: 'podman.sock' })).toThrow(/REGIE_CAPTURE_SOCKET/);
     expect(() => lireEnvironnement({ REGIE_CAPTURE_PROXY: 'proxy-capture:3128' })).toThrow(/REGIE_CAPTURE_PROXY/);
+  });
+});
+
+describe('LanceurPodman : lignes du film (histoire 4.6)', () => {
+  it('envoie les lignes du film à l’écouteur sans les garder ni les compter dans le plafond de la sortie', async () => {
+    const film = '{"film":{"n":0,"d":"' + 'A'.repeat(100_000) + '"}}\n';
+    const sortie = film.repeat(10) + '{"ok":true}\n';
+    const lancement: Lancement = () => {
+      let fermer: (c?: number | null) => void = () => undefined;
+      return {
+        stdin: { end: () => setTimeout(() => fermer(0), 10), on: () => undefined },
+        stdout: { on: (_e, f) => void setTimeout(() => f(Buffer.from(sortie)), 0) },
+        on: (e, f) => { if (e === 'close') fermer = f; },
+        kill: () => true,
+      };
+    };
+    const vues: string[] = [];
+    const rendu = await new LanceurPodman(reglages, lancement).lancer({ nom: 'n', entree: '{}', delaiMs: 1000, signal: new AbortController().signal, surLigne: (l) => vues.push(l) });
+    expect(rendu).toBe('{"ok":true}\n');
+    expect(vues.filter((l) => l.startsWith('{"film":'))).toHaveLength(10);
+  });
+  it('refuse une ligne qui n’en finit pas', async () => {
+    const lancement: Lancement = () => {
+      let fermer: (c?: number | null) => void = () => undefined;
+      return {
+        stdin: { end: () => setTimeout(() => fermer(0), 10), on: () => undefined },
+        stdout: { on: (_e, f) => void setTimeout(() => f(Buffer.from('{"film":' + 'A'.repeat(300_000))), 0) },
+        on: (e, f) => { if (e === 'close') fermer = f; },
+        kill: () => true,
+      };
+    };
+    await expect(new LanceurPodman(reglages, lancement).lancer({ nom: 'n', entree: '{}', delaiMs: 1000, signal: new AbortController().signal })).rejects.toThrow(/SORTIE_TROP_LONGUE/);
   });
 });

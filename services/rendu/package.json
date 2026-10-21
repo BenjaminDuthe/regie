@@ -1,0 +1,8 @@
+{
+  "name": "@regie/rendu",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Exécutant de rendu : tourne dans un conteneur FFmpeg jetable, sans réseau, sans volume (histoire 4.6).",
+  "license": "AGPL-3.0-only",
+  "type": "module"
+}

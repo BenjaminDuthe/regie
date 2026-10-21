@@ -546,6 +546,7 @@ Aucun pour l’instant.
 | --- | --- | --- |
 | Playwright 1.63.0 (image de capture) | Apache-2.0 | https://github.com/microsoft/playwright |
 | Chromium (livré par Playwright 1.63.0) | BSD-3-Clause | https://chromium.googlesource.com/chromium/src/+/main/LICENSE |
+| FFmpeg 7.x de Debian trixie, avec libx264 et libass (image de rendu, processus séparé) | GPL-2.0-or-later | https://www.debian.org/distrib/packages#ffmpeg (code source : apt-get source ffmpeg) |
 
 ## Musiques
 

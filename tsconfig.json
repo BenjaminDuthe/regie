@@ -4,6 +4,7 @@
     { "path": "paquets/contrats" },
     { "path": "services/proxy-capture" },
     { "path": "services/capture" },
+    { "path": "services/rendu" },
     { "path": "coeur" }
   ]
 }

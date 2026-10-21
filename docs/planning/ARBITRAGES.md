@@ -124,3 +124,15 @@ Décisions que le codeur n'a pas à prendre seul (produit, accès, jeton tiers).
 4. **Vérification à l'écriture** — `script.proposer` valide toutes les étapes d'un coup (forme, cohérence, hôtes) et rend `{creee:false, erreurs:[{etape, verbe, champ, cause, detail, hote?}]}` en donnée (20 au plus) ; rien n'est créé tant qu'une étape est refusée. Un nom pris reste une erreur 409.
 5. **Parité (FR-47)** — `ExceptionParite.seulement: 'mcp'` : l'action est offerte au MCP et à lui seul (`actionsExposees(..., porte)`) ; en plus, l'action refuse `MCP_SEULEMENT` hors origine `mcp`. La référence de l'API la signale.
 6. **Reporté** — rendu des captures d'exploration dans l'interface ; exploration derrière une connexion (compte de démo) ; fusion avec les résultats de 4.6.
+
+## 4.6 Une démo recadrée et zoomée sur chaque clic
+
+1. **Film par la sortie standard, sans volume** — le conteneur de capture rend le film en lignes `{"film":...}` (morceaux base64, taille et SHA-256 contrôlés, octets magiques WebM vérifiés) ; le conteneur de rendu reçoit ses fichiers par l'entrée standard et rend le MP4 de même. Aucun volume partagé, `--network none` pour le rendu.
+2. **ffmpeg (GPL) en processus séparé** — compatibilité AGPL : ffmpeg tourne seul dans une image à part (`deploiement/images/rendu.Containerfile`, ffmpeg de Debian trixie), sans être lié au code de regie ; déclaré dans `licences-tiers.json`. Le code source de Debian est cité.
+3. **`-/filter_complex`** — le graphe de filtres est lu dans un fichier par `-/filter_complex` (ffmpeg 7.0 et plus, y compris 9) : `-filter_complex_script` n'existe plus en ffmpeg 9.
+4. **Rendu bloqué visible** — une violation de garde donne un rendu `bloque` dont la vidéo reste lisible (avec violations : scène, élément, mesure, seuil) ; sinon `pret`. Jamais de gabarit inventé : sans gabarit pour l'espace, `MONTAGE_ECHEC`.
+5. **Montages immuables** — chaque modification est une nouvelle ligne (série + numéro + parent) ; la publication déjà partie reste liée à l'ancienne version de fait. Le gabarit est figé dans le montage (2.13).
+6. **Voix et sous-titres** — la timeline porte déjà le texte de voix et la prise en charge des fichiers de voix par scène ; le moteur de voix (Piper, voix gilles CC0 par défaut) arrive avec 4.7.
+7. **Non vérifié ici** — GPU/VAAPI et image de rendu réelle : le ffmpeg de la machine n'a pas le filtre `ass`, l'essai réel (`REGIE_TEST_FFMPEG`) rend donc sans texte. Reproductibilité à 40 ms et chronométrage de recette : à faire sur la machine cible. `glisse` n'est pas rendu par ffmpeg (traité comme fondu).
+8. **Pas de masquage de mot de passe dans le film** — la saisie du compte de démo apparaît telle quelle dans le rush ; le compte est dédié à la démo (4.3).
+9. **`fichiers.<domaine>`** — relève de l'infrastructure (nginx) : non touché ; l'adresse signée est relative à l'origine du cœur (`/v/session/…`), compatible `media-src 'self'`.

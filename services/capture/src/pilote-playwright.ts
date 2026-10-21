@@ -24,6 +24,8 @@ export type PageJeu = Omit<PageMinimale, 'locator'> &
     viewportSize: () => Readonly<{ width: number; height: number }> | null;
     close: () => Promise<void>;
     video: () => Readonly<{ path: () => Promise<string> }> | null;
+    /** Script exécuté dans chaque page avant les siens (le curseur du film, histoire 4.6). */
+    addInitScript?: (script: string) => Promise<void>;
   }>;
 
 /** Défilement quand l'étape ne dit ni cible ni distance : un écran de téléphone, à peu près. */
@@ -35,7 +37,29 @@ export type OptionsPilote = Readonly<{
   tailleFichier: (chemin: string) => Promise<number>;
 }>;
 
+/**
+ * Un point lumineux qui suit la souris : Playwright ne dessine pas le pointeur dans le film, et la démo doit montrer où
+ * l'on clique (FR-26). Le style passe par le modèle objet (`style.xxx`), que la CSP de la page filmée n'interdit pas.
+ */
+export const SCRIPT_CURSEUR = `(() => {
+  const poser = () => {
+    if (!document.documentElement || document.getElementById('regie-curseur')) return;
+    const c = document.createElement('div');
+    c.id = 'regie-curseur';
+    const s = c.style;
+    s.position = 'fixed'; s.zIndex = '2147483647'; s.pointerEvents = 'none'; s.width = '28px'; s.height = '28px';
+    s.marginLeft = '-14px'; s.marginTop = '-14px'; s.borderRadius = '50%'; s.background = 'rgba(255,255,255,0.55)';
+    s.border = '3px solid #1a1a1a'; s.boxShadow = '0 0 0 3px rgba(255,255,255,0.8)'; s.left = '-100px'; s.top = '-100px';
+    document.documentElement.appendChild(c);
+    addEventListener('mousemove', (e) => { s.left = e.clientX + 'px'; s.top = e.clientY + 'px'; }, true);
+    addEventListener('mousedown', () => { s.transform = 'scale(0.7)'; }, true);
+    addEventListener('mouseup', () => { s.transform = 'scale(1)'; }, true);
+  };
+  if (document.readyState === 'loading') addEventListener('DOMContentLoaded', poser); else poser();
+})();`;
+
 export async function piloteDePlaywright(page: PageJeu, o: OptionsPilote): Promise<PiloteNavigateur> {
+  await page.addInitScript?.(SCRIPT_CURSEUR);
   let refuse: string | undefined;
   await page.route('**/*', async (route) => {
     const hote = hoteDe(route.request().url());

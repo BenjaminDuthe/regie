@@ -7,6 +7,7 @@ import { retourSur } from '../routes-publiques.ts';
 import { verifierAdresse } from './adresses-signees.ts';
 import { COOKIE_FLUX, COOKIE_SESSION, lireCookie } from './cookies.ts';
 import { ErreurConnexion, deconnecter, demarrerConnexion, terminerConnexion, type Motif } from './connexion.ts';
+import { lireParAdresse } from '../services/lecture-fichier.ts';
 import type { Services } from './services.ts';
 
 const vers = (reponse: FastifyReply, location: string, cookies: readonly string[] = []) => {
@@ -84,14 +85,22 @@ export function enregistrerRoutesAuth(app: FastifyInstance, services: Services):
     return vers(reponse, retourSur(texte((requete.query as Record<string, unknown>)['retour'])));
   });
 
-  // Adresses signées lues par les réseaux : signature valide et moins d'une heure. Les fichiers eux-mêmes
-  // sont servis à partir des histoires de publication ; une adresse valide ne rend donc pour l'instant que 404.
+  // Adresses signées : signature valide et moins d'une heure. `/v/session/<marque>/<personne>/<fichier>` sert un film,
+  // une voix ou un rendu (histoires 4.6 et 2.12) ; toute autre adresse, même valide, ne rend que 404.
   app.get('/v/*', async (requete, reponse) => {
     const params = requete.params as { '*'?: string };
     const q = requete.query as Record<string, unknown>;
-    const resultat = verifierAdresse(services.cleAdresses, `/v/${params['*'] ?? ''}`, texte(q['e']), texte(q['s']), services.maintenant());
+    const suffixe = params['*'] ?? '';
+    const resultat = verifierAdresse(services.cleAdresses, `/v/${suffixe}`, texte(q['e']), texte(q['s']), services.maintenant());
     reponse.header('cache-control', 'no-store');
     if (resultat !== 'valide') return reponse.code(403).send({ erreur: 'adresse_refusee' });
-    return reponse.code(404).send({ erreur: 'introuvable' });
+    const lecture = await lireParAdresse(services, suffixe, requete.headers.range);
+    if (lecture.statut === 404) return reponse.code(404).send({ erreur: 'introuvable' });
+    if (lecture.statut === 416) return reponse.code(416).header('content-range', `bytes */${lecture.octets}`).send({ erreur: 'plage_invalide' });
+    // Privé : l'adresse est une capacité de moins d'une heure, rien ne la garde dans un cache partagé.
+    reponse.header('cache-control', 'private, max-age=300').header('x-content-type-options', 'nosniff').header('accept-ranges', 'bytes');
+    reponse.header('content-type', lecture.mime).header('content-length', String(lecture.fin - lecture.debut + 1));
+    if (lecture.statut === 206) reponse.code(206).header('content-range', `bytes ${lecture.debut}-${lecture.fin}/${lecture.octets}`);
+    return reponse.send(lecture.flux);
   });
 }
