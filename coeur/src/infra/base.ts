@@ -53,6 +53,22 @@ export async function dansTransactionMarque<T>(pool: PoolType, marqueId: string,
   }
 }
 
+/**
+ * Transaction sous une marque ET une personne : `app.marque_id` et `app.utilisateur_id` posés en tête.
+ * Les tables cloisonnées par utilisateur (utilisateurs, espaces) ne montrent rien sans cette seconde variable.
+ */
+export async function dansTransactionUtilisateur<T>(
+  pool: PoolType,
+  marqueId: string,
+  utilisateurId: string,
+  travail: (client: ClientBase) => Promise<T>,
+): Promise<T> {
+  return dansTransactionMarque(pool, marqueId, async (client) => {
+    await client.query("SELECT set_config('app.utilisateur_id', $1, true)", [utilisateurId]);
+    return travail(client);
+  });
+}
+
 /** Au démarrage : crée le témoin du coffre au premier lancement, sinon vérifie que la clé est la bonne. */
 export async function verifierOuCreerTemoin(pool: PoolType, coffre: Coffre): Promise<void> {
   const client = await pool.connect();

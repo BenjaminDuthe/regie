@@ -14,6 +14,7 @@ import { ErreurDemarrage, demarrerBase, type Contexte } from './infra/demarrage.
 import { masqueurProcessus } from './infra/masquage.ts';
 import { calculerSante } from './infra/sante.ts';
 import { AuditPg } from './infra/audit.ts';
+import { EspacesPg } from './infra/espaces.ts';
 import { MarquesPg } from './infra/marques.ts';
 import { ClientOidc } from './infra/oidc.ts';
 import { MagasinSessionsPg } from './infra/sessions.ts';
@@ -39,6 +40,7 @@ export function construireServices(contexte: Contexte): Services {
       : undefined,
     sessions: new MagasinSessionsPg(contexte.pool),
     marques: new MarquesPg(contexte.pool),
+    espaces: new EspacesPg(contexte.pool),
     audit: new AuditPg(contexte.pool),
     coffre: contexte.coffre,
     cleAdresses: contexte.cleAdresses,
@@ -57,8 +59,9 @@ function servicesSansBase(): Services {
   };
   return {
     oidc: undefined,
-    sessions: { creer: refus, trouver: async () => undefined, revoquer: async () => false },
+    sessions: { creer: refus, trouver: async () => undefined, revoquer: async () => false, changerEspace: async () => false },
     marques: { trouverUnique: async () => ({ etat: 'aucune' }), creer: refus },
+    espaces: { assurer: refus, lister: async () => [] },
     audit: { ajouter: refus },
     coffre: new Coffre(randomBytes(32)),
     cleAdresses: randomBytes(32),

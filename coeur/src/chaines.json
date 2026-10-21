@@ -13,7 +13,9 @@
     "conditions": "Conditions"
   },
   "entete": {
-    "deconnexion": "Se déconnecter"
+    "deconnexion": "Se déconnecter",
+    "espaces": "Espaces",
+    "espaceActif": "Espace actif"
   },
   "connexion": {
     "titre": "Connexion",
@@ -142,5 +144,10 @@
       }
     ],
     "miseAJour": "Dernière mise à jour : 21 octobre 2026."
+  },
+  "espaces": {
+    "personnel": "Personnel",
+    "marque": "{nom}",
+    "changer": "Passer à l’espace {nom}"
   }
 }

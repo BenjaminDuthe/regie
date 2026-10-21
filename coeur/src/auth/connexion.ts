@@ -151,9 +151,15 @@ export async function terminerConnexion(
 
   const maintenant = services.maintenant();
   const authentifieLe = claims.authTime !== undefined && claims.authTime * 1000 <= maintenant ? new Date(claims.authTime * 1000) : new Date(maintenant);
-  const valeur = await services.sessions.creer({ marqueId, sub: claims.sub, email: claims.email, authentifieLe });
+  // Espace personnel (dont la personne est propriétaire) et espace de la marque, créés à la première connexion.
+  const { espaces, crees } = await services.espaces.assurer(marqueId, claims.sub, claims.email, NOM_MARQUE_UNIQUE);
+  const espacePersonnel = espaces.find((espace) => espace.genre === 'personnel');
+  const valeur = await services.sessions.creer({ marqueId, sub: claims.sub, email: claims.email, authentifieLe, espaceActifId: espacePersonnel?.id });
   // Reconnexion (par exemple après une authentification récente) : l'ancienne session ne sert plus.
   if (recu.cookieSession !== undefined) await services.sessions.revoquer(recu.cookieSession);
+  for (const espace of crees) {
+    await services.audit.ajouter(marqueId, { acteur: claims.sub, action: 'espace_cree', objet: `espace:${espace.id}`, details: { origine: 'interface', genre: espace.genre } });
+  }
   await services.audit.ajouter(marqueId, {
     acteur: claims.sub,
     action: 'connexion',

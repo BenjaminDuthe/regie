@@ -4,10 +4,29 @@
 import chaines from '../chaines.json' with { type: 'json' };
 
 const connecte = Astro.locals.session !== undefined;
+const espaces = Astro.locals.espaces ?? [];
+const actif = Astro.locals.espaceActif;
+const libelle = (e: { genre: string; nom: string }) => (e.genre === 'personnel' ? chaines.espaces.personnel : chaines.espaces.marque.replace('{nom}', e.nom));
+const retour = encodeURIComponent(Astro.url.pathname + Astro.url.search);
 ---
 
 <header class="entete">
   <a class="nom" href="/">regie</a>
+  {
+    connecte && espaces.length > 0 && (
+      <nav class="espaces" aria-label={chaines.entete.espaces}>
+        {espaces.map((e) =>
+          e.id === actif?.id ? (
+            <span class="espace actif" aria-current="true" title={chaines.entete.espaceActif}>{libelle(e)}</span>
+          ) : (
+            <form method="post" action={`/espaces/${e.id}/activer?retour=${retour}`}>
+              <button type="submit" class="espace" title={chaines.espaces.changer.replace('{nom}', libelle(e))}>{libelle(e)}</button>
+            </form>
+          ),
+        )}
+      </nav>
+    )
+  }
   {
     connecte && (
       <form method="post" action="/deconnexion">
@@ -36,6 +55,26 @@ const connecte = Astro.locals.session !== undefined;
     font-size: 17px;
     letter-spacing: -0.01em;
     text-decoration: none;
+  }
+  .espaces {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .espace {
+    background: none;
+    border: 1px solid var(--trait);
+    border-radius: var(--rayon);
+    color: var(--doux);
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  .espace.actif {
+    color: var(--texte);
+    border-color: var(--accent);
+    cursor: default;
   }
   .deconnexion {
     background: none;

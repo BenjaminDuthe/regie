@@ -5,5 +5,8 @@ declare namespace App {
     regie: import('./auth/services.ts').Services | undefined;
     /** Session valide de la requête, posée par le middleware. */
     session: import('./infra/sessions.ts').Session | undefined;
+    /** Espaces de la personne connectée et espace actif (histoire 1.9), posés par le middleware. */
+    espaces: readonly import('./infra/espaces.ts').Espace[];
+    espaceActif: import('./infra/espaces.ts').Espace | undefined;
   }
 }

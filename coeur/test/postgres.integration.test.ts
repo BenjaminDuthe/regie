@@ -9,12 +9,13 @@ import { join } from 'node:path';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { lireEnvironnement } from '../src/env.ts';
-import { dansTransactionMarque, deposerSecret, lireSecret, pivoterCleMaitresse } from '../src/infra/base.ts';
+import { dansTransactionMarque, dansTransactionUtilisateur, deposerSecret, lireSecret, pivoterCleMaitresse } from '../src/infra/base.ts';
 import { Coffre } from '../src/infra/coffre.ts';
 import { DOSSIER_MIGRATIONS, ErreurDemarrage, FICHIERS_SECRETS, demarrerBase } from '../src/infra/demarrage.ts';
 import { Masqueur } from '../src/infra/masquage.ts';
 import { calculerSante } from '../src/infra/sante.ts';
 import { AuditPg, verifierChaine } from '../src/infra/audit.ts';
+import { EspacesPg, idUtilisateur } from '../src/infra/espaces.ts';
 import { MarquesPg } from '../src/infra/marques.ts';
 import { MagasinSessionsPg } from '../src/infra/sessions.ts';
 
@@ -171,6 +172,51 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       ).rejects.toThrow(/row-level security/);
       // Un secret n'entre jamais dans le journal.
       await expect(audit.ajouter(marqueA, { acteur: 'sub-a', action: 'connexion', objet: 'session', details: { token: 'x' } })).rejects.toThrow();
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('espaces : propriétaire de son espace personnel, rien sans app.utilisateur_id, A et B cloisonnés', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const sessions = new MagasinSessionsPg(contexte.pool);
+      const marqueId = await marques.creer(`Espaces ${suffixe}`);
+      const a = await espaces.assurer(marqueId, 'sub-a', 'a@exemple.test', 'Établia');
+      const b = await espaces.assurer(marqueId, 'sub-b', undefined, 'Établia');
+      expect(a.crees).toHaveLength(2);
+      expect(a.espaces.map((e) => e.genre)).toEqual(['personnel', 'marque']);
+      expect(a.espaces.every((e) => e.proprietaireId === idUtilisateur(marqueId, 'sub-a'))).toBe(true);
+      // Une seconde connexion ne duplique rien.
+      const encore = await espaces.assurer(marqueId, 'sub-a', 'a@exemple.test', 'Établia');
+      expect(encore.crees).toHaveLength(0);
+      expect(encore.espaces.map((e) => e.id)).toEqual(a.espaces.map((e) => e.id));
+
+      // Sans app.utilisateur_id : la marque seule ne suffit pas, rien n'est visible.
+      await dansTransactionMarque(contexte.pool, marqueId, async (client) => {
+        expect((await client.query('SELECT 1 FROM espaces')).rowCount).toBe(0);
+        expect((await client.query('SELECT 1 FROM utilisateurs')).rowCount).toBe(0);
+      });
+      // Sans marque non plus.
+      expect((await contexte.pool.query('SELECT 1 FROM espaces')).rowCount).toBe(0);
+
+      // B ne lit rien de A, et n'écrit pas dans les espaces de A.
+      expect((await espaces.lister(marqueId, 'sub-b')).map((e) => e.id)).toEqual(b.espaces.map((e) => e.id));
+      expect((await espaces.lister(marqueId, 'sub-b')).some((e) => a.espaces.some((x) => x.id === e.id))).toBe(false);
+      await dansTransactionUtilisateur(contexte.pool, marqueId, idUtilisateur(marqueId, 'sub-b'), async (client) => {
+        expect((await client.query('SELECT 1 FROM espaces WHERE id = $1', [a.espaces[0]!.id])).rowCount).toBe(0);
+        await expect(
+          client.query("INSERT INTO espaces (marque_id, proprietaire_id, genre, nom) VALUES ($1, $2, 'personnel', 'vol')", [marqueId, idUtilisateur(marqueId, 'sub-a')]),
+        ).rejects.toThrow(/row-level security|unique|duplicate/);
+      });
+
+      // Espace actif de la session : rappelé à la lecture, changeable, et jamais celui d'un autre.
+      const cookie = await sessions.creer({ marqueId, sub: 'sub-a', email: undefined, authentifieLe: new Date(), espaceActifId: a.espaces[0]!.id });
+      expect((await sessions.trouver(cookie))?.espaceActifId).toBe(a.espaces[0]!.id);
+      expect(await sessions.changerEspace(cookie, a.espaces[1]!.id)).toBe(true);
+      expect((await sessions.trouver(cookie))?.espaceActifId).toBe(a.espaces[1]!.id);
     } finally {
       await contexte.fermer();
     }

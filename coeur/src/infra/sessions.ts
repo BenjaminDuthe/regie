@@ -17,6 +17,8 @@ export type Session = Readonly<{
   /** Dernière authentification réelle auprès d'Authentik. */
   authentifieLe: Date;
   expireLe: Date;
+  /** Espace actif (histoire 1.9) ; absent pour une session antérieure à 1.9. */
+  espaceActifId: string | undefined;
 }>;
 
 export type NouvelleSession = Readonly<{
@@ -24,6 +26,7 @@ export type NouvelleSession = Readonly<{
   sub: string;
   email: string | undefined;
   authentifieLe: Date;
+  espaceActifId?: string | undefined;
 }>;
 
 export interface MagasinSessions {
@@ -33,6 +36,8 @@ export interface MagasinSessions {
   trouver(valeurCookie: string): Promise<Session | undefined>;
   /** Révoque la session désignée ; rend vrai si une session valide a été révoquée. */
   revoquer(valeurCookie: string): Promise<boolean>;
+  /** Change l'espace actif de la session ; rend faux si la session n'est plus valide. */
+  changerEspace(valeurCookie: string, espaceId: string): Promise<boolean>;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -69,8 +74,8 @@ export class MagasinSessionsPg implements MagasinSessions {
       // Ménage au passage : les sessions finies depuis plus d'un jour ne servent plus à rien.
       await client.query("DELETE FROM sessions WHERE expire_le < now() - interval '1 day' OR revoquee_le < now() - interval '1 day'");
       await client.query(
-        'INSERT INTO sessions (marque_id, hache_jeton, sub, email, authentifie_le, expire_le) VALUES ($1, $2, $3, $4, $5, $6)',
-        [nouvelle.marqueId, hacherIdentifiant(identifiant), nouvelle.sub, nouvelle.email ?? null, nouvelle.authentifieLe, expireLe],
+        'INSERT INTO sessions (marque_id, hache_jeton, sub, email, authentifie_le, expire_le, espace_actif_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [nouvelle.marqueId, hacherIdentifiant(identifiant), nouvelle.sub, nouvelle.email ?? null, nouvelle.authentifieLe, expireLe, nouvelle.espaceActifId ?? null],
       );
     });
     return composerCookie(nouvelle.marqueId, identifiant);
@@ -80,8 +85,8 @@ export class MagasinSessionsPg implements MagasinSessions {
     const cookie = decomposerCookie(valeurCookie);
     if (cookie === undefined) return undefined;
     return dansTransactionMarque(this.#pool, cookie.marqueId, async (client) => {
-      const { rows } = await client.query<{ sub: string; email: string | null; authentifie_le: Date; expire_le: Date }>(
-        'SELECT sub, email, authentifie_le, expire_le FROM sessions WHERE hache_jeton = $1 AND revoquee_le IS NULL AND expire_le > now()',
+      const { rows } = await client.query<{ sub: string; email: string | null; authentifie_le: Date; expire_le: Date; espace_actif_id: string | null }>(
+        'SELECT sub, email, authentifie_le, expire_le, espace_actif_id FROM sessions WHERE hache_jeton = $1 AND revoquee_le IS NULL AND expire_le > now()',
         [hacherIdentifiant(cookie.identifiant)],
       );
       const ligne = rows[0];
@@ -92,6 +97,7 @@ export class MagasinSessionsPg implements MagasinSessions {
         email: ligne.email ?? undefined,
         authentifieLe: ligne.authentifie_le,
         expireLe: ligne.expire_le,
+        espaceActifId: ligne.espace_actif_id ?? undefined,
       };
     });
   }
@@ -103,6 +109,18 @@ export class MagasinSessionsPg implements MagasinSessions {
       const resultat = await client.query(
         'UPDATE sessions SET revoquee_le = now() WHERE hache_jeton = $1 AND revoquee_le IS NULL AND expire_le > now()',
         [hacherIdentifiant(cookie.identifiant)],
+      );
+      return (resultat.rowCount ?? 0) > 0;
+    });
+  }
+
+  async changerEspace(valeurCookie: string, espaceId: string): Promise<boolean> {
+    const cookie = decomposerCookie(valeurCookie);
+    if (cookie === undefined) return false;
+    return dansTransactionMarque(this.#pool, cookie.marqueId, async (client) => {
+      const resultat = await client.query(
+        'UPDATE sessions SET espace_actif_id = $2 WHERE hache_jeton = $1 AND revoquee_le IS NULL AND expire_le > now()',
+        [hacherIdentifiant(cookie.identifiant), espaceId],
       );
       return (resultat.rowCount ?? 0) > 0;
     });

@@ -6,6 +6,7 @@ import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Services } from '../src/auth/services.ts';
 import { chainer, type Audit, type EntreeAudit, type LigneAudit } from '../src/infra/audit.ts';
+import { idUtilisateur, trierEspaces, type Espace, type Espaces } from '../src/infra/espaces.ts';
 import { Coffre } from '../src/infra/coffre.ts';
 import type { Marques, MarqueUnique } from '../src/infra/marques.ts';
 import { composerCookie, decomposerCookie, hacherIdentifiant, nouvelIdentifiant, type MagasinSessions, type NouvelleSession, type Session } from '../src/infra/sessions.ts';
@@ -129,7 +130,7 @@ export async function demarrerFauxFournisseur(options: { finSession?: boolean; c
 
 /** Sessions en mémoire, avec la même logique de hachage et de cookie que la version PostgreSQL. */
 export class SessionsMemoire implements MagasinSessions {
-  readonly lignes = new Map<string, { marqueId: string; sub: string; email: string | undefined; authentifieLe: Date; expireLe: Date; revoquee: boolean }>();
+  readonly lignes = new Map<string, { marqueId: string; sub: string; email: string | undefined; authentifieLe: Date; expireLe: Date; revoquee: boolean; espaceActifId: string | undefined }>();
   maintenant: () => number = Date.now;
 
   async creer(nouvelle: NouvelleSession): Promise<string> {
@@ -141,6 +142,7 @@ export class SessionsMemoire implements MagasinSessions {
       authentifieLe: nouvelle.authentifieLe,
       expireLe: new Date(this.maintenant() + 7 * 24 * 3600_000),
       revoquee: false,
+      espaceActifId: nouvelle.espaceActifId,
     });
     return composerCookie(nouvelle.marqueId, identifiant);
   }
@@ -149,7 +151,7 @@ export class SessionsMemoire implements MagasinSessions {
     const cookie = decomposerCookie(valeur);
     const ligne = cookie === undefined ? undefined : this.lignes.get(hacherIdentifiant(cookie.identifiant).toString('hex'));
     if (cookie === undefined || ligne === undefined || ligne.marqueId !== cookie.marqueId || ligne.revoquee || ligne.expireLe.getTime() <= this.maintenant()) return undefined;
-    return { marqueId: ligne.marqueId, sub: ligne.sub, email: ligne.email, authentifieLe: ligne.authentifieLe, expireLe: ligne.expireLe };
+    return { marqueId: ligne.marqueId, sub: ligne.sub, email: ligne.email, authentifieLe: ligne.authentifieLe, expireLe: ligne.expireLe, espaceActifId: ligne.espaceActifId };
   }
 
   async revoquer(valeur: string): Promise<boolean> {
@@ -158,6 +160,33 @@ export class SessionsMemoire implements MagasinSessions {
     if (session === undefined || cookie === undefined) return false;
     this.lignes.get(hacherIdentifiant(cookie.identifiant).toString('hex'))!.revoquee = true;
     return true;
+  }
+
+  async changerEspace(valeur: string, espaceId: string): Promise<boolean> {
+    const cookie = decomposerCookie(valeur);
+    if ((await this.trouver(valeur)) === undefined || cookie === undefined) return false;
+    this.lignes.get(hacherIdentifiant(cookie.identifiant).toString('hex'))!.espaceActifId = espaceId;
+    return true;
+  }
+}
+
+/** Utilisateurs et espaces en mémoire : chaque personne ne voit que les siens, comme la RLS. */
+export class EspacesMemoire implements Espaces {
+  readonly tous: Espace[] = [];
+  async assurer(marqueId: string, sub: string, _email: string | undefined, nomMarque: string) {
+    const utilisateurId = idUtilisateur(marqueId, sub);
+    const crees: Espace[] = [];
+    for (const [genre, nom] of [['personnel', 'Espace personnel'], ['marque', nomMarque]] as const) {
+      if (this.tous.some((e) => e.proprietaireId === utilisateurId && e.genre === genre)) continue;
+      const espace: Espace = { id: crypto.randomUUID(), marqueId, proprietaireId: utilisateurId, genre, nom };
+      this.tous.push(espace);
+      crees.push(espace);
+    }
+    return { utilisateurId, espaces: await this.lister(marqueId, sub), crees };
+  }
+  async lister(marqueId: string, sub: string): Promise<Espace[]> {
+    const utilisateurId = idUtilisateur(marqueId, sub);
+    return trierEspaces(this.tous.filter((e) => e.marqueId === marqueId && e.proprietaireId === utilisateurId));
   }
 }
 
@@ -180,18 +209,20 @@ export class AuditMemoire implements Audit {
   }
 }
 
-export type BancDeTest = { services: Services; sessions: SessionsMemoire; marques: MarquesMemoire; audit: AuditMemoire; horloge: { t: number } };
+export type BancDeTest = { services: Services; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; horloge: { t: number } };
 
 export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique' | 'verifierJetonMcp'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
   const sessions = new SessionsMemoire();
   sessions.maintenant = () => horloge.t;
   const marques = new MarquesMemoire();
+  const espaces = new EspacesMemoire();
   const audit = new AuditMemoire();
   const services: Services = {
     oidc,
     sessions,
     marques,
+    espaces,
     audit,
     coffre: new Coffre(randomBytes(32)),
     cleAdresses: randomBytes(32),
@@ -200,5 +231,5 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     verifierJetonMcp: options.verifierJetonMcp ?? (async () => false),
     maintenant: () => horloge.t,
   };
-  return { services, sessions, marques, audit, horloge };
+  return { services, sessions, marques, espaces, audit, horloge };
 }

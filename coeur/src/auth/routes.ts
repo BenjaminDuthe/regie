@@ -67,6 +67,22 @@ export function enregistrerRoutesAuth(app: FastifyInstance, services: Services):
     return vers(reponse, fin.location, fin.cookies);
   });
 
+  // Changer d'espace actif : un POST sans corps (l'espace est dans l'adresse), anti-CSRF comme la déconnexion.
+  app.post('/espaces/:id/activer', async (requete, reponse) => {
+    const attendue = origineAttendue(services);
+    if (attendue === undefined || requete.headers.origin !== attendue) return reponse.code(403).send({ erreur: 'origine_refusee' });
+    const valeur = lireCookie(requete.headers.cookie, COOKIE_SESSION);
+    const session = valeur === undefined ? undefined : await services.sessions.trouver(valeur);
+    if (valeur === undefined || session === undefined) return reponse.code(401).send({ erreur: 'session_requise' });
+    const id = (requete.params as { id: string }).id;
+    // Seuls les espaces de la personne sont visibles (RLS) : un autre identifiant ne se distingue pas d'un inexistant.
+    const espaces = await services.espaces.lister(session.marqueId, session.sub);
+    if (!espaces.some((espace) => espace.id === id)) return reponse.code(404).send({ erreur: 'espace_introuvable' });
+    await services.sessions.changerEspace(valeur, id);
+    await services.audit.ajouter(session.marqueId, { acteur: session.sub, action: 'espace_change', objet: `espace:${id}`, details: { origine: 'interface' } });
+    return vers(reponse, retourSur(texte((requete.query as Record<string, unknown>)['retour'])));
+  });
+
   // Point d'entrée MCP : jeton Bearer (OAuth 2.1) à la place de la session. Le protocole arrive avec 1.11 et 1.12 ;
   // ici, seulement le refus sans jeton valide.
   app.all('/mcp', async (requete, reponse) => {

@@ -3,6 +3,7 @@
 
 import type { Audit } from '../infra/audit.ts';
 import type { Coffre } from '../infra/coffre.ts';
+import type { Espaces } from '../infra/espaces.ts';
 import type { Marques } from '../infra/marques.ts';
 import type { FournisseurOidc } from '../infra/oidc.ts';
 import type { MagasinSessions } from '../infra/sessions.ts';
@@ -12,6 +13,7 @@ export type Services = Readonly<{
   oidc: FournisseurOidc | undefined;
   sessions: MagasinSessions;
   marques: Marques;
+  espaces: Espaces;
   audit: Audit;
   /** Scelle le contexte de la connexion en cours (cookie de flux). */
   coffre: Coffre;

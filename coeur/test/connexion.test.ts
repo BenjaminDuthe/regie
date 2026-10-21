@@ -56,8 +56,8 @@ describe('connexion par Authentik', () => {
     expect(banc.marques.ids).toHaveLength(1);
     const session = await banc.sessions.trouver(valeurCookie(r.cookies, COOKIE_SESSION)!);
     expect(session).toMatchObject({ sub: 'sub-benjamin', email: 'benjamin@exemple.test', marqueId: banc.marques.ids[0] });
-    expect(banc.audit.lignes).toHaveLength(1);
-    expect(banc.audit.lignes[0]).toMatchObject({ acteur: 'sub-benjamin', action: 'connexion', objet: 'session' });
+    expect(banc.audit.lignes.map((l) => l.action)).toEqual(['espace_cree', 'espace_cree', 'connexion']);
+    expect(banc.audit.lignes[2]).toMatchObject({ acteur: 'sub-benjamin', action: 'connexion', objet: 'session' });
   });
 
   it('ne stocke que le SHA-256 de l’identifiant de session', async () => {
@@ -153,7 +153,7 @@ describe('connexion par Authentik', () => {
     expect(fin.location).toBe(faux.finSession);
     expect(fin.cookies[0]).toContain('Max-Age=0');
     expect(await banc.sessions.trouver(cookie)).toBeUndefined();
-    expect(banc.audit.lignes.map((l) => l.action)).toEqual(['connexion', 'deconnexion']);
+    expect(banc.audit.lignes.map((l) => l.action)).toEqual(['espace_cree', 'espace_cree', 'connexion', 'deconnexion']);
     expect(verifierChaine(banc.audit.lignes)).toBeUndefined();
   });
 
