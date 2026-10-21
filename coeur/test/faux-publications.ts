@@ -156,9 +156,10 @@ export class PublicationsMemoire implements Publications {
     return this.#touche(p);
   }
 
-  async rejouer(marqueId: string, utilisateurId: string, id: string): Promise<Publication | undefined> {
+  async rejouer(marqueId: string, utilisateurId: string, id: string, cible?: Cible): Promise<Publication | undefined> {
     const p = this.#trouver(marqueId, utilisateurId, id);
     if (p === undefined || p.etat !== 'en_echec') return undefined;
+    if (cible !== undefined) Object.assign(p, { montageId: cible.montageId, renduId: cible.renduId, legende: cible.legende, hashtags: [...cible.hashtags] });
     p.etat = 'en_file';
     p.cleIdempotence = crypto.randomUUID();
     p.tacheId = null;

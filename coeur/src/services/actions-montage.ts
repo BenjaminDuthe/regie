@@ -385,18 +385,19 @@ export function statutVideo(rendus: readonly Rendu[]): StatutVideo {
 
 /**
  * Ma bibliothèque de vidéos (histoire 3.9, FR-45, FR-47) : la dernière version de chaque vidéo, filtrable par statut,
- * par période (jours en heure de Paris, bornes comprises) et par archivage. Le filtre par réseau attend les publications.
+ * par période (jours en heure de Paris, bornes comprises), par archivage et par réseau (vidéos qui ont une publication non annulée sur ce réseau).
  */
 export const montageBibliotheque = definirAction({
   domaine: 'montage',
   verbe: 'bibliotheque',
-  description: 'Liste ta bibliothèque de vidéos : la dernière version de chaque vidéo avec son statut (`prete`, `en_cours`, `bloquee`, `en_echec`, `sans_rendu`, lu sur le rendu allégé le plus récent) et sa date d’archivage. Filtres : `statut`, `depuis` et `jusqua` (jours AAAA-MM-JJ en heure de Paris, bornes comprises, sur la date de la dernière version), `archivees` (`exclure` par défaut, `inclure` ou `seulement`), `espaceId`. La plus récente d’abord ; 200 vidéos au plus.',
+  description: 'Liste ta bibliothèque de vidéos : la dernière version de chaque vidéo avec son statut (`prete`, `en_cours`, `bloquee`, `en_echec`, `sans_rendu`, lu sur le rendu allégé le plus récent) et sa date d’archivage. Filtres : `statut`, `depuis` et `jusqua` (jours AAAA-MM-JJ en heure de Paris, bornes comprises, sur la date de la dernière version), `archivees` (`exclure` par défaut, `inclure` ou `seulement`), `reseau` (les vidéos publiées, en cours de publication ou programmées sur ce réseau), `espaceId`. La plus récente d’abord ; 200 vidéos au plus.',
   portee: 'lecture',
   entree: z.strictObject({
     statut: z.enum(STATUTS_VIDEO).optional(),
     depuis: JOUR.optional(),
     jusqua: JOUR.optional(),
     archivees: z.enum(['exclure', 'inclure', 'seulement']).default('exclure'),
+    reseau: z.enum(RESEAUX).optional(),
     espaceId: identifiant.optional(),
   }),
   executer: async (ctx, entree) => {
@@ -405,10 +406,15 @@ export const montageBibliotheque = definirAction({
     if ((entree.depuis !== undefined && debut === undefined) || (entree.jusqua !== undefined && fin === undefined)) throw new ErreurMetier('PERIODE_INVALIDE', 422, {});
     if (debut !== undefined && fin !== undefined && debut >= fin) throw new ErreurMetier('PERIODE_INVALIDE', 422, {});
     const toutes = await ctx.services.montages.bibliotheque(ctx.marqueId, ctx.utilisateurId, entree.espaceId === undefined ? {} : { espaceId: entree.espaceId });
+    const surLeReseau =
+      entree.reseau === undefined
+        ? undefined
+        : new Set((await ctx.services.publications.lister(ctx.marqueId, ctx.utilisateurId, { reseau: entree.reseau, limite: 500 })).filter((p) => p.etat !== 'annulee').map((p) => p.serieId));
     const videos = toutes
       .filter((e) => ctx.espaceIds === undefined || ctx.espaceIds.includes(e.montage.espaceId))
       .map((e) => ({ ...e, statut: statutVideo(e.rendus) }))
       .filter((e) => entree.statut === undefined || e.statut === entree.statut)
+      .filter((e) => surLeReseau === undefined || surLeReseau.has(e.montage.serieId))
       .filter((e) => (debut === undefined || e.montage.creeLe >= debut) && (fin === undefined || e.montage.creeLe < fin))
       .filter((e) => (entree.archivees === 'inclure' ? true : entree.archivees === 'seulement' ? e.archiveeLe !== null : e.archiveeLe === null));
     return {

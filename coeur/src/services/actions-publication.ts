@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import { RESEAUX_DECLARES } from '../domaine/reseaux.ts';
-import { ETATS_PUBLICATION, HORIZON_PROGRAMMATION_MS, peutAnnuler } from '../domaine/publication.ts';
+import { ETATS_PUBLICATION, HORIZON_PROGRAMMATION_MS, peutAnnuler, peutRejouer } from '../domaine/publication.ts';
 import { heureParisVersInstant } from './horaires.ts';
 import { RESEAUX } from '../domaine/bornes.ts';
 import { legendeProposee, verifierLegende } from '../domaine/legende.ts';
@@ -225,4 +225,31 @@ export const publicationConfirmer = definirAction({
   objet: (entree) => `publication:${entree.id}`,
 });
 
-export const ACTIONS_PUBLICATION = [publicationPublier, publicationProgrammer, publicationDeplacer, publicationAnnuler, publicationConfirmer, publicationLire, publicationLister] as const;
+/**
+ * Rejouer un échec (histoire 7.5) : nouvelle clé d'idempotence, nouvelle tâche, nouvelle tentative inscrite à l'historique.
+ * Seul `en_echec` se rejoue : une publication `incertaine` est peut-être en ligne, regie ne la renvoie pas.
+ * Un échec `MONTAGE_MODIFIE` fige d'abord la dernière version du montage.
+ */
+export const publicationRejouer = definirAction({
+  domaine: 'publication',
+  verbe: 'rejouer',
+  description:
+    'Rejoue une publication `en_echec` : une nouvelle tentative est mise en file (historique visible dans `publication.lire`, une ligne par tentative). Si l’échec vient d’un montage modifié non confirmé (MONTAGE_MODIFIE), la dernière version, son rendu complet prêt et la légende enregistrée sont figés avant la nouvelle tentative ; si l’heure prévue était dépassée (ECHEANCE_PERIMEE), la publication part maintenant. Une publication `incertaine` ne se rejoue pas (PUBLICATION_ETAT) : vérifie sur le réseau.',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant }),
+  executer: async (ctx, entree) => {
+    const p = await publicationAccessible(ctx, entree.id);
+    if (!peutRejouer(p.etat)) throw new ErreurMetier('PUBLICATION_ETAT', 409, { etat: p.etat });
+    let cible;
+    if (p.cause === 'MONTAGE_MODIFIE') {
+      const f = await figer(ctx, (await derniereVersion(ctx, p.serieId)).id, p.compteId, { quota: true });
+      cible = { montageId: f.montage.id, renduId: f.rendu.id, legende: f.legende, hashtags: f.hashtags };
+    }
+    const rejouee = await ctx.services.publications.rejouer(ctx.marqueId, ctx.utilisateurId, p.id, cible);
+    if (rejouee === undefined) throw new ErreurMetier('PUBLICATION_ETAT', 409, { etat: (await publicationAccessible(ctx, p.id)).etat });
+    return { publication: vuePublication(await mettreEnFile(ctx, rejouee)) };
+  },
+  objet: (entree) => `publication:${entree.id}`,
+});
+
+export const ACTIONS_PUBLICATION = [publicationPublier, publicationProgrammer, publicationDeplacer, publicationAnnuler, publicationConfirmer, publicationRejouer, publicationLire, publicationLister] as const;

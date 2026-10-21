@@ -92,8 +92,8 @@ export interface Publications {
   echouerAvantEnvoi(marqueId: string, utilisateurId: string, id: string, tacheId: string, qui: QuiTente, cause: string, action: string): Promise<Publication | undefined>;
   /** Compare-and-set `envoi_en_cours ->` publiée, en échec ou incertaine, et ferme la tentative. `undefined` si l'état n'était plus `envoi_en_cours`. */
   conclure(marqueId: string, utilisateurId: string, id: string, fin: FinPublication): Promise<Publication | undefined>;
-  /** `en_echec -> en_file` avec une nouvelle clé d'idempotence ; la tâche suit par `lierTache`. `undefined` si l'état n'était pas `en_echec`. */
-  rejouer(marqueId: string, utilisateurId: string, id: string): Promise<Publication | undefined>;
+  /** `en_echec -> en_file` avec une nouvelle clé d'idempotence (et, si `cible` est donnée, la nouvelle version figée : montage modifié) ; la tâche suit par `lierTache`. `undefined` si l'état n'était pas `en_echec`. */
+  rejouer(marqueId: string, utilisateurId: string, id: string, cible?: Cible): Promise<Publication | undefined>;
   /** Annule une publication qui n'est pas partie (voir `peutAnnuler`). `undefined` si l'état ne le permet pas. */
   annuler(marqueId: string, utilisateurId: string, id: string): Promise<Publication | undefined>;
   /** Change l'heure d'une publication `programmee` ou `en_attente_confirmation` : l'ancienne échéance est retirée, la nouvelle inscrite, dans la même transaction. */
@@ -265,12 +265,13 @@ export class PublicationsPg implements Publications {
     });
   }
 
-  async rejouer(marqueId: string, utilisateurId: string, id: string): Promise<Publication | undefined> {
+  async rejouer(marqueId: string, utilisateurId: string, id: string, cible?: Cible): Promise<Publication | undefined> {
     return dansTransactionUtilisateur(this.#pool, marqueId, utilisateurId, async (client) => {
       const { rows } = await client.query<Ligne>(
-        `UPDATE publications SET etat = 'en_file', cle_idempotence = gen_random_uuid(), tache_id = NULL, cause = NULL, action = NULL, modifie_le = now()
+        `UPDATE publications SET etat = 'en_file', cle_idempotence = gen_random_uuid(), tache_id = NULL, cause = NULL, action = NULL, modifie_le = now(),
+           montage_id = coalesce($2::uuid, montage_id), rendu_id = coalesce($3::uuid, rendu_id), legende = coalesce($4::text, legende), hashtags = coalesce($5::text[], hashtags)
          WHERE id = $1 AND etat = 'en_echec' RETURNING ${COLONNES}`,
-        [id],
+        [id, cible?.montageId ?? null, cible?.renduId ?? null, cible?.legende ?? null, cible === undefined ? null : [...cible.hashtags]],
       );
       return rows[0] === undefined ? undefined : versPublication(rows[0]);
     });

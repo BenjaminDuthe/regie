@@ -5,6 +5,7 @@
 // Sans script, la page se recharge d'elle-même toutes les 30 secondes.
 import chaines from '../chaines.json' with { type: 'json' };
 import { decrire, estActive } from '../composants/vue-taches.ts';
+import { RESEAUX_DECLARES } from '../domaine/reseaux.ts';
 import Base from '../mises-en-page/Base.astro';
 import { notificationAcquitter, notificationLister, tacheRelancer } from '../services/actions.ts';
 import { contexteInterface } from '../services/contextes.ts';
@@ -41,6 +42,13 @@ const nouvelles = ((await notificationLister.executer(ctx, {})) as { notificatio
 const n = chaines.notifications;
 const texteNotification = (x: Notif): string => {
   const modele = (n as Record<string, string>)[x.genre] ?? n.defaut;
+  if (x.genre.startsWith('publication_')) {
+    const reseau = (x.etape !== null && RESEAUX_DECLARES[x.etape as keyof typeof RESEAUX_DECLARES]?.nom) || x.etape || '';
+    const base = modele.replace('{etape}', reseau);
+    return x.genre === 'publication_publiee' || x.cause === null
+      ? base
+      : `${base} ${t.causes[x.cause as keyof typeof t.causes] ?? t.causes.defaut} ${t.actions[(x.action ?? 'defaut') as keyof typeof t.actions] ?? t.actions.defaut}`;
+  }
   const base = modele.replace('{etape}', t.types[x.etape as keyof typeof t.types] ?? x.etape ?? '');
   return x.genre === 'etape_echouee' ? `${base} ${t.causes[(x.cause ?? 'defaut') as keyof typeof t.causes] ?? t.causes.defaut} ${t.actions[(x.action ?? 'defaut') as keyof typeof t.actions] ?? t.actions.defaut}` : base;
 };

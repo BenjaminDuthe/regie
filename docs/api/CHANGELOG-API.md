@@ -149,3 +149,8 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `publication.deplacer` (écriture) : change l'heure d'une publication programmée ou en attente de confirmation.
 - Ajout de `publication.annuler` (écriture) : annule une publication non encore partie et supprime son échéance.
 - Ajout de `publication.confirmer` (écriture) : confirme la dernière version d'un montage modifié (`MONTAGE_MODIFIE`) ; la publication redevient programmée.
+
+## 2026-10-21 — histoire 7.5
+
+- Ajout de `publication.rejouer` (écriture) : rejoue une publication `en_echec` (nouvelle tentative mise en file, historique dans `publication.lire`) ; un échec `MONTAGE_MODIFIE` fige d'abord la dernière version ; une publication publiée, en cours ou incertaine est refusée (`PUBLICATION_ETAT`, 409).
+- `montage.bibliotheque` accepte le filtre `reseau` (`instagram`, `facebook`, `tiktok`) : les vidéos qui ont une publication non annulée sur ce réseau.

@@ -416,8 +416,8 @@
     },
     "actions": {
       "relancer": "Tu peux la relancer.",
-      "rejouer": "Tu peux la rejouer depuis ta bibliothèque.",
-      "confirmer": "Confirme la nouvelle version depuis ta bibliothèque.",
+      "rejouer": "Tu peux la rejouer avec l’action « publication.rejouer » (API ou Claude).",
+      "confirmer": "Confirme la nouvelle version avec l’action « publication.confirmer » (API ou Claude).",
       "verifier": "Vérifie d’abord le résultat à l’extérieur, puis relance si besoin.",
       "defaut": "Tu peux la relancer."
     },
@@ -623,6 +623,8 @@
       "statut": "Statut",
       "tous": "Tous",
       "statuts": { "prete": "Prête", "en_cours": "En cours de rendu", "bloquee": "Bloquée", "en_echec": "En échec", "sans_rendu": "Sans rendu" },
+      "reseau": "Publiée ou prévue sur",
+      "reseaux": { "instagram": "Instagram", "facebook": "Facebook", "tiktok": "TikTok" },
       "depuis": "Du",
       "jusqua": "Au",
       "archivees": "Archivées",

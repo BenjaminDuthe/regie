@@ -1,6 +1,6 @@
-// Histoire 7.4 : programmer, déplacer, annuler, confirmer une publication. Heure de Paris -> échéance UTC, départ dans la
+// Histoires 7.4 et 7.5 : programmer, déplacer, annuler, confirmer une publication. Heure de Paris -> échéance UTC, départ dans la
 // minute, retard, changement d'heure, montage modifié. Le déroulé contre la base (planificateur réel) est dans
-// postgres.integration.test.ts. Tout appel à Meta vise un faux serveur local (127.0.0.1).
+// postgres.integration.test.ts. 7.5 : résultat, rejeu d'un échec, historique, audit, filtre par réseau. Tout appel à Meta vise un faux serveur local (127.0.0.1).
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -63,6 +63,7 @@ describe('programmer une publication', () => {
   let utilisateurB: string;
   let espaceA: string;
   let jetonA: string;
+  let jetonIdA: string;
   let jetonB: string;
   let compteId: string;
   let montageId: string;
@@ -116,7 +117,9 @@ describe('programmer une publication', () => {
     espaceA = a.espaces[0]!.id;
     const b = await banc.espaces.assurer(marqueId, 'sub-b', undefined, 'Autre');
     utilisateurB = b.utilisateurId;
-    jetonA = (await banc.jetons.creer({ marqueId, utilisateurId: utilisateurA, sub: 'sub-a', nom: 't', portees: ['lecture', 'ecriture'], espaceIds: [espaceA], dureeJours: 30 })).clair;
+    const patA = await banc.jetons.creer({ marqueId, utilisateurId: utilisateurA, sub: 'sub-a', nom: 't', portees: ['lecture', 'ecriture'], espaceIds: [espaceA], dureeJours: 30 });
+    jetonA = patA.clair;
+    jetonIdA = patA.jeton.id;
     jetonB = (await banc.jetons.creer({ marqueId, utilisateurId: utilisateurB, sub: 'sub-b', nom: 't', portees: ['lecture', 'ecriture'], espaceIds: [b.espaces[0]!.id], dureeJours: 30 })).clair;
     const compte = await banc.comptesReseau.connecter({ marqueId, utilisateurId: utilisateurA, espaceId: espaceA, reseau: 'instagram', compteExterne: meta.reglages.compteExterne, nom: 'compte_de_demo', jeton: 'jeton-long-instagram', expireLe: new Date(MAINTENANT + 50 * 86_400_000) }, new Date(MAINTENANT));
     compteId = compte!.id;
@@ -137,6 +140,8 @@ describe('programmer une publication', () => {
     banc.notifications.lignes.length = 0;
     banc.audit.lignes.length = 0;
     meta.requetes.length = 0;
+    meta.reglages.couper.clear();
+    for (const k of Object.keys(meta.reglages.statutsForces)) delete meta.reglages.statutsForces[k];
     meta.reglages.quota = { utilise: 3, total: 100 };
     meta.reglages.etatsTraitement = ['FINISHED'];
     montageId = await nouveauMontage(true);
@@ -322,5 +327,99 @@ describe('programmer une publication', () => {
     // Rejouer ne repart jamais deux fois : le gestionnaire rejoué ne fait rien.
     await passer(Date.parse('2026-10-21T12:31:00Z'));
     expect(banc.publications.lignes.find((l) => l.id === p.id)!.tentatives).toBe(1);
+  });
+
+  const publierMaintenant = async (m = montageId) => (await appeler({ montageId: m, compteId }, 'publication/publier')).json().donnees.publication;
+  const lire = async (id: string, jeton = jetonA) => (await appeler({ id }, 'publication/lire', jeton)).json();
+  const pathMedia = () => `/v23.0/${meta.reglages.compteExterne}/media`;
+
+  it('7.5 rejouer un échec : nouvelle tentative publiée, historique visible, audit de chaque tentative sans jamais la valeur du jeton, une seule publication', async () => {
+    meta.reglages.statutsForces[pathMedia()] = 400;
+    const p = await publierMaintenant();
+    expect(await lancer(p.tacheId)).toMatchObject({ etat: 'en_echec' });
+    expect((await lire(p.id)).donnees.publication).toMatchObject({ etat: 'en_echec', action: 'rejouer' });
+    expect(envois()).toBe(0);
+
+    delete meta.reglages.statutsForces[pathMedia()];
+    const r = await appeler({ id: p.id }, 'publication/rejouer');
+    expect(r.statusCode).toBe(200);
+    const rejouee = r.json().donnees.publication;
+    expect(rejouee).toMatchObject({ etat: 'en_file', cause: null });
+    expect(rejouee.tacheId).not.toBe(p.tacheId);
+    expect(await lancer(rejouee.tacheId)).toMatchObject({ etat: 'publiee', idExterne: 'media-9001' });
+    expect(envois()).toBe(1);
+
+    const lue = (await lire(p.id)).donnees;
+    expect(lue.publication).toMatchObject({ etat: 'publiee', idExterne: 'media-9001', lien: 'https://www.instagram.com/reel/ABC123/', tentatives: 2 });
+    expect(lue.tentatives.map((t: { numero: number; issue: string; origine: string; pat: string }) => [t.numero, t.issue, t.origine, t.pat])).toEqual([[1, 'en_echec', 'api', jetonIdA], [2, 'publiee', 'api', jetonIdA]]);
+    const audit = banc.audit.lignes.filter((l) => l.action === 'publication_tentative');
+    expect(audit).toHaveLength(2);
+    for (const l of audit) expect(l.details).toMatchObject({ origine: 'api', pat: jetonIdA });
+    expect(JSON.stringify(banc.audit.lignes)).not.toContain(jetonA);
+    expect(banc.audit.lignes.some((l) => l.action === 'publication_rejouer' || String(l.action).includes('rejouer'))).toBe(true);
+    expect(banc.notifications.lignes.map((n) => n.genre)).toEqual(['publication_echec', 'publication_publiee']);
+    // Le statut de la vidéo ne change pas : son rendu reste prêt.
+    expect(banc.montages.rendus.find((x) => x.montageId === montageId && x.genre === 'complet')!.etat).toBe('pret');
+    // Une publication publiée ne se rejoue pas : jamais deux fois.
+    expect((await appeler({ id: p.id }, 'publication/rejouer')).json()).toMatchObject({ erreur: { code: 'PUBLICATION_ETAT' } });
+    expect(envois()).toBe(1);
+  });
+
+  it('7.5 rejouer refuse ce qui n’est pas en échec (en file, incertaine, annulée), une autre personne, et une publication inconnue', async () => {
+    const p = await publierMaintenant();
+    expect((await appeler({ id: p.id }, 'publication/rejouer')).json()).toMatchObject({ erreur: { code: 'PUBLICATION_ETAT' } });
+    meta.reglages.couper.add(cheminPublier());
+    expect(await lancer(p.tacheId)).toMatchObject({ etat: 'incertaine' });
+    expect((await appeler({ id: p.id }, 'publication/rejouer')).json()).toMatchObject({ erreur: { code: 'PUBLICATION_ETAT' } });
+    expect((await appeler({ id: p.id }, 'publication/rejouer', jetonB)).statusCode).toBe(404);
+    expect((await appeler({ id: randomUUID() }, 'publication/rejouer')).statusCode).toBe(404);
+    expect((await appeler({ id: p.id, force: true }, 'publication/rejouer')).statusCode).toBe(400);
+    expect(banc.publications.lignes.find((l) => l.id === p.id)!.etat).toBe('incertaine');
+  });
+
+  it('7.5 rejouer un échec MONTAGE_MODIFIE fige la dernière version ; un retard dépassé (ECHEANCE_PERIMEE) part maintenant', async () => {
+    const p = (await programmer('2026-10-21T14:30')).json().donnees.publication;
+    const base = banc.montages.montages.find((m) => m.id === montageId)!;
+    const v2 = await banc.montages.creerVersion({ marqueId, utilisateurId: utilisateurA, parentId: base.id, origine: 'edition', timeline: base.timeline });
+    if (v2.etat !== 'ok') throw new Error('version refusée');
+    await passer(Date.parse('2026-10-21T12:30:20Z'));
+    expect(banc.publications.lignes.find((l) => l.id === p.id)).toMatchObject({ etat: 'en_echec', cause: 'MONTAGE_MODIFIE' });
+    // Pas de rendu sur la nouvelle version : refusé, l'échec reste tel quel.
+    expect((await appeler({ id: p.id }, 'publication/rejouer')).json()).toMatchObject({ erreur: { code: 'PUBLICATION_RENDU_ABSENT' } });
+    expect(banc.publications.lignes.find((l) => l.id === p.id)!.etat).toBe('en_echec');
+    await ajouterRendu(v2.montage.id, v2.montage.espaceId);
+    const r = (await appeler({ id: p.id }, 'publication/rejouer')).json().donnees.publication;
+    expect(r).toMatchObject({ etat: 'en_file', montageId: v2.montage.id });
+    expect(await lancer(r.tacheId)).toMatchObject({ etat: 'publiee' });
+    expect(envois()).toBe(1);
+    const tentatives = (await lire(p.id)).donnees.tentatives;
+    expect(tentatives.map((t: { origine: string; issue: string }) => [t.origine, t.issue])).toEqual([['echeance', 'en_echec'], ['api', 'publiee']]);
+
+    // Échéance périmée : l'échec porte la cause, rejouer envoie maintenant.
+    const m2 = await nouveauMontage(true);
+    const q = (await programmer('2026-10-21T15:00', m2)).json().donnees.publication;
+    banc.publications.lignes.find((l) => l.id === q.id)!.etat = 'en_echec';
+    Object.assign(banc.publications.lignes.find((l) => l.id === q.id)!, { cause: 'ECHEANCE_PERIMEE', action: 'rejouer' });
+    const rq = (await appeler({ id: q.id }, 'publication/rejouer')).json().donnees.publication;
+    expect(rq).toMatchObject({ etat: 'en_file', montageId: m2 });
+  });
+
+  it('7.5 la bibliothèque se filtre par réseau (publiée, en cours ou programmée ; pas annulée) et refuse un réseau inconnu', async () => {
+    const autre = await nouveauMontage(true);
+    const sans = await nouveauMontage(true);
+    const annulee = await nouveauMontage(true);
+    await publierMaintenant(montageId);
+    await programmer('2026-10-22T10:00', autre);
+    const a = (await programmer('2026-10-22T11:00', annulee)).json().donnees.publication;
+    await appeler({ id: a.id }, 'publication/annuler');
+    const serieDe = (id: string) => banc.montages.montages.find((m) => m.id === id)!.id;
+    const liste = async (corps: unknown) => ((await appeler(corps, 'montage/bibliotheque')).json().donnees.videos as { montage: { id: string } }[]).map((v) => v.montage.id);
+    const surInstagram = await liste({ reseau: 'instagram' });
+    expect(surInstagram.sort()).toEqual([serieDe(montageId), serieDe(autre)].sort());
+    expect(surInstagram).not.toContain(sans);
+    expect(surInstagram).not.toContain(annulee);
+    expect(await liste({ reseau: 'tiktok' })).toEqual([]);
+    expect((await liste({})).length).toBeGreaterThanOrEqual(4);
+    expect((await appeler({ reseau: 'myspace' }, 'montage/bibliotheque')).statusCode).toBe(400);
   });
 });

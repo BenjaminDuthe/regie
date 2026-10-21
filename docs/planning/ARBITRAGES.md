@@ -260,3 +260,14 @@ Question : quelles décisions et quelles preuves manquent pour publier à l'heur
 6. **Horizon d'un an** — borne de départ. Recommandation : la confirmer.
 7. **Validation de bout en bout** — exige l'inscription de l'application Meta et un jeton réel (voir 7.1 et 7.6).
 
+## 7.5 Résultat, rejeu et historique
+
+Question : quelles décisions et quelles preuves manquent pour suivre et rejouer les publications ?
+
+1. **Rejouer une publication incertaine** — refusé : elle est peut-être en ligne et regie n'a aucune clé d'idempotence côté Meta (voir 7.3). Option : permettre un « rejouer quand même » après confirmation explicite de la personne. **Recommandation** : l'ajouter seulement avec la lecture du dernier média du compte.
+2. **Rejouer après `MONTAGE_MODIFIE`** — la dernière version est figée avant la nouvelle tentative (rendu complet prêt et légende enregistrée requis, quota contrôlé) ; après `ECHEANCE_PERIMEE`, la publication part maintenant. Les tentatives passées restent à l'historique.
+3. **Pas de bouton dans l'interface** — le rejeu se fait par l'API et le MCP (`publication.rejouer`) ; la notification d'échec dit comment. Option : un bouton dans la bibliothèque, qui demande un lien entre notification et publication. **Recommandation** : le prévoir en V1.1.
+4. **Filtre par réseau** — une vidéo apparaît pour un réseau dès qu'une publication non annulée y existe (programmée, en file, publiée, en échec, incertaine). Option : ne compter que les publiées. **Recommandation** : garder ainsi.
+5. **Audit** — chaque tentative inscrit l'utilisateur, l'origine (`api`, `mcp`, `interface`, `echeance`) et l'identifiant du jeton d'API, jamais sa valeur ; le rejeu inscrit en plus l'action `publication.rejouer`.
+6. **Validation de bout en bout** — exige l'inscription de l'application Meta et un jeton réel (voir 7.1 et 7.6).
+

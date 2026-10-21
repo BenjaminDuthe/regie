@@ -2958,7 +2958,7 @@ Corps de la demande (schéma JSON) :
 
 ## `montage.bibliotheque`
 
-Liste ta bibliothèque de vidéos : la dernière version de chaque vidéo avec son statut (`prete`, `en_cours`, `bloquee`, `en_echec`, `sans_rendu`, lu sur le rendu allégé le plus récent) et sa date d’archivage. Filtres : `statut`, `depuis` et `jusqua` (jours AAAA-MM-JJ en heure de Paris, bornes comprises, sur la date de la dernière version), `archivees` (`exclure` par défaut, `inclure` ou `seulement`), `espaceId`. La plus récente d’abord ; 200 vidéos au plus.
+Liste ta bibliothèque de vidéos : la dernière version de chaque vidéo avec son statut (`prete`, `en_cours`, `bloquee`, `en_echec`, `sans_rendu`, lu sur le rendu allégé le plus récent) et sa date d’archivage. Filtres : `statut`, `depuis` et `jusqua` (jours AAAA-MM-JJ en heure de Paris, bornes comprises, sur la date de la dernière version), `archivees` (`exclure` par défaut, `inclure` ou `seulement`), `reseau` (les vidéos publiées, en cours de publication ou programmées sur ce réseau), `espaceId`. La plus récente d’abord ; 200 vidéos au plus.
 
 - API : `POST /api/v1/montage/bibliotheque` · outil MCP : `montage_bibliotheque`
 - Portée requise : `lecture`
@@ -2995,6 +2995,14 @@ Corps de la demande (schéma JSON) :
         "exclure",
         "inclure",
         "seulement"
+      ]
+    },
+    "reseau": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "facebook",
+        "tiktok"
       ]
     },
     "espaceId": {
@@ -3457,6 +3465,33 @@ Corps de la demande (schéma JSON) :
 Confirme la nouvelle version du montage d’une publication `en_attente_confirmation` : elle fige la dernière version, son rendu complet prêt et la légende enregistrée, refait les contrôles et redevient `programmee` à la même heure. À faire avant l’heure prévue, sinon elle échoue (MONTAGE_MODIFIE).
 
 - API : `POST /api/v1/publication/confirmer` · outil MCP : `publication_confirmer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `publication.rejouer`
+
+Rejoue une publication `en_echec` : une nouvelle tentative est mise en file (historique visible dans `publication.lire`, une ligne par tentative). Si l’échec vient d’un montage modifié non confirmé (MONTAGE_MODIFIE), la dernière version, son rendu complet prêt et la légende enregistrée sont figés avant la nouvelle tentative ; si l’heure prévue était dépassée (ECHEANCE_PERIMEE), la publication part maintenant. Une publication `incertaine` ne se rejoue pas (PUBLICATION_ETAT) : vérifie sur le réseau.
+
+- API : `POST /api/v1/publication/rejouer` · outil MCP : `publication_rejouer`
 - Portée requise : `ecriture`
 
 Corps de la demande (schéma JSON) :

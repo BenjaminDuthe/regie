@@ -71,7 +71,7 @@ const fait = Astro.url.searchParams.get('fait') ?? '';
 const reste = /^supprimee-reste-(\d{1,3})$/.exec(fait)?.[1];
 
 // Filtres de la bibliothèque : lus dans l'adresse, validés par le schéma de l'action ; un filtre invalide est ignoré.
-const filtres = { statut: Astro.url.searchParams.get('statut') ?? '', depuis: Astro.url.searchParams.get('depuis') ?? '', jusqua: Astro.url.searchParams.get('jusqua') ?? '', archivees: Astro.url.searchParams.get('archivees') ?? 'exclure' };
+const filtres = { statut: Astro.url.searchParams.get('statut') ?? '', depuis: Astro.url.searchParams.get('depuis') ?? '', jusqua: Astro.url.searchParams.get('jusqua') ?? '', archivees: Astro.url.searchParams.get('archivees') ?? 'exclure', reseau: Astro.url.searchParams.get('reseau') ?? '' };
 type VueBibliotheque = { montage: Vue; statut: string; archiveeLe: string | null };
 let bibliotheque: VueBibliotheque[] = [];
 
@@ -132,6 +132,12 @@ const titrePage = detail === undefined ? t.titre : `${t.titre} — ${t.version.r
             <select name="statut">
               <option value="" selected={filtres.statut === ''}>{t.bibliotheque.tous}</option>
               {Object.entries(t.bibliotheque.statuts).map(([k, v]) => <option value={k} selected={filtres.statut === k}>{v}</option>)}
+            </select>
+          </label>
+          <label>{t.bibliotheque.reseau}
+            <select name="reseau">
+              <option value="" selected={filtres.reseau === ''}>{t.bibliotheque.tous}</option>
+              {Object.entries(t.bibliotheque.reseaux).map(([k, v]) => <option value={k} selected={filtres.reseau === k}>{v}</option>)}
             </select>
           </label>
           <label>{t.bibliotheque.depuis} <input type="date" name="depuis" value={filtres.depuis} /></label>

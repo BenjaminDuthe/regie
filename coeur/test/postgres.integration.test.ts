@@ -1134,6 +1134,14 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       expect(await publications.lire(marque, a.utilisateurId, p5.id)).toMatchObject({ etat: 'en_echec', cause: 'MONTAGE_MODIFIE' });
       expect((await dansTransactionMarque(contexte.pool, marque, (cl) => cl.query("SELECT 1 FROM taches WHERE type = 'reseau'"))).rowCount).toBe(2);
 
+      // 7.5 : rejouer l'échec avec la nouvelle version figée ; une publication qui n'est pas en échec ne se rejoue pas.
+      const rendu5 = (await montages.creerRendu({ marqueId: marque, utilisateurId: a.utilisateurId, montageId: v2.montage.id, genre: 'complet' }))!;
+      expect(await publications.rejouer(marque, a2.utilisateurId, p5.id, { montageId: v2.montage.id, renduId: rendu5.id, legende: 'rejeu', hashtags: [] })).toBeUndefined();
+      const rejouee5 = await publications.rejouer(marque, a.utilisateurId, p5.id, { montageId: v2.montage.id, renduId: rendu5.id, legende: 'rejeu', hashtags: [] });
+      expect(rejouee5).toMatchObject({ etat: 'en_file', montageId: v2.montage.id, renduId: rendu5.id, legende: 'rejeu', cause: null, tacheId: null });
+      expect(await publications.rejouer(marque, a.utilisateurId, p5.id)).toBeUndefined();
+      expect((await publications.tentatives(marque, a.utilisateurId, p5.id)).map((t) => [t.numero, t.origine, t.issue])).toEqual([[1, 'echeance', 'en_echec']]);
+
       // Confirmer : seulement depuis `en_attente_confirmation`, avec la nouvelle cible figée.
       const m6 = await montage();
       maintenant = new Date('2026-10-23T08:00:00Z');
