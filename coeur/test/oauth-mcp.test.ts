@@ -146,6 +146,26 @@ describe('serveur d’autorisation et MCP', () => {
     expect((await post('/oauth/register', { redirect_uris: ['https://claude.ai/cb'] }, {}, '203.0.113.10')).statusCode).toBe(201);
   });
 
+  it('enregistrement : derrière un proxy de confiance, la limite se fait sur l’IP du X-Forwarded-For ; ailleurs il est ignoré', async () => {
+    const corps = { redirect_uris: ['https://claude.ai/cb'] };
+    const avecProxys = async (proxys: string[], proxyReel: string) => {
+      const serveur = await construireServeur({ services: banc.services, proxysDeConfiance: proxys });
+      const inscrire = (xff: string) =>
+        serveur.inject({ method: 'POST', url: '/oauth/register', headers: { 'content-type': 'application/json', 'x-forwarded-for': xff }, payload: JSON.stringify(corps), remoteAddress: proxyReel });
+      try {
+        for (let i = 0; i < 10; i++) expect((await inscrire('198.51.100.7')).statusCode).toBe(201);
+        return { limitee: (await inscrire('198.51.100.7')).statusCode, autreClient: (await inscrire('198.51.100.8')).statusCode };
+      } finally {
+        await serveur.close();
+      }
+    };
+    // Proxy listé : deux clients réels distincts ont chacun leur compteur.
+    expect(await avecProxys(['10.9.0.1'], '10.9.0.1')).toEqual({ limitee: 429, autreClient: 201 });
+    // Proxy non listé (ou aucune liste) : X-Forwarded-For est ignoré, tout passe pour l'IP du proxy, donc un seul compteur.
+    expect(await avecProxys(['10.9.0.2'], '10.9.0.1')).toEqual({ limitee: 429, autreClient: 429 });
+    expect(await avecProxys([], '10.9.0.1')).toEqual({ limitee: 429, autreClient: 429 });
+  });
+
   it('autorisation : une adresse de retour inconnue ne redirige jamais ; une demande sans PKCE redirige avec une erreur et iss', async () => {
     const clientId = await enregistrer();
     const { challenge } = pkce();

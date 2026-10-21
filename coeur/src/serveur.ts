@@ -90,10 +90,11 @@ function servicesSansBase(): Services {
 
 /**
  * `journal` : destination des journaux (tests) ; `services` : remplace ceux de production (tests) ;
- * `surRoute` : appelée pour chaque route fastify déclarée (test des routes publiques).
+ * `surRoute` : appelée pour chaque route fastify déclarée (test des routes publiques) ;
+ * `proxysDeConfiance` : remplace REGIE_PROXYS_DE_CONFIANCE (tests).
  */
 export async function construireServeur(
-  options: { journal?: DestinationStream; contexte?: Contexte; services?: Services; surRoute?: (route: { method: string | string[]; url: string }) => void } = {},
+  options: { journal?: DestinationStream; contexte?: Contexte; services?: Services; surRoute?: (route: { method: string | string[]; url: string }) => void; proxysDeConfiance?: readonly string[] } = {},
 ) {
   // Le handler d'Astro n'existe qu'après `astro build` : on le charge à l'exécution.
   const { handler } = (await import(ENTREE_SERVEUR)) as { handler: HandlerAstro };
@@ -108,7 +109,9 @@ export async function construireServeur(
   };
   const journal = options.journal !== undefined ? pino(reglages, options.journal) : pino(reglages);
   const services = options.services ?? (options.contexte !== undefined ? construireServices(options.contexte) : servicesSansBase());
-  const app = Fastify({ loggerInstance: journal });
+  // Sans proxy de confiance listé, `requete.ip` est l'adresse de la connexion : X-Forwarded-For est ignoré.
+  const proxys = options.proxysDeConfiance ?? env.REGIE_PROXYS_DE_CONFIANCE ?? [];
+  const app = Fastify({ loggerInstance: journal, trustProxy: proxys.length > 0 ? [...proxys] : false });
   if (options.surRoute !== undefined) {
     const surRoute = options.surRoute;
     app.addHook('onRoute', (route) => surRoute({ method: route.method, url: route.url }));

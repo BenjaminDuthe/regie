@@ -22,9 +22,3 @@ Décisions que le codeur n'a pas à prendre seul (produit, accès, jeton tiers).
 
 1. **Périmètre « instance »** — en V1 il n'y a qu'une marque : l'administrateur (`REGIE_ADMIN_SUB`) voit tout son journal, avec le seul genre des objets des autres (jamais leur identifiant). Une vue inter-marques exige le rôle `regie_admin` et son SELECT interdit sur les contenus : reportée. Recommandation : la faire quand une deuxième marque existera.
 2. **Rattachement à un espace** — le journal ne porte pas l'espace de chaque action : « mon espace » montre mes actions et les lignes dont l'objet est `espace:<mon espace>`. Option : ajouter une colonne `espace_id` au journal (migration, chaîne recalculée). Recommandation : l'ajouter avec la première action de contenu (V1 suivante).
-
-## 1.12 — IP réelle derrière nginx (`trustProxy`)
-
-- **Question** : la limite de 10 inscriptions OAuth par heure et par IP voit l'IP de nginx (CT 101), donc devient globale.
-- **Options** : (a) `trustProxy` limité à l'adresse de nginx, posée par env ; (b) laisser global (une seule personne en V1).
-- **Recommandation** : (a) au moment du déploiement (histoire 0.3), avec l'adresse de nginx en variable d'environnement.

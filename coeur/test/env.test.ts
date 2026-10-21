@@ -89,4 +89,16 @@ describe('env.ts', () => {
       expect(() => lireEnvironnement({ REGIE_ADMIN_EMAIL: 'pas-un-email' })).toThrow(/REGIE_ADMIN_EMAIL/);
     });
   });
+
+  describe('proxys de confiance (histoire 1.12)', () => {
+    it('est absente par défaut : aucune confiance', () => {
+      expect(lireEnvironnement({}).REGIE_PROXYS_DE_CONFIANCE).toBeUndefined();
+    });
+    it('accepte des adresses et des blocs CIDR, IPv4 et IPv6', () => {
+      expect(lireEnvironnement({ REGIE_PROXYS_DE_CONFIANCE: '10.0.0.1, 192.168.1.0/24,::1,fd00::/8' }).REGIE_PROXYS_DE_CONFIANCE).toEqual(['10.0.0.1', '192.168.1.0/24', '::1', 'fd00::/8']);
+    });
+    it.each(['nginx', '10.0.0.1/33', '10.0.0.1/', '::1/129', '10.0.0.1/8/8', ',', '10.0.0.1,pirate'])('refuse %s en nommant la variable', (valeur) => {
+      expect(() => lireEnvironnement({ REGIE_PROXYS_DE_CONFIANCE: valeur })).toThrow(/REGIE_PROXYS_DE_CONFIANCE : /);
+    });
+  });
 });

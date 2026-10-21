@@ -4,6 +4,11 @@
 
 import { z } from 'zod';
 
+/** Une adresse IP, ou un bloc CIDR (IPv4 ou IPv6), validé par zod. */
+function adresseOuBloc(valeur: string): boolean {
+  return [z.ipv4(), z.ipv6(), z.cidrv4(), z.cidrv6()].some((forme) => forme.safeParse(valeur).success);
+}
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
   HOTE: z.string().min(1, 'doit être une adresse non vide').default('127.0.0.1'),
@@ -45,6 +50,14 @@ const schema = z.object({
   // `email_verified` (inscription et changement d'e-mail contrôlés), voir deploiement/infra/authentik.md.
   REGIE_ADMIN_SUB: z.string().min(1).max(255).optional(),
   REGIE_ADMIN_EMAIL: z.email('doit être une adresse e-mail').optional(),
+  // Proxys inverses de confiance (adresses IP ou blocs CIDR, séparés par des virgules), typiquement nginx : seul
+  // leur X-Forwarded-For donne l'IP réelle du client pour les limites de débit. Absente : aucune confiance, l'IP
+  // vue est celle de la connexion (un X-Forwarded-For envoyé par un client n'est alors jamais lu).
+  REGIE_PROXYS_DE_CONFIANCE: z
+    .string()
+    .transform((liste) => liste.split(',').map((element) => element.trim()).filter((element) => element !== ''))
+    .refine((liste) => liste.length > 0 && liste.every(adresseOuBloc), 'doit être une liste d’adresses IP ou de blocs CIDR séparés par des virgules')
+    .optional(),
 }).superRefine((valeurs, contexte) => {
   const adresseSure = (valeur: string) => {
     const url = new URL(valeur);
@@ -99,6 +112,7 @@ export function lireEnvironnement(source: Readonly<Record<string, string | undef
     REGIE_OIDC_CLIENT_ID: source['REGIE_OIDC_CLIENT_ID'] || undefined,
     REGIE_ADMIN_SUB: source['REGIE_ADMIN_SUB'] || undefined,
     REGIE_ADMIN_EMAIL: source['REGIE_ADMIN_EMAIL'] || undefined,
+    REGIE_PROXYS_DE_CONFIANCE: source['REGIE_PROXYS_DE_CONFIANCE'] || undefined,
   });
   if (!resultat.success) {
     throw new ErreurEnvironnement(
