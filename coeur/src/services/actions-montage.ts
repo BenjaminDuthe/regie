@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { IdScene, OperationsEdition, SCENES_MAX, appliquerOperations, dureeTotaleMs, sousTitres, versSrt } from '@regie/contrats';
 import { signerAdresse } from '../auth/adresses-signees.ts';
-import { evaluerMontage } from '../domaine/montage.ts';
+import { evaluerMontage, figerGabarit } from '../domaine/montage.ts';
 import type { Violation } from '../domaine/gardes.ts';
 import type { Montage, Rendu } from '../infra/montages.ts';
 import { decrireViolation } from './actions-gabarit.ts';
@@ -216,4 +216,25 @@ export const montageRegenerer = definirAction({
   objet: (entree) => `montage:${entree.id}`,
 });
 
-export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, montageRegenerer, renduLire, renduAdresse] as const;
+export const montageRegenererGabarit = definirAction({
+  domaine: 'montage',
+  verbe: 'regenerergabarit',
+  description: 'Regénère la vidéo avec le gabarit actuel de l’espace (celui par défaut). Un gabarit modifié ne touche jamais un montage existant : seules les nouvelles séances l’utilisent. Cette action crée un NOUVEAU montage (origine « gabarit », mêmes scènes, gabarit actuel figé) et met son rendu en file ; l’ancien montage et son rendu restent dans l’historique. Refusé avec SEANCE_PURGEE si les rushes ont été purgés (la date de purge est dans le message). Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant }),
+  executer: async (ctx, entree) => {
+    const base = await montageAccessible(ctx, entree.id);
+    await exigerFilm(ctx, base);
+    const gabarits = await ctx.services.gabarits.lister(ctx.marqueId, ctx.utilisateurId, base.espaceId);
+    const actuel = gabarits.find((g) => g.parDefaut) ?? gabarits[0];
+    if (actuel === undefined) throw new ErreurMetier('GABARIT_INTROUVABLE', 404, { id: base.gabarit.id });
+    const r = await ctx.services.montages.creerVersion({ marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId, parentId: base.id, origine: 'gabarit', timeline: base.timeline, gabarit: figerGabarit(actuel) });
+    if (r.etat === 'introuvable') throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
+    if (r.etat === 'perimee') throw new ErreurMetier('MONTAGE_VERSION_PERIMEE', 409, { derniere: r.derniere });
+    const lance = await lancerRegeneration(ctx, r.montage, 'allege');
+    return { montage: montageVisible(r.montage), tacheId: lance.tacheId };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, montageRegenerer, montageRegenererGabarit, renduLire, renduAdresse] as const;

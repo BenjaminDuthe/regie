@@ -163,3 +163,11 @@ Question : que montre l'aperçu d'une scène, et à quoi tient « deux rendus id
 3. **Rendus identiques (FR-30)** — le plan de rendu (graphe, sous-titres, arguments) est pur et déterministe, testé : même montage et même gabarit figé donnent le même plan. L'identité octet pour octet de la vidéo dépend de ffmpeg (version fixée par l'image) et du GPU. Option : forcer l'encodage logiciel pour la recette. **Recommandation** : mesurer sur la machine cible avant de promettre l'identité binaire.
 4. **« Regénérer » ne crée pas de version** — il relance un rendu du montage tel quel ; seule une modification (3.10) ou un changement de gabarit (2.13) crée une version.
 5. **Publications déjà parties** — restent liées à l'ancienne version de fait ; l'affichage du lien arrive avec l'épopée 7 (pas encore codée).
+
+## 2.13 Changer de gabarit sans toucher au passé
+
+Question : que devient une vidéo déjà produite quand le gabarit de la marque change ?
+
+1. **Version nouvelle, jamais de modification** — option A : réécrire le montage en place ; option B : créer une version (origine « gabarit ») qui fige le gabarit actuel, l'ancienne version et son film restent intacts. Retenu : B. **Recommandation** : B, c'est la seule qui respecte « sans toucher au passé ».
+2. **Publications déjà parties** — restent liées à l'ancienne version ; le lien visible arrive avec l'épopée 7 (non codée).
+3. **Séance purgée** — la régénération est refusée (409) avec la date de purge, comme pour 3.11 : sans film source, rien à rendre.

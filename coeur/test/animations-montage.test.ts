@@ -1,4 +1,4 @@
-// Histoire 3.11 : animations, transitions, zoom et regénération du rendu.
+// Histoires 3.11 et 2.13 : animations, transitions, zoom, regénération du rendu et regénération avec le gabarit actuel.
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +21,7 @@ const journal: EntreeJournalMontage[] = [
   { t: 7000, genre: 'film_fin' },
 ];
 
-describe('animations, zoom et regénération du rendu', () => {
+describe('animations, regénération et gabarit actuel', () => {
   let banc: BancDeTest;
   let app: Awaited<ReturnType<typeof construireServeur>>;
   let marqueId: string;
@@ -203,6 +203,7 @@ describe('animations, zoom et regénération du rendu', () => {
     const m = await nouveauMontage();
     const page = await voir(`/montages?id=${m.id}`);
     expect(page.body).toContain('Regénérer la vidéo');
+    expect(page.body).toContain('Régénérer avec le gabarit actuel');
     const rendus = banc.montages.rendus.length;
     const ok = await posterMontages(m.id, { id: m.id, regeneration: 'rendu' });
     expect(ok.statusCode).toBe(303);
@@ -218,15 +219,71 @@ describe('animations, zoom et regénération du rendu', () => {
     expect(banc.montages.rendus).toHaveLength(rendus + 1);
   });
 
-  it('rushes purgés : regénérer est refusé par SEANCE_PURGEE avec la date de purge, sans rien mettre en file', async () => {
+  async function gabaritDe(montage: { espaceId: string }) {
+    const liste = (await appeler(jetonA, 'gabarit/lister', { espaceId: montage.espaceId })).json().donnees.gabarits as { id: string; nom: string; parDefaut: boolean; version: number; definition: unknown }[];
+    return liste.find((g) => g.parDefaut) ?? liste[0]!;
+  }
+  it('un gabarit modifié ne touche pas un montage existant, seules les nouvelles séances l’utilisent (2.13)', async () => {
+    const ancien = await nouveauMontage();
+    const g = await gabaritDe(ancien);
+    const modif = await appeler(jetonA, 'gabarit/definir', { id: g.id, nom: 'Gabarit revu', definition: g.definition });
+    expect(modif.statusCode).toBe(200);
+    expect(banc.montages.montages.find((x) => x.id === ancien.id)!.gabarit).toMatchObject({ id: g.id, nom: g.nom, version: g.version });
+    const neuf = await nouveauMontage();
+    expect(neuf.gabarit).toMatchObject({ id: g.id, nom: 'Gabarit revu', version: g.version + 1 });
+  });
+  it('montage.regenerergabarit : crée un nouveau montage d’origine gabarit, l’ancien reste, le rendu est en file (2.13)', async () => {
+    const ancien = await nouveauMontage();
+    const g = await gabaritDe(ancien);
+    await appeler(jetonA, 'gabarit/definir', { id: g.id, nom: 'Gabarit actuel', definition: g.definition });
+    const avant = JSON.stringify(ancien);
+    const rendus = banc.montages.rendus.length;
+    const r = await appeler(jetonA, 'montage/regenerergabarit', { id: ancien.id });
+    expect(r.statusCode).toBe(200);
+    const { montage, tacheId } = r.json().donnees as { montage: { id: string; numero: number; origine: string; parentId: string; gabarit: { nom: string; version: number } }; tacheId: string };
+    expect(montage).toMatchObject({ numero: ancien.numero + 1, origine: 'gabarit', parentId: ancien.id, gabarit: { nom: 'Gabarit actuel', version: g.version + 1 } });
+    expect(JSON.stringify(banc.montages.montages.find((x) => x.id === ancien.id))).toBe(avant);
+    expect(banc.montages.montages.find((x) => x.id === montage.id)!.timeline).toEqual(ancien.timeline);
+    expect(banc.montages.rendus).toHaveLength(rendus + 1);
+    expect(banc.montages.rendus.at(-1)).toMatchObject({ montageId: montage.id, etat: 'en_file', tacheId });
+    // L’historique garde les deux versions.
+    const lu = await appeler(jetonA, 'montage/lire', { id: montage.id });
+    expect(lu.json().donnees.versions.map((v: { origine: string }) => v.origine)).toContain('gabarit');
+    expect(lu.json().donnees.versions).toHaveLength(2);
+    // L’ancienne version n’est plus la dernière : la regénérer encore est refusé.
+    const perime = await appeler(jetonA, 'montage/regenerergabarit', { id: ancien.id });
+    expect(perime.statusCode).toBe(409);
+    expect(perime.json().erreur.code).toBe('MONTAGE_VERSION_PERIMEE');
+  });
+  it('rushes purgés : regénérer et regénérer avec le gabarit refusent par SEANCE_PURGEE avec la date, sans rien créer', async () => {
     const m = await nouveauMontage();
     await banc.montages.marquerPurge(marqueId, utilisateurA, m.filmFichierId, new Date('2026-03-05T10:00:00Z'));
+    const montages = banc.montages.montages.length;
     const rendus = banc.montages.rendus.length;
-    const r = await appeler(jetonA, 'montage/regenerer', { id: m.id });
-    expect(r.statusCode).toBe(409);
-    expect(r.json().erreur.code).toBe('SEANCE_PURGEE');
-    expect(r.json().erreur.message).toContain('5 mars 2026');
+    for (const chemin of ['montage/regenerer', 'montage/regenerergabarit']) {
+      const r = await appeler(jetonA, chemin, { id: m.id });
+      expect(r.statusCode, chemin).toBe(409);
+      expect(r.json().erreur.code).toBe('SEANCE_PURGEE');
+      expect(r.json().erreur.message).toContain('5 mars 2026');
+    }
+    expect(banc.montages.montages).toHaveLength(montages);
     expect(banc.montages.rendus).toHaveLength(rendus);
-    expect((await posterMontages(m.id, { id: m.id, regeneration: 'rendu' })).body).toContain('5 mars 2026');
+    const page = await posterMontages(m.id, { id: m.id, regeneration: 'gabarit' });
+    expect(page.statusCode).toBe(200);
+    expect(page.body).toContain('5 mars 2026');
+  });
+  it('la page régénère avec le gabarit actuel : nouvelle version, redirection vers elle ; cloisonnée', async () => {
+    const m = await nouveauMontage();
+    const ok = await posterMontages(m.id, { id: m.id, regeneration: 'gabarit' });
+    expect(ok.statusCode).toBe(303);
+    const neuf = banc.montages.montages.find((x) => x.parentId === m.id)!;
+    expect(neuf.origine).toBe('gabarit');
+    expect(ok.headers.location).toBe(`/montages?id=${neuf.id}&lance=gabarit`);
+    const suite = await voir(`/montages?id=${neuf.id}&lance=gabarit`);
+    expect(suite.body).toContain('régénéré avec le gabarit actuel');
+    expect(suite.body).toContain('Nouvelle version créée');
+    const autre = await nouveauMontage();
+    expect((await appeler(jetonB, 'montage/regenerergabarit', { id: autre.id })).statusCode).toBe(404);
+    expect(banc.montages.montages.some((x) => x.parentId === autre.id)).toBe(false);
   });
 });

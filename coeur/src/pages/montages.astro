@@ -5,7 +5,7 @@
 // `media-src 'self' blob:`. Un rendu bloqué par une garde reste lisible, marqué « bloqué », avec la scène fautive.
 import chaines from '../chaines.json' with { type: 'json' };
 import Base from '../mises-en-page/Base.astro';
-import { DUREE_ADRESSE_FICHIER_S, montageLire, montageLister, montageRegenerer, renduAdresse } from '../services/actions-montage.ts';
+import { DUREE_ADRESSE_FICHIER_S, montageLire, montageLister, montageRegenerer, montageRegenererGabarit, renduAdresse } from '../services/actions-montage.ts';
 import { contexteInterface } from '../services/contextes.ts';
 import { ErreurMetier } from '../services/erreurs.ts';
 import { executerAction } from '../services/registre.ts';
@@ -35,10 +35,14 @@ if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const id = typeof form.get('id') === 'string' ? (form.get('id') as string) : '';
   const demande = form.get('regeneration');
-  if (/^[0-9a-f-]{36}$/.test(id) && demande === 'rendu') {
+  if (/^[0-9a-f-]{36}$/.test(id) && (demande === 'rendu' || demande === 'gabarit')) {
     try {
-      await executerAction(ctx, montageRegenerer, { id });
-      return Astro.redirect(`/montages?id=${encodeURIComponent(id)}&lance=rendu`, 303);
+      if (demande === 'rendu') {
+        await executerAction(ctx, montageRegenerer, { id });
+        return Astro.redirect(`/montages?id=${encodeURIComponent(id)}&lance=rendu`, 303);
+      }
+      const { montage } = (await executerAction(ctx, montageRegenererGabarit, { id })) as { montage: { id: string } };
+      return Astro.redirect(`/montages?id=${encodeURIComponent(montage.id)}&lance=gabarit`, 303);
     } catch (e) {
       if (!(e instanceof ErreurMetier)) throw e;
       refus = e.message;
@@ -105,6 +109,7 @@ const titrePage = detail === undefined ? t.titre : `${t.titre} — ${t.version.r
   {introuvable !== undefined && <p class="probleme" role="alert">{introuvable}</p>}
   {refus !== undefined && <p class="probleme" role="alert">{refus}</p>}
   {lance === 'rendu' && <p class="succes" role="status">{t.regenereLance}</p>}
+  {lance === 'gabarit' && <p class="succes" role="status">{t.gabaritLance}</p>}
   {idDemande !== '' && <p><a href="/montages">{t.retour}</a></p>}
 
   {
@@ -144,7 +149,8 @@ const titrePage = detail === undefined ? t.titre : `${t.titre} — ${t.version.r
         <form method="post" action={`/montages?id=${detail.montage.id}`} class="regenerer">
           <input type="hidden" name="id" value={detail.montage.id} />
           <button type="submit" name="regeneration" value="rendu" class="bouton" disabled={enCours}>{t.regenerer}</button>
-          <p class="doux">{t.regenererAide}</p>
+          <button type="submit" name="regeneration" value="gabarit" class="bouton" disabled={enCours}>{t.regenererGabarit}</button>
+          <p class="doux">{t.regenererAide} {t.regenererGabaritAide}</p>
         </form>
         <h2>{t.scenes}</h2>
         <ol class="scenes">

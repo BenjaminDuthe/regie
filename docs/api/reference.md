@@ -2623,6 +2623,33 @@ Corps de la demande (schéma JSON) :
 }
 ```
 
+## `montage.regenerergabarit`
+
+Regénère la vidéo avec le gabarit actuel de l’espace (celui par défaut). Un gabarit modifié ne touche jamais un montage existant : seules les nouvelles séances l’utilisent. Cette action crée un NOUVEAU montage (origine « gabarit », mêmes scènes, gabarit actuel figé) et met son rendu en file ; l’ancien montage et son rendu restent dans l’historique. Refusé avec SEANCE_PURGEE si les rushes ont été purgés (la date de purge est dans le message). Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).
+
+- API : `POST /api/v1/montage/regenerergabarit` · outil MCP : `montage_regenerergabarit`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
 ## `rendu.lire`
 
 Lit un rendu : son état, la progression de sa tâche, la cause d’un échec, et, pour un rendu bloqué, chaque violation des gardes (scène, élément, mesure, seuil).

@@ -90,3 +90,7 @@ registre y figure (`coeur/test/api.test.ts`).
 
 - `montage.editer` accepte quatre opérations de plus : `animation` (entrée, sortie, durée, délai des textes d’une scène ; catalogue fermé), `transition` (`coupe` ou `fondu`), `zoom` (actif, niveau de 1,1 à 3, décalage de ±2 s par rapport au clic) et `animation_carte` (animation du texte de la carte de fin). Une valeur hors catalogue ou hors bornes donne 400.
 - Ajout de `montage.regenerer` (écriture) : met en file un nouveau rendu (précédé de la voix de synthèse si elle existe) du montage tel qu’il est ; suivre l’avancement avec `rendu.lire`. `MONTAGE_INTROUVABLE` (404), `SEANCE_PURGEE` (409, avec la date de purge).
+
+## 2026-10-21 — histoire 2.13
+
+- Ajout de `montage.regenerergabarit` (écriture) : crée une nouvelle version du montage avec le gabarit actuel (ou celui demandé), fige ce gabarit dans la version, puis met en file un rendu ; les versions antérieures gardent leur gabarit et leur film. Suivre l’avancement avec `rendu.lire`. `MONTAGE_INTROUVABLE` (404), `MONTAGE_VERSION_PERIMEE` (409), `SEANCE_PURGEE` (409, avec la date de purge).
