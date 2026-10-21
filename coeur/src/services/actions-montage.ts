@@ -3,13 +3,15 @@
 // immuable : on le lit, on ne le modifie pas (la modification crée une version, histoire 3.10).
 
 import { z } from 'zod';
-import { dureeTotaleMs } from '@regie/contrats';
+import { IdScene, SCENES_MAX, dureeTotaleMs, sousTitres, versSrt } from '@regie/contrats';
 import { signerAdresse } from '../auth/adresses-signees.ts';
 import type { Violation } from '../domaine/gardes.ts';
 import type { Montage, Rendu } from '../infra/montages.ts';
 import { decrireViolation } from './actions-gabarit.ts';
 import { ErreurMetier } from './erreurs.ts';
 import { definirAction, type ContexteAction } from './registre.ts';
+import { lancerRendu } from './rendu.ts';
+import { lancerVoix } from './voix.ts';
 
 const identifiant = z.uuid();
 
@@ -116,4 +118,47 @@ export const renduAdresse = definirAction({
   objet: (entree) => `rendu:${entree.id}`,
 });
 
-export const ACTIONS_MONTAGE = [montageLister, montageLire, renduLire, renduAdresse] as const;
+export const montageSousTitres = definirAction({
+  domaine: 'montage',
+  verbe: 'soustitres',
+  description: 'Donne les sous-titres d’un montage, tirés du texte de voix de chaque scène : les repères (scène, début, fin, texte) et le fichier SRT à télécharger.',
+  portee: 'lecture',
+  entree: z.strictObject({ id: identifiant }),
+  executer: async (ctx, entree) => {
+    const m = await montageAccessible(ctx, entree.id);
+    const reperes = sousTitres(m.timeline);
+    return { reperes, srt: versSrt(reperes) };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+export const montageDefinirVoix = definirAction({
+  domaine: 'montage',
+  verbe: 'definirvoix',
+  description: 'Change le texte de voix de scènes (500 caractères au plus ; vide = la scène ne parle pas). Crée une NOUVELLE version du montage (l’ancienne ne change pas) à partir de la dernière version, puis met en file la voix de synthèse locale et le rendu : les sous-titres suivent le texte. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).',
+  portee: 'ecriture',
+  entree: z.strictObject({
+    id: identifiant,
+    voix: z.array(z.strictObject({ sceneId: IdScene, texte: z.string().max(500) })).min(1).max(SCENES_MAX),
+  }),
+  executer: async (ctx, entree) => {
+    const base = await montageAccessible(ctx, entree.id);
+    const nouveaux = new Map(entree.voix.map((v) => [v.sceneId, v.texte.trim()] as const));
+    for (const sceneId of nouveaux.keys()) {
+      if (!base.timeline.scenes.some((s) => s.id === sceneId)) throw new ErreurMetier('SCENE_INTROUVABLE', 404, { sceneId });
+    }
+    const timeline = { ...base.timeline, scenes: base.timeline.scenes.map((s) => (nouveaux.has(s.id) ? { ...s, voix: nouveaux.get(s.id)! } : s)) };
+    const r = await ctx.services.montages.creerVersion({ marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId, parentId: base.id, origine: 'edition', timeline });
+    if (r.etat === 'introuvable') throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
+    if (r.etat === 'perimee') throw new ErreurMetier('MONTAGE_VERSION_PERIMEE', 409, { derniere: r.derniere });
+    const qui = { marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId };
+    // Avec une voix locale et du texte à dire : la voix d'abord (elle met ensuite le rendu en file) ; sinon, le rendu seul.
+    const aDire = ctx.services.voixLocale === true && timeline.scenes.some((s) => s.voix.trim() !== '');
+    const lance = aDire ? await lancerVoix(ctx.services, qui, r.montage.id) : await lancerRendu(ctx.services, qui, r.montage.id, 'allege');
+    if (lance === undefined) throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: r.montage.id });
+    return { montage: montageVisible(r.montage), tacheId: lance.tacheId };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, renduLire, renduAdresse] as const;

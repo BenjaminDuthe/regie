@@ -538,7 +538,9 @@ autorisant l’usage commercial (NFR-26) ; la CI refuse tout autre cas et vérif
 
 ## Modèles
 
-Aucun pour l’instant.
+| Nom | Licence | Source |
+| --- | --- | --- |
+| fr_FR-gilles-low (voix Piper, voix de synthèse française) | CC0-1.0 | https://huggingface.co/rhasspy/piper-voices/tree/main/fr/fr_FR/gilles/low |
 
 ## Composants des images
 
@@ -547,6 +549,8 @@ Aucun pour l’instant.
 | Playwright 1.63.0 (image de capture) | Apache-2.0 | https://github.com/microsoft/playwright |
 | Chromium (livré par Playwright 1.63.0) | BSD-3-Clause | https://chromium.googlesource.com/chromium/src/+/main/LICENSE |
 | FFmpeg 7.x de Debian trixie, avec libx264 et libass (image de rendu, processus séparé) | GPL-2.0-or-later | https://www.debian.org/distrib/packages#ffmpeg (code source : apt-get source ffmpeg) |
+| Piper 2023.11.14-2 (synthèse vocale locale, image de rendu, processus séparé) | MIT | https://github.com/rhasspy/piper |
+| espeak-ng (livré avec Piper, phonétisation, processus séparé) | GPL-3.0-or-later | https://github.com/espeak-ng/espeak-ng |
 
 ## Musiques
 

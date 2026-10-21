@@ -1,0 +1,14 @@
+{
+  "$commentaire": "Unique liste des modèles (AD-11, NFR-30). Les modèles vivent sur le volume /modeles, jamais dans une image. Le cœur lit ce fichier au démarrage et REFUSE de démarrer si une empreinte SHA-256 manque. À renseigner au déploiement : télécharger le fichier depuis la source, mesurer `sha256sum`, vérifier la licence sur la fiche du modèle, puis écrire l'empreinte ici et dans un commit relu.",
+  "modeles": [
+    {
+      "nom": "fr_FR-gilles-low",
+      "type": "voix",
+      "fichier": "fr_FR-gilles-low.onnx",
+      "version": "1.0.0",
+      "licence": "CC0-1.0",
+      "source": "https://huggingface.co/rhasspy/piper-voices/tree/main/fr/fr_FR/gilles/low",
+      "sha256": null
+    }
+  ]
+}

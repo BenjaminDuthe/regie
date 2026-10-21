@@ -12,8 +12,10 @@ import type { Montages } from '../infra/montages.ts';
 import type { Stockage } from '../infra/stockage.ts';
 import { estWebm, type FichierRecu } from './flux-fichiers.ts';
 import { lancerRendu } from './rendu.ts';
+import { lancerVoix } from './voix.ts';
 
-export type OptionsMontageJeu = Readonly<{ montages: Montages; stockage: Stockage; gabarits: Gabarits; file: File }>;
+/** `voix` : une voix locale est branchée (histoire 4.7) ; le rendu passe alors par la tâche `voix`. */
+export type OptionsMontageJeu = Readonly<{ montages: Montages; stockage: Stockage; gabarits: Gabarits; file: File; voix?: boolean }>;
 
 export type MontageDuJeu = Readonly<{ montageId: string; tacheRenduId: string }> | Readonly<{ refus: 'FILM_INVALIDE' | 'MONTAGE_ECHEC' }>;
 
@@ -49,7 +51,8 @@ export async function creerMontageDuJeu(
       await o.stockage.supprimer(qui.marqueId, filmId);
       return { refus: 'MONTAGE_ECHEC' };
     }
-    const lance = await lancerRendu(o, qui, montage.id, 'allege');
+    const aDire = o.voix === true && timeline.scenes.some((s) => s.voix.trim() !== '');
+    const lance = aDire ? await lancerVoix(o, qui, montage.id) : await lancerRendu(o, qui, montage.id, 'allege');
     if (lance === undefined) return { refus: 'MONTAGE_ECHEC' };
     return { montageId: montage.id, tacheRenduId: lance.tacheId };
   } catch {

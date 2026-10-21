@@ -69,5 +69,7 @@ export async function executer(lignes: AsyncIterable<string>, reglages: Reglages
 }
 
 if (import.meta.main) {
-  await executer(createInterface({ input: process.stdin, crlfDelay: Infinity }));
+  // Même image, deux métiers : `voix` (histoire 4.7) synthétise un texte, sans argument on rend un montage.
+  if (process.argv[2] === 'voix') await (await import('./voix.ts')).principal();
+  else await executer(createInterface({ input: process.stdin, crlfDelay: Infinity }));
 }

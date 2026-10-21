@@ -487,7 +487,7 @@ export class ComptesDemoMemoire implements ComptesDemo {
 
 export type BancDeTest = { montages: MontagesMemoire; stockage: StockageMemoire; journauxJeu: JournauxJeu; scripts: ScriptsMemoire; comptesDemo: ComptesDemoMemoire; services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
 
-export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique'>> = {}): BancDeTest {
+export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique' | 'voixLocale'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
   const sessions = new SessionsMemoire();
   sessions.maintenant = () => horloge.t;
@@ -535,6 +535,7 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     montages,
     stockage,
     journauxJeu: new JournauxJeu(),
+    voixLocale: options.voixLocale,
     maintenant: () => horloge.t,
   };
   return { montages, stockage, journauxJeu: services.journauxJeu, scripts, comptesDemo, services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };

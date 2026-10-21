@@ -39,6 +39,16 @@
       "nom": "FFmpeg 7.x de Debian trixie, avec libx264 et libass (image de rendu, processus séparé)",
       "licence": "GPL-2.0-or-later",
       "source": "https://www.debian.org/distrib/packages#ffmpeg (code source : apt-get source ffmpeg)"
+    },
+    {
+      "nom": "Piper 2023.11.14-2 (synthèse vocale locale, image de rendu, processus séparé)",
+      "licence": "MIT",
+      "source": "https://github.com/rhasspy/piper"
+    },
+    {
+      "nom": "espeak-ng (livré avec Piper, phonétisation, processus séparé)",
+      "licence": "GPL-3.0-or-later",
+      "source": "https://github.com/espeak-ng/espeak-ng"
     }
   ],
   "polices": [
@@ -63,6 +73,12 @@
       "source": "https://github.com/dharmatype/Bebas-Neue"
     }
   ],
-  "modeles": [],
+  "modeles": [
+    {
+      "nom": "fr_FR-gilles-low (voix Piper, voix de synthèse française)",
+      "licence": "CC0-1.0",
+      "source": "https://huggingface.co/rhasspy/piper-voices/tree/main/fr/fr_FR/gilles/low"
+    }
+  ],
   "musiques": []
 }

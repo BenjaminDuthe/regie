@@ -56,5 +56,7 @@ export type Services = Readonly<{
   stockage: Stockage;
   /** Journaux de jeu en direct (histoire 4.5), en mémoire. */
   journauxJeu: JournauxJeu;
+  /** Vrai quand une voix de synthèse locale est branchée (histoire 4.7) : sinon, les vidéos sont rendues sans voix. */
+  voixLocale?: boolean | undefined;
   maintenant: () => number;
 }>;

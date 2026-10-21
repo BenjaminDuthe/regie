@@ -136,3 +136,13 @@ Décisions que le codeur n'a pas à prendre seul (produit, accès, jeton tiers).
 7. **Non vérifié ici** — GPU/VAAPI et image de rendu réelle : le ffmpeg de la machine n'a pas le filtre `ass`, l'essai réel (`REGIE_TEST_FFMPEG`) rend donc sans texte. Reproductibilité à 40 ms et chronométrage de recette : à faire sur la machine cible. `glisse` n'est pas rendu par ffmpeg (traité comme fondu).
 8. **Pas de masquage de mot de passe dans le film** — la saisie du compte de démo apparaît telle quelle dans le rush ; le compte est dédié à la démo (4.3).
 9. **`fichiers.<domaine>`** — relève de l'infrastructure (nginx) : non touché ; l'adresse signée est relative à l'origine du cœur (`/v/session/…`), compatible `media-src 'self'`.
+
+## 4.7 Une voix de synthèse locale
+
+1. **Gilles (CC0) par défaut** — aucun choix humain n'ayant été donné, la voix `fr_FR-gilles-low` est retenue ; rapport de comparaison dans `deploiement/voix-rapport.md`. Tom (AGPL) et upmc (CC-BY-SA) sont exclues.
+2. **Modèle sur le volume `/modeles`, binaire dans l'image** — AD-11 l'emporte sur « dans l'image » : le dossier des modèles est monté en lecture seule (seul volume d'un conteneur), le binaire Piper est dans l'image `rendu`.
+3. **Empreinte du modèle à renseigner** — `modeles.lock` porte `sha256: null` faute de téléchargement autorisé ici ; le cœur refuse de démarrer avec `REGIE_MODELES` tant qu'elle manque (échec fermé, NFR-30). À mesurer au déploiement. L'archive Piper se construit avec `PIPER_SHA256` (vide par défaut, donc build en échec tant qu'il n'est pas donné).
+4. **Un conteneur par scène** — isolation maximale, `--network none` ; Piper (MIT) et espeak-ng (GPL) restent en processus séparé, déclarés dans `licences-tiers.json`.
+5. **Activation** — la voix n'est active que si `REGIE_MODELES` et `REGIE_CAPTURE_SOCKET` sont posés ; sinon le rendu part directement, sans voix. Aucun appel sortant à l'exécution.
+6. **Sous-titres** — le sous-titrage ASS incrusté existe déjà dans le plan de rendu (4.6) ; l'action `montage.soustitres` ne sert que le SRT.
+7. **Pas de réutilisation entre versions** — une nouvelle version de timeline refait toutes les voix (simple et sûr) ; à l'intérieur d'une même version, une tâche rejouée ne redit pas les scènes déjà dites.

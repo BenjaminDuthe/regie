@@ -3,6 +3,7 @@
 // puis confie le reste au handler d'Astro en mode middleware, par @fastify/middie.
 
 import { randomBytes } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import Fastify, { type FastifyInstance } from 'fastify';
 import middie from '@fastify/middie';
@@ -40,6 +41,7 @@ import { creerExecutantCapture, LanceurPodman, RESEAU_CAPTURE } from './services
 import { MontagesPg } from './infra/montages.ts';
 import { StockageDisque } from './infra/stockage.ts';
 import { creerExecutantRendu, LanceurRenduConteneur } from './services/rendu.ts';
+import { creerExecutantVoix, ErreurModeles, lireModelesLock, modeleDeVoix, MoteurVoixConteneur } from './services/voix.ts';
 import { creerExecutantTestConnexion } from './services/test-connexion.ts';
 import { PasserelleSecretsCoffre, lecteurCoffre } from './services/passerelle-secrets.ts';
 import { Travailleur } from './services/travailleur.ts';
@@ -56,6 +58,9 @@ type HandlerAstro = (
 
 const RACINE_CLIENT = fileURLToPath(new URL('../dist/client/', import.meta.url));
 const ENTREE_SERVEUR = new URL('../dist/server/entry.mjs', import.meta.url).href;
+
+/** La voix locale (histoire 4.7) a besoin des modèles et de Podman ; sinon, pas de voix. */
+const voixBranchee = (): boolean => env.REGIE_MODELES !== undefined && env.REGIE_CAPTURE_SOCKET !== undefined;
 
 /** Services de production : base, coffre et Authentik (si configuré). */
 export function construireServices(contexte: Contexte): Services {
@@ -83,6 +88,7 @@ export function construireServices(contexte: Contexte): Services {
     stockage: new StockageDisque(env.REGIE_DONNEES),
     comptesDemo: new ComptesDemoPg(contexte.pool, contexte.coffre),
     journauxJeu: new JournauxJeu(),
+    voixLocale: voixBranchee(),
     maintenant: Date.now,
   };
 }
@@ -211,6 +217,16 @@ if (import.meta.main) {
     }
     throw erreur;
   }
+  // Voix locale (histoire 4.7) : le lock doit être lisible, sans empreinte manquante, et nommer la voix retenue (NFR-30).
+  let modeleVoix: { fichier: string; sha256: string } | undefined;
+  if (voixBranchee()) {
+    try {
+      modeleVoix = modeleDeVoix(lireModelesLock(await readFile(env.REGIE_MODELES_LOCK, 'utf8')), env.REGIE_VOIX);
+    } catch (erreur) {
+      process.stderr.write(`regie refuse de démarrer (modèles). ${erreur instanceof ErreurModeles ? erreur.message : 'modeles.lock illisible'}\n`);
+      process.exit(1);
+    }
+  }
   const services = construireServices(contexte);
   const app = await construireServeur({ contexte, services });
   // Ordre de démarrage (AR-15) : le serveur écoute, puis la file (application des résultats laissés par un arrêt, puis
@@ -232,9 +248,19 @@ if (import.meta.main) {
               reseau: 'none',
               ressources: { memoire: '4g', tmpfs: '2g', cpus: 4, ...(env.REGIE_RENDU_ENCODEUR === 'h264_vaapi' ? { peripherique: '/dev/dri/renderD128' } : {}) },
             }));
+            // La voix : même image que le rendu, sans réseau, avec le seul volume des modèles, en lecture seule.
+            const moteurVoix = modeleVoix === undefined || env.REGIE_MODELES === undefined ? undefined : new MoteurVoixConteneur(new LanceurPodman({
+              socket: env.REGIE_CAPTURE_SOCKET,
+              image: env.REGIE_RENDU_IMAGE,
+              reseau: 'none',
+              commande: ['voix'],
+              modeles: env.REGIE_MODELES,
+              ressources: { memoire: '2g', tmpfs: '256m', cpus: 2 },
+            }), modeleVoix);
             return {
+              ...(moteurVoix === undefined ? {} : { voix: creerExecutantVoix({ montages: services.montages, stockage: services.stockage, moteur: moteurVoix, file: services.file }) }),
               rendu: creerExecutantRendu({ montages: services.montages, stockage: services.stockage, lanceur: lanceurRendu, encodeur: env.REGIE_RENDU_ENCODEUR }),
-              jeu_script: creerExecutantJeuScript({ applications: services.applications, scripts: services.scripts, passerelle, lanceur, journaux: services.journauxJeu, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY, montage: { montages: services.montages, stockage: services.stockage, gabarits: services.gabarits, file: services.file } }),
+              jeu_script: creerExecutantJeuScript({ applications: services.applications, scripts: services.scripts, passerelle, lanceur, journaux: services.journauxJeu, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY, montage: { montages: services.montages, stockage: services.stockage, gabarits: services.gabarits, file: services.file, voix: moteurVoix !== undefined } }),
               exploration: creerExecutantExploration({ applications: services.applications, lanceur, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
               capture: creerExecutantCapture({ applications: services.applications, lanceur, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
               test_connexion: creerExecutantTestConnexion({

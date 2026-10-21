@@ -71,6 +71,11 @@ const schema = z.object({
   REGIE_DONNEES: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu').default('/var/lib/regie/fichiers'),
   REGIE_RENDU_IMAGE: z.string().regex(/^[\w./:@-]{1,200}$/, 'doit être un nom d’image').default('localhost/regie-rendu:local'),
   REGIE_RENDU_ENCODEUR: z.enum(['libx264', 'h264_vaapi']).default('libx264'),
+  // Voix de synthèse locale (histoire 4.7). Sans REGIE_MODELES (dossier des modèles, monté en lecture seule dans le
+  // conteneur de voix), il n'y a pas de voix : les vidéos sont rendues sans voix. Le lock donne l'empreinte du modèle.
+  REGIE_MODELES: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu').optional(),
+  REGIE_MODELES_LOCK: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu').default('/etc/regie/modeles.lock'),
+  REGIE_VOIX: z.string().regex(/^[\w.-]{1,80}$/, 'doit être le nom d’une voix de modeles.lock').default('fr_FR-gilles-low'),
 }).superRefine((valeurs, contexte) => {
   const adresseSure = (valeur: string) => {
     const url = new URL(valeur);
@@ -132,6 +137,9 @@ export function lireEnvironnement(source: Readonly<Record<string, string | undef
     REGIE_DONNEES: source['REGIE_DONNEES'] || undefined,
     REGIE_RENDU_IMAGE: source['REGIE_RENDU_IMAGE'] || undefined,
     REGIE_RENDU_ENCODEUR: source['REGIE_RENDU_ENCODEUR'] || undefined,
+    REGIE_MODELES: source['REGIE_MODELES'] || undefined,
+    REGIE_MODELES_LOCK: source['REGIE_MODELES_LOCK'] || undefined,
+    REGIE_VOIX: source['REGIE_VOIX'] || undefined,
   });
   if (!resultat.success) {
     throw new ErreurEnvironnement(

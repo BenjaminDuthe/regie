@@ -33,6 +33,10 @@ export type ReglagesPodman = Readonly<{
   reseau: string;
   /** Ressources du conteneur ; par défaut celles d'une capture. Le rendu en demande plus et peut recevoir le GPU. */
   ressources?: Readonly<{ memoire: string; tmpfs: string; cpus: number; peripherique?: string }>;
+  /** Arguments de l'entrée de l'image (ex. `voix`, histoire 4.7) ; mots simples, sans espace. */
+  commande?: readonly string[];
+  /** Dossier des modèles de voix, monté en LECTURE SEULE sur /modeles (le seul volume que reçoit un conteneur, AD-11). */
+  modeles?: string;
 }>;
 
 const RESSOURCES_CAPTURE: NonNullable<ReglagesPodman['ressources']> = Object.freeze({ memoire: '1g', tmpfs: '256m', cpus: 2 });
@@ -44,7 +48,7 @@ export const PREFIXE_FILM = '{"film":';
 const LIGNE_MAX_CARACTERES = 200_000;
 
 /**
- * Arguments de `podman` : fonction pure, testée. Aucun volume, aucun privilège, aucun périphérique (sauf le GPU du rendu, si demandé) ; racine en
+ * Arguments de `podman` : fonction pure, testée. Aucun volume (sauf les modèles de voix, en lecture seule), aucun privilège, aucun périphérique (sauf le GPU du rendu, si demandé) ; racine en
  * lecture seule ; réseau interne sans DNS. Rien de secret : le laissez-passer arrive par l'entrée standard.
  */
 export function argumentsPodman(r: ReglagesPodman, nom: string, delaiS: number): string[] {
@@ -74,7 +78,9 @@ export function argumentsPodman(r: ReglagesPodman, nom: string, delaiS: number):
     '--timeout', String(delaiS),
     '--log-driver', 'none',
     '--user', '1000:1000',
+    ...(r.modeles !== undefined ? ['--volume', `${r.modeles}:/modeles:ro,nosuid,nodev,noexec`] : []),
     r.image,
+    ...(r.commande ?? []),
   ];
 }
 

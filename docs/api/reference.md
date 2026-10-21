@@ -2184,6 +2184,84 @@ Corps de la demande (schéma JSON) :
 }
 ```
 
+## `montage.soustitres`
+
+Donne les sous-titres d’un montage, tirés du texte de voix de chaque scène : les repères (scène, début, fin, texte) et le fichier SRT à télécharger.
+
+- API : `POST /api/v1/montage/soustitres` · outil MCP : `montage_soustitres`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `montage.definirvoix`
+
+Change le texte de voix de scènes (500 caractères au plus ; vide = la scène ne parle pas). Crée une NOUVELLE version du montage (l’ancienne ne change pas) à partir de la dernière version, puis met en file la voix de synthèse locale et le rendu : les sous-titres suivent le texte. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).
+
+- API : `POST /api/v1/montage/definirvoix` · outil MCP : `montage_definirvoix`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "voix": {
+      "minItems": 1,
+      "maxItems": 40,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sceneId": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,32}$"
+          },
+          "texte": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "sceneId",
+          "texte"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "id",
+    "voix"
+  ],
+  "additionalProperties": false
+}
+```
+
 ## `rendu.lire`
 
 Lit un rendu : son état, la progression de sa tâche, la cause d’un échec, et, pour un rendu bloqué, chaque violation des gardes (scène, élément, mesure, seuil).

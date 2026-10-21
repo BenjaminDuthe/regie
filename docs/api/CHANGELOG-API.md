@@ -77,5 +77,7 @@ registre y figure (`coeur/test/api.test.ts`).
 
 - Ajout de `montage.lister` (lecture) : tes vidéos, la dernière version de chaque montage (script d’origine, gabarit, durée), la plus récente d’abord.
 - Ajout de `montage.lire` (lecture) : un montage avec sa timeline, le gabarit figé à sa création, ses rendus (état, violations des gardes avec mesure et seuil) et les autres versions de la série. `MONTAGE_INTROUVABLE` (404).
+- Ajout de `montage.soustitres` (lecture) : les sous-titres d’un montage tirés du texte de voix (repères et fichier SRT). `MONTAGE_INTROUVABLE` (404).
+- Ajout de `montage.definirvoix` (écriture) : change le texte de voix de scènes, crée une nouvelle version du montage et met en file la voix locale puis le rendu. `MONTAGE_VERSION_PERIMEE` (409), `SCENE_INTROUVABLE` (404).
 - Ajout de `rendu.lire` (lecture) : un rendu, sa progression et, s’il est bloqué, ses violations. `RENDU_INTROUVABLE` (404).
 - Ajout de `rendu.adresse` (lecture) : l’adresse signée (moins d’une heure) de la vidéo d’un rendu, servie sous `/v/session/…`. Un rendu bloqué reste lisible, marqué `bloque`. `RENDU_PAS_PRET` (409) pour un rendu en file, en cours ou en échec.
