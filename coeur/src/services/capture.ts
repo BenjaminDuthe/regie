@@ -144,11 +144,11 @@ export type OptionsExecutantCapture = Readonly<{
   maintenant?: () => number;
 }>;
 
-const VIEWPORT = Object.freeze({ largeur: 360, hauteur: 640 });
-const DELAI_CAPTURE_MS = 60_000;
-const DUREE_LAISSEZ_PASSER_S = 300;
+export const VIEWPORT = Object.freeze({ largeur: 360, hauteur: 640 });
+export const DELAI_CAPTURE_MS = 60_000;
+export const DUREE_LAISSEZ_PASSER_S = 300;
 
-function hoteDeAccueil(accueil: string): string | undefined {
+export function hoteDeAccueil(accueil: string): string | undefined {
   try {
     const u = new URL(accueil);
     return u.protocol === 'https:' ? u.hostname.toLowerCase() : undefined;

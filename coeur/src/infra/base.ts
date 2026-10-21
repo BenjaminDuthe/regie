@@ -120,6 +120,46 @@ export async function lireSecret(pool: PoolType, coffre: Coffre, marqueId: strin
 }
 
 /**
+ * Remplace le secret `(type, nom)` d'une marque, ou le crée. Le remplacement GARDE l'identifiant du secret : il fait
+ * partie des données authentifiées du chiffrement (AAD), un nouvel identifiant rendrait l'ancien chiffré illisible.
+ */
+export async function remplacerSecret(
+  pool: PoolType,
+  coffre: Coffre,
+  secret: Readonly<{ marqueId: string; type: string; nom: string; clair: string }>,
+): Promise<void> {
+  await dansTransactionMarque(pool, secret.marqueId, async (client) => {
+    const { rows } = await client.query<{ id: string }>('SELECT id FROM secrets WHERE type = $1 AND nom = $2 FOR UPDATE', [secret.type, secret.nom]);
+    const existant = rows[0]?.id;
+    const secretId = existant ?? randomUUID();
+    const chiffre = coffre.chiffrer(secret.clair, { secretId, marqueId: secret.marqueId, type: secret.type });
+    if (existant === undefined) {
+      await client.query('INSERT INTO secrets (id, marque_id, type, nom, chiffre) VALUES ($1, $2, $3, $4, $5)', [secretId, secret.marqueId, secret.type, secret.nom, chiffre]);
+    } else {
+      await client.query('UPDATE secrets SET chiffre = $1, modifie_le = now() WHERE id = $2', [chiffre, secretId]);
+    }
+  });
+}
+
+/** Lit un secret par son type et son nom ; `undefined` s'il n'existe pas pour cette marque. */
+export async function lireSecretParNom(pool: PoolType, coffre: Coffre, marqueId: string, type: string, nom: string): Promise<string | undefined> {
+  return dansTransactionMarque(pool, marqueId, async (client) => {
+    const { rows } = await client.query<{ id: string; chiffre: Buffer }>('SELECT id, chiffre FROM secrets WHERE type = $1 AND nom = $2', [type, nom]);
+    const ligne = rows[0];
+    if (ligne === undefined) return undefined;
+    return coffre.dechiffrer(ligne.chiffre, { secretId: ligne.id, marqueId, type }).toString('utf8');
+  });
+}
+
+/** Date du dernier dépôt d'un secret, sans jamais le déchiffrer. */
+export async function dateSecret(pool: PoolType, marqueId: string, type: string, nom: string): Promise<Date | undefined> {
+  return dansTransactionMarque(pool, marqueId, async (client) => {
+    const { rows } = await client.query<{ modifie_le: Date }>('SELECT modifie_le FROM secrets WHERE type = $1 AND nom = $2', [type, nom]);
+    return rows[0]?.modifie_le;
+  });
+}
+
+/**
  * Rotation de la clé maîtresse : rechiffre tous les secrets (et le témoin) dans une seule transaction.
  * Un échec sur un secret annule tout : aucun secret n'est perdu ni laissé sous deux clés.
  * Rend le nombre de secrets rechiffrés.

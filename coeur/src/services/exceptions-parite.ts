@@ -6,4 +6,5 @@ import type { ExceptionParite } from './registre.ts';
 
 export const EXCEPTIONS_PARITE: readonly ExceptionParite[] = Object.freeze([
   { action: 'jeton.creer', raison: 'un jeton ne se crée pas avec un jeton : la création exige ta connexion récente à Authentik (AD-15)' },
+  { action: 'compte.deposer', raison: 'un identifiant et un mot de passe ne se saisissent que dans l’interface, après une connexion récente à Authentik : aucun outil ni point d’API ne peut les déposer ni les lire (AD-9)' },
 ]);

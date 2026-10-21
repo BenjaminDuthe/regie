@@ -47,3 +47,9 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `application.lister` (lecture) : tes applications à filmer, avec leur adresse d’accueil et la liste stricte de leurs hôtes autorisés.
 - Ajout de `application.declarer` (écriture) : déclare une application (nom, adresse d’accueil https, hôtes). Aucun joker, aucune adresse IP, aucun nom local ; `HOTE_REFUSE` (422) nomme l’hôte fautif. Pas de preuve de contrôle du domaine en V1.
 - Ajout de `application.modifier` (écriture) : remplace nom, adresse d’accueil et hôtes ; la version monte.
+
+## 2026-10-21 — histoire 4.3
+
+- Ajout de `compte.etat` (lecture) : dit si le compte de démonstration d’une application est déposé et depuis quand, jamais l’identifiant ni le mot de passe.
+- Ajout de `compte.tester` (écriture) : lance un test de connexion dans la capture isolée et rend la tâche à suivre (`tache.lire`) ; le résultat est une mini capture de l’accueil connecté, ou l’étape qui a échoué. `COMPTE_ABSENT` (409) si rien n’est déposé.
+- `compte.deposer` existe pour l’interface seulement (raison dans `coeur/src/services/exceptions-parite.ts`) : aucun outil ni point d’API ne dépose, remplace ni ne lit un compte.

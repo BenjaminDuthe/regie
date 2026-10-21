@@ -8,11 +8,17 @@ export type DemandeCapture = Readonly<{
   proxy: Readonly<{ serveur: string; laissezPasser: string }>;
   viewport: Readonly<{ largeur: number; hauteur: number }>;
   delaiMs: number;
+  /** Présent seulement pour un essai de connexion (histoire 4.3). Jamais écrit, jamais journalisé. */
+  compte?: Readonly<{ identifiant: string; motDePasse: string }>;
 }>;
+
+export const ETAPES_CONNEXION = ['ouvrir', 'trouver', 'saisir', 'valider'] as const;
+export type EtapeConnexion = (typeof ETAPES_CONNEXION)[number];
 
 export type ResultatCapture =
   | Readonly<{ ok: true; hote: string; titre: string; miniature: string }>
-  | Readonly<{ ok: false; cause: 'HOTE_REFUSE' | 'PAGE_INJOIGNABLE' | 'CAPTURE_ECHEC'; hote?: string }>;
+  | Readonly<{ ok: false; cause: 'HOTE_REFUSE' | 'PAGE_INJOIGNABLE' | 'CAPTURE_ECHEC'; hote?: string }>
+  | Readonly<{ ok: false; cause: 'CONNEXION_ECHEC'; etape: EtapeConnexion }>;
 
 const entier = (x: unknown, min: number, max: number): x is number => typeof x === 'number' && Number.isInteger(x) && x >= min && x <= max;
 
@@ -33,7 +39,18 @@ export function lireDemande(brut: string): DemandeCapture {
     throw new Error('demande de capture invalide');
   }
   if (!/^http:\/\/\d{1,3}(?:\.\d{1,3}){3}:\d{1,5}$/.test(proxy['serveur'])) throw new Error('le proxy doit être une adresse IPv4 avec port');
+  let compte: DemandeCapture['compte'];
+  if (d['mode'] === 'connexion') {
+    const c = d['compte'] as Record<string, unknown> | undefined;
+    if (typeof c?.['identifiant'] !== 'string' || typeof c['motDePasse'] !== 'string' || c['identifiant'] === '' || c['motDePasse'] === '' || c['identifiant'].length > 200 || c['motDePasse'].length > 500) {
+      throw new Error('demande de connexion invalide');
+    }
+    compte = { identifiant: c['identifiant'], motDePasse: c['motDePasse'] };
+  } else if (d['mode'] !== undefined || d['compte'] !== undefined) {
+    throw new Error('demande de capture invalide');
+  }
   return {
+    ...(compte !== undefined ? { compte } : {}),
     url: d['url'],
     hotes: d['hotes'] as string[],
     proxy: { serveur: proxy['serveur'], laissezPasser: proxy['laissezPasser'] },

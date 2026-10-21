@@ -16,6 +16,7 @@ import { calculerSante } from './infra/sante.ts';
 import { AuditPg } from './infra/audit.ts';
 import { EspacesPg } from './infra/espaces.ts';
 import { ApplicationsPg } from './infra/applications.ts';
+import { ComptesDemoPg } from './infra/comptes-demo.ts';
 import { GabaritsPg } from './infra/gabarits.ts';
 import { JetonsApiPg } from './infra/jetons.ts';
 import { NotificationsPg } from './infra/notifications.ts';
@@ -32,6 +33,8 @@ import { enregistrerRoutesFlux, type OptionsFlux } from './flux/routes.ts';
 import type { Services } from './auth/services.ts';
 import { EXECUTANTS } from './services/executants.ts';
 import { creerExecutantCapture, LanceurPodman, RESEAU_CAPTURE } from './services/capture.ts';
+import { creerExecutantTestConnexion } from './services/test-connexion.ts';
+import { PasserelleSecretsCoffre, lecteurCoffre } from './services/passerelle-secrets.ts';
 import { Travailleur } from './services/travailleur.ts';
 import { EcheancesPg } from './infra/echeances.ts';
 import { Planificateur } from './services/planificateur.ts';
@@ -68,6 +71,7 @@ export function construireServices(contexte: Contexte): Services {
     notifications: new NotificationsPg(contexte.pool),
     gabarits: new GabaritsPg(contexte.pool),
     applications: new ApplicationsPg(contexte.pool),
+    comptesDemo: new ComptesDemoPg(contexte.pool, contexte.coffre),
     maintenant: Date.now,
   };
 }
@@ -121,6 +125,7 @@ function servicesSansBase(): Services {
     notifications: { creer: refus, lister: async () => [], acquitter: async () => false },
     gabarits: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus },
     applications: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus },
+    comptesDemo: { remplacer: refus, etat: async () => ({ depose: false, modifieLe: undefined }) },
     maintenant: Date.now,
   };
 }
@@ -189,23 +194,29 @@ if (import.meta.main) {
   const app = await construireServeur({ contexte, services });
   // Ordre de démarrage (AR-15) : le serveur écoute, puis la file (application des résultats laissés par un arrêt, puis
   // reprise et prise des tâches). Le planificateur d'échéances vient en dernier (histoire 2.2).
+  const nomService = `coeur-${process.pid}`;
   const travailleur = new Travailleur({
     file: services.file,
     marques: () => services.marques.lister(),
     executants: {
       ...EXECUTANTS,
       ...(env.REGIE_CAPTURE_SOCKET !== undefined && contexte.cleCapture !== undefined
-        ? {
-            capture: creerExecutantCapture({
-              applications: services.applications,
-              lanceur: new LanceurPodman({ socket: env.REGIE_CAPTURE_SOCKET, image: env.REGIE_CAPTURE_IMAGE, reseau: RESEAU_CAPTURE }),
-              cle: contexte.cleCapture,
-              proxy: env.REGIE_CAPTURE_PROXY,
-            }),
-          }
+        ? (() => {
+            const lanceur = new LanceurPodman({ socket: env.REGIE_CAPTURE_SOCKET, image: env.REGIE_CAPTURE_IMAGE, reseau: RESEAU_CAPTURE });
+            return {
+              capture: creerExecutantCapture({ applications: services.applications, lanceur, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
+              test_connexion: creerExecutantTestConnexion({
+                applications: services.applications,
+                passerelle: new PasserelleSecretsCoffre({ file: services.file, service: nomService, lecteur: lecteurCoffre(contexte.pool, contexte.coffre) }),
+                lanceur,
+                cle: contexte.cleCapture,
+                proxy: env.REGIE_CAPTURE_PROXY,
+              }),
+            };
+          })()
         : {}),
     },
-    service: `coeur-${process.pid}`,
+    service: nomService,
     journal: app.log,
   });
   const planificateur = new Planificateur({

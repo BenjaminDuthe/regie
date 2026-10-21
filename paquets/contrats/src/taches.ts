@@ -34,6 +34,9 @@ export const TACHES: Readonly<Record<string, DefinitionTache>> = Object.freeze({
   montage: def({ type: 'montage', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 1800, tentativesMax: 3, dureeTypiqueS: 300 }),
   rendu: def({ type: 'rendu', classe: 'interactive', gpu: true, reprise: 'permise', delaiGardeS: 900, tentativesMax: 3, dureeTypiqueS: 240 }),
   capture: def({ type: 'capture', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 900, tentativesMax: 3, dureeTypiqueS: 60 }),
+  // Essai de connexion au compte de démonstration, dans la capture isolée. Un essai raté peut verrouiller le compte :
+  // une seule tentative, jamais rejouée seule.
+  test_connexion: def({ type: 'test_connexion', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 300, tentativesMax: 1, dureeTypiqueS: 30 }),
   voix: def({ type: 'voix', classe: 'lot', gpu: true, reprise: 'permise', delaiGardeS: 600, tentativesMax: 3, dureeTypiqueS: 90 }),
   // Un appel vers un réseau social a un effet extérieur : jamais rejoué sans décision.
   reseau: def({ type: 'reseau', classe: 'lot', gpu: false, reprise: 'interdite', delaiGardeS: 600, tentativesMax: 1, dureeTypiqueS: 15 }),

@@ -4,8 +4,10 @@
 // Les enregistrements passent par les mêmes actions que l'API et le MCP (`application.declarer`, `application.modifier`).
 // Grille : 1 colonne à 360 px, 2 à 900 px, 3 à 1240 px ; l'en-tête collant est celui de la mise en page commune.
 import chaines from '../chaines.json' with { type: 'json' };
+import { exigerAuthRecente } from '../auth/auth-recente.ts';
 import Base from '../mises-en-page/Base.astro';
 import { applicationDeclarer, applicationLister, applicationModifier } from '../services/actions-application.ts';
+import { compteDeposer, compteEtat, compteTester } from '../services/actions-compte.ts';
 import { contexteInterface } from '../services/contextes.ts';
 import { ErreurMetier } from '../services/erreurs.ts';
 import { executerAction } from '../services/registre.ts';
@@ -25,10 +27,24 @@ type Vue = { id: string; espaceId: string; nom: string; accueil: string; hotes: 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const champ = (nom: string): string => (typeof form.get(nom) === 'string' ? (form.get(nom) as string) : '');
+  const geste = champ('geste');
   const hotes = champ('hotes').split(/[\s,;]+/).filter((h) => h !== '');
   brouillon = { id: champ('id'), nom: champ('nom'), accueil: champ('accueil'), hotes: champ('hotes'), espaceId: champ('espaceId') };
   try {
-    if (champ('geste') === 'modifier') await executerAction(ctx, applicationModifier, { id: brouillon.id, nom: brouillon.nom, accueil: brouillon.accueil, hotes });
+    if (geste === 'compte') {
+      // Saisir un identifiant et un mot de passe exige une connexion de moins de 10 minutes (AD-15). Rien n'est gardé
+      // du formulaire : après la réauthentification, la personne ressaisit.
+      const aRefaire = exigerAuthRecente(session, '/demos');
+      if (aRefaire !== undefined) return Astro.redirect(aRefaire, 303);
+      if (champ('identifiant').trim() === '' || champ('motDePasse') === '') throw new ErreurMetier('ENTREE_INVALIDE', 400, { champs: t.compte.champsRequis });
+      await executerAction(ctx, compteDeposer, { applicationId: champ('id'), identifiant: champ('identifiant'), motDePasse: champ('motDePasse') });
+      return Astro.redirect('/demos?compte=1', 303);
+    }
+    if (geste === 'tester') {
+      const lancee = (await executerAction(ctx, compteTester, { applicationId: champ('id') })) as { tacheId: string };
+      return Astro.redirect(`/demos?test=${lancee.tacheId}`, 303);
+    }
+    if (geste === 'modifier') await executerAction(ctx, applicationModifier, { id: brouillon.id, nom: brouillon.nom, accueil: brouillon.accueil, hotes });
     else await executerAction(ctx, applicationDeclarer, { espaceId: brouillon.espaceId, nom: brouillon.nom, accueil: brouillon.accueil, hotes });
     return Astro.redirect('/demos?ok=1', 303);
   } catch (e) {
@@ -39,6 +55,15 @@ if (Astro.request.method === 'POST') {
 
 // L'affichage n'est pas une action (rien n'est écrit au journal) : la liste est lue directement.
 const { applications } = (await applicationLister.executer(ctx, {})) as { applications: Vue[] };
+// État du compte de chaque application (jamais son contenu) et, après « Tester », la tâche suivie.
+const comptes = new Map(await Promise.all(applications.map(async (a) => [a.id, (await compteEtat.executer(ctx, { applicationId: a.id })) as { depose: boolean; modifieLe: string | null }] as const)));
+const formatDate = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' });
+const idTest = Astro.url.searchParams.get('test') ?? '';
+const tacheTest = /^[0-9a-f-]{36}$/.test(idTest) ? await services.file.lire(session.marqueId, ctx.utilisateurId, idTest) : undefined;
+const testDe = tacheTest?.type === 'test_connexion' ? String(tacheTest.entree['applicationId'] ?? '') : '';
+const resultatTest = tacheTest?.resultat as { hote?: unknown; titre?: unknown; miniature?: unknown } | undefined;
+const miniature = typeof resultatTest?.miniature === 'string' && /^[A-Za-z0-9+/]+={0,2}$/.test(resultatTest.miniature) ? resultatTest.miniature : undefined;
+const causeTest = tacheTest?.cause === undefined ? undefined : ((chaines.taches.causes as Record<string, string>)[tacheTest.cause] ?? t.compte.testEchoue);
 const espaces = Astro.locals.espaces ?? [];
 const actif = Astro.locals.espaceActif;
 const libelle = (e: { genre: string; nom: string }): string => (e.genre === 'personnel' ? chaines.espaces.personnel : chaines.espaces.marque.replace('{nom}', e.nom));
@@ -50,6 +75,7 @@ const enregistree = Astro.url.searchParams.get('ok') === '1';
   <p class="intro">{t.intro}</p>
   <p class="doux">{t.sansPreuve}</p>
   {enregistree && <p class="succes" role="status">{t.enregistree}</p>}
+  {Astro.url.searchParams.get('compte') === '1' && <p class="succes" role="status">{t.compte.enregistre}</p>}
   {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
 
   {applications.length === 0 && <p class="doux">{t.vide}</p>}
@@ -73,6 +99,40 @@ const enregistree = Astro.url.searchParams.get('ok') === '1';
               <button type="submit" class="bouton">{f.enregistrer}</button>
             </form>
           </details>
+          <section aria-label={t.compte.titre} id={`compte-${a.id}`}>
+            <h3>{t.compte.titre}</h3>
+            <p class="doux">{comptes.get(a.id)?.depose === true ? t.compte.depose.replace('{date}', formatDate.format(new Date(comptes.get(a.id)!.modifieLe!))) : t.compte.aucun}</p>
+            <details>
+              <summary>{comptes.get(a.id)?.depose === true ? t.compte.remplacer : t.compte.deposer}</summary>
+              <form method="post" action="/demos" class="choix">
+                <input type="hidden" name="geste" value="compte" />
+                <input type="hidden" name="id" value={a.id} />
+                <label>{t.compte.identifiant}<input type="text" name="identifiant" autocomplete="off" maxlength="200" required /></label>
+                <label>{t.compte.motDePasse}<input type="password" name="motDePasse" autocomplete="new-password" maxlength="500" required /></label>
+                <p class="doux">{t.compte.aide}</p>
+                <button type="submit" class="bouton">{comptes.get(a.id)?.depose === true ? t.compte.remplacer : t.compte.deposer}</button>
+              </form>
+            </details>
+            {
+              comptes.get(a.id)?.depose === true && (
+                <form method="post" action="/demos" class="choix">
+                  <input type="hidden" name="geste" value="tester" />
+                  <input type="hidden" name="id" value={a.id} />
+                  <button type="submit" class="bouton">{t.compte.tester}</button>
+                </form>
+              )
+            }
+            {
+              testDe === a.id && tacheTest !== undefined && (
+                <div class="test-connexion" role="status">
+                  {(tacheTest.etat === 'prete' || tacheTest.etat === 'en_cours') && <p>{t.compte.testEnCours} <a href={`/demos?test=${tacheTest.id}`}>{t.compte.testActualiser}</a></p>}
+                  {tacheTest.etat === 'terminee' && <p>{t.compte.testReussi.replace('{hote}', String(resultatTest?.hote ?? '')).replace('{titre}', String(resultatTest?.titre ?? ''))}</p>}
+                  {miniature !== undefined && tacheTest.etat === 'terminee' && <img src={`data:image/png;base64,${miniature}`} alt={t.compte.testApercu} width="180" />}
+                  {(tacheTest.etat === 'echouee' || tacheTest.etat === 'annulee') && <p class="probleme">{causeTest ?? t.compte.testEchoue}</p>}
+                </div>
+              )
+            }
+          </section>
           <p class="doux">{t.version.replace('{version}', String(a.version))}</p>
         </li>
       ))

@@ -3,6 +3,7 @@
 
 import type { Applications } from '../infra/applications.ts';
 import type { Audit } from '../infra/audit.ts';
+import type { ComptesDemo } from '../infra/comptes-demo.ts';
 import type { Coffre } from '../infra/coffre.ts';
 import type { Espaces } from '../infra/espaces.ts';
 import type { File } from '../infra/file.ts';
@@ -41,5 +42,7 @@ export type Services = Readonly<{
   gabarits: Gabarits;
   /** Applications à filmer et leurs hôtes autorisés (histoire 4.1). */
   applications: Applications;
+  /** Compte de démonstration de chaque application, au coffre (histoire 4.3). */
+  comptesDemo: ComptesDemo;
   maintenant: () => number;
 }>;

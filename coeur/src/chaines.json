@@ -177,7 +177,8 @@
     "APPLICATION_NOM_PRIS": "Une application s’appelle déjà « {nom} » dans cet espace : choisis un autre nom.",
     "ACCUEIL_REFUSE": "L’adresse d’accueil n’est pas acceptée : elle doit commencer par https:// et viser un nom de domaine public, sans identifiants ni port.",
     "HOTE_REFUSE": "L’hôte « {hote} » est refusé : {cause}",
-    "HOTES_TROP_NOMBREUX": "Une application ne peut pas déclarer plus de {max} hôtes."
+    "HOTES_TROP_NOMBREUX": "Une application ne peut pas déclarer plus de {max} hôtes.",
+    "COMPTE_ABSENT": "Aucun compte de démonstration n’est déposé pour cette application : dépose-le d’abord dans Démos d’app."
   },
   "jetons": {
     "titre": "Jetons d’API",
@@ -321,7 +322,8 @@
       "rendu": "Rendu de la vidéo",
       "capture": "Capture",
       "voix": "Voix",
-      "reseau": "Publication"
+      "reseau": "Publication",
+      "test_connexion": "Test de connexion"
     },
     "position": {
       "enCours": "En cours maintenant",
@@ -342,7 +344,14 @@
       "APPLICATION_INTROUVABLE": "L’application à filmer n’existe plus.",
       "HOTE_REFUSE": "La page demandée sort de la liste des hôtes déclarés pour cette application.",
       "PAGE_INJOIGNABLE": "La page d’accueil de l’application ne répond pas.",
-      "CAPTURE_ECHEC": "Le navigateur de capture n’a pas pu terminer."
+      "CAPTURE_ECHEC": "Le navigateur de capture n’a pas pu terminer.",
+      "SECRET_REFUSE": "Le coffre a refusé de livrer le compte à cette tâche.",
+      "COMPTE_ABSENT": "Aucun compte de démonstration n’est déposé pour cette application.",
+      "CONNEXION_ECHEC": "La connexion à l’application a échoué.",
+      "CONNEXION_ETAPE_OUVRIR": "Connexion échouée à l’étape « ouvrir la page » : la page d’accueil ne s’ouvre pas.",
+      "CONNEXION_ETAPE_TROUVER": "Connexion échouée à l’étape « trouver le formulaire » : la page n’a pas de champ identifiant et mot de passe.",
+      "CONNEXION_ETAPE_SAISIR": "Connexion échouée à l’étape « saisir » : un champ du formulaire refuse la saisie.",
+      "CONNEXION_ETAPE_VALIDER": "Connexion échouée à l’étape « valider » : le formulaire est resté affiché. Vérifie l’identifiant et le mot de passe."
     },
     "actions": {
       "relancer": "Tu peux la relancer.",
@@ -462,6 +471,25 @@
       "FORME": "ce n’est pas un nom de domaine (ni port, ni chemin, ni identifiants).",
       "ADRESSE_IP": "les adresses IP ne sont pas permises : déclare un nom de domaine.",
       "LOCAL": "ce nom désigne un réseau privé ou local, jamais un site public."
+    },
+    "compte": {
+      "titre": "Compte de démonstration",
+      "aucun": "Aucun compte déposé.",
+      "depose": "Compte déposé le {date}.",
+      "aide": "L’identifiant et le mot de passe sont chiffrés au coffre. Ils ne sont jamais réaffichés, ni lus par Claude : tu peux seulement les remplacer.",
+      "deposer": "Déposer le compte",
+      "remplacer": "Remplacer le compte",
+      "identifiant": "Identifiant",
+      "motDePasse": "Mot de passe",
+      "enregistre": "Compte enregistré au coffre.",
+      "tester": "Tester la connexion",
+      "testLance": "Test de connexion lancé.",
+      "testEnCours": "Test de connexion en cours…",
+      "testActualiser": "Actualiser",
+      "testReussi": "Connexion réussie sur {hote} : « {titre} ».",
+      "testEchoue": "Test de connexion échoué.",
+      "testApercu": "Mini capture de l’accueil après connexion",
+      "champsRequis": "L’identifiant et le mot de passe sont tous deux nécessaires."
     }
   }
 }

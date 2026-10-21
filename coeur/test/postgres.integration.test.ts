@@ -11,6 +11,9 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { lireEnvironnement } from '../src/env.ts';
 import { dansTransactionMarque, dansTransactionUtilisateur, deposerSecret, lireSecret, pivoterCleMaitresse } from '../src/infra/base.ts';
 import { Coffre } from '../src/infra/coffre.ts';
+import { ComptesDemoPg } from '../src/infra/comptes-demo.ts';
+import { lecteurCoffre } from '../src/services/passerelle-secrets.ts';
+import { nomSecretCompteDemo, TYPE_SECRET_COMPTE_DEMO } from '../src/infra/comptes-demo.ts';
 import { DOSSIER_MIGRATIONS, ErreurDemarrage, FICHIERS_SECRETS, demarrerBase } from '../src/infra/demarrage.ts';
 import { Masqueur } from '../src/infra/masquage.ts';
 import { calculerSante } from '../src/infra/sante.ts';
@@ -702,6 +705,39 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       await expect(contexte.pool.query('DELETE FROM applications')).rejects.toThrow(/permission denied/);
       await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE applications SET marque_id = marque_id'))).rejects.toThrow(/permission denied/);
       await expect(applications.creer({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espace, ...champs, nom: 'Vide', hotes: [] })).rejects.toThrow(/check/i);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('compte de démo : remplacé sans changer d’id, chiffré, jamais lisible d’une autre marque (histoire 4.3)', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marqueA = randomUUID();
+      const marqueB = randomUUID();
+      for (const [marque, nom] of [[marqueA, 'CA'], [marqueB, 'CB']] as const) {
+        await dansTransactionMarque(contexte.pool, marque, (client) => client.query('INSERT INTO marques (id, nom) VALUES ($1, $2)', [marque, `Marque ${nom} ${suffixe}`]));
+      }
+      const comptes = new ComptesDemoPg(contexte.pool, contexte.coffre);
+      const application = randomUUID();
+      expect(await comptes.etat(marqueA, application)).toEqual({ depose: false, modifieLe: undefined });
+      const mdp = randomBytes(12).toString('hex');
+      await comptes.remplacer(marqueA, application, { identifiant: 'demo@exemple.fr', motDePasse: mdp });
+      const lecteur = lecteurCoffre(contexte.pool, contexte.coffre);
+      const nom = nomSecretCompteDemo(application);
+      expect(JSON.parse((await lecteur(marqueA, TYPE_SECRET_COMPTE_DEMO, nom))!)).toEqual({ identifiant: 'demo@exemple.fr', motDePasse: mdp });
+      // Remplacer garde le même secret (l'id est dans les données authentifiées) et reste lisible.
+      const avant = await dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('SELECT id FROM secrets WHERE nom = $1', [nom]));
+      await comptes.remplacer(marqueA, application, { identifiant: 'autre@exemple.fr', motDePasse: 'nouveau-mdp' });
+      const apres = await dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('SELECT id FROM secrets WHERE nom = $1', [nom]));
+      expect(apres.rows).toEqual(avant.rows);
+      expect(JSON.parse((await lecteur(marqueA, TYPE_SECRET_COMPTE_DEMO, nom))!).identifiant).toBe('autre@exemple.fr');
+      expect((await comptes.etat(marqueA, application)).depose).toBe(true);
+      // La marque B ne voit ni l'état ni le contenu.
+      expect((await comptes.etat(marqueB, application)).depose).toBe(false);
+      expect(await lecteur(marqueB, TYPE_SECRET_COMPTE_DEMO, nom)).toBeUndefined();
+      // La suite compte les secrets de la base (rotation) : on ne laisse rien derrière.
+      await dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('DELETE FROM secrets WHERE nom = $1', [nom]));
     } finally {
       await contexte.fermer();
     }

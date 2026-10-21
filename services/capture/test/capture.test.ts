@@ -13,19 +13,39 @@ const demande: DemandeCapture = {
   delaiMs: 30_000,
 };
 
-type Reglages = { urlFinale?: string; echecGoto?: boolean; requetes?: string[]; png?: Uint8Array };
+type Formulaire = { motDePasse?: boolean; identifiant?: boolean; echecSaisie?: boolean; echecValidation?: boolean };
+type Reglages = { urlFinale?: string; echecGoto?: boolean; requetes?: string[]; png?: Uint8Array; formulaire?: Formulaire };
 
-function faux(r: Reglages = {}): { lancer: LancerNavigateur; options: unknown[]; fermetures: string[]; abandonnees: string[] } {
+function faux(r: Reglages = {}): { lancer: LancerNavigateur; options: unknown[]; fermetures: string[]; abandonnees: string[]; saisies: string[]; captures: number[] } {
   const options: unknown[] = [];
   const fermetures: string[] = [];
   const abandonnees: string[] = [];
+  const saisies: string[] = [];
+  const captures: number[] = [];
+  const form: Formulaire = { motDePasse: true, identifiant: true, ...r.formulaire };
   const lancer: LancerNavigateur = async (o) => {
     options.push(o);
     return {
       newContext: async () => ({
         newPage: async () => {
           let gestionnaire: Parameters<PageMinimale['route']>[1] | undefined;
+          const locateur = (present: boolean | undefined, nom: string): ReturnType<PageMinimale['locator']> => {
+            const l: ReturnType<PageMinimale['locator']> = {
+              count: async () => (present === true ? 1 : 0),
+              first: () => l,
+              fill: async (valeur) => {
+                if (form.echecSaisie === true) throw new Error('champ non modifiable');
+                saisies.push(`${nom}=${valeur}`);
+              },
+              press: async () => undefined,
+              waitFor: async () => {
+                if (form.echecValidation === true) throw new Error('délai');
+              },
+            };
+            return l;
+          };
           return {
+            locator: (selecteur) => (selecteur.includes('password') ? locateur(form.motDePasse, 'mdp') : locateur(form.identifiant, 'id')),
             route: async (_m, g) => void (gestionnaire = g),
             goto: async (url) => {
               for (const requete of [url, ...(r.requetes ?? [])]) {
@@ -35,7 +55,10 @@ function faux(r: Reglages = {}): { lancer: LancerNavigateur; options: unknown[];
             },
             title: async () => 'Accueil',
             url: () => r.urlFinale ?? 'https://demo.exemple.fr/',
-            screenshot: async () => r.png ?? new Uint8Array([137, 80, 78, 71]),
+            screenshot: async () => {
+              captures.push(1);
+              return r.png ?? new Uint8Array([137, 80, 78, 71]);
+            },
           };
         },
         close: async () => void fermetures.push('contexte'),
@@ -43,7 +66,7 @@ function faux(r: Reglages = {}): { lancer: LancerNavigateur; options: unknown[];
       close: async () => void fermetures.push('navigateur'),
     };
   };
-  return { lancer, options, fermetures, abandonnees };
+  return { lancer, options, fermetures, abandonnees, saisies, captures };
 }
 
 describe('réglages de Chromium', () => {
@@ -100,10 +123,55 @@ describe('capturer', () => {
   });
 });
 
+describe('capturer en mode connexion', () => {
+  const avecCompte: DemandeCapture = { ...demande, compte: { identifiant: 'demo@exemple.fr', motDePasse: 'M0t-de-passe-secret' } };
+
+  it('se connecte puis rend la mini capture de l’accueil connecté', async () => {
+    const f = faux();
+    expect(await capturer(avecCompte, f.lancer)).toMatchObject({ ok: true, hote: 'demo.exemple.fr', titre: 'Accueil' });
+    expect(f.saisies).toEqual(['id=demo@exemple.fr', 'mdp=M0t-de-passe-secret']);
+    expect(f.fermetures).toContain('navigateur');
+  });
+  it('nomme l’étape fautive et ne capture rien (le formulaire contient le mot de passe)', async () => {
+    const cas: [Formulaire, string][] = [
+      [{ motDePasse: false }, 'trouver'],
+      [{ identifiant: false }, 'trouver'],
+      [{ echecSaisie: true }, 'saisir'],
+      [{ echecValidation: true }, 'valider'],
+    ];
+    for (const [formulaire, etape] of cas) {
+      const f = faux({ formulaire });
+      const r = await capturer(avecCompte, f.lancer);
+      expect(r, etape).toEqual({ ok: false, cause: 'CONNEXION_ECHEC', etape });
+      expect(f.captures, etape).toEqual([]);
+      expect(JSON.stringify(r)).not.toContain('M0t-de-passe-secret');
+    }
+  });
+  it('une page qui ne s’ouvre pas échoue à l’étape « ouvrir »', async () => {
+    expect(await capturer(avecCompte, faux({ echecGoto: true }).lancer)).toEqual({ ok: false, cause: 'CONNEXION_ECHEC', etape: 'ouvrir' });
+  });
+  it('une redirection vers un hôte non déclaré après la connexion est refusée', async () => {
+    expect(await capturer(avecCompte, faux({ urlFinale: 'https://hors.exemple.net/' }).lancer)).toEqual({ ok: false, cause: 'HOTE_REFUSE', hote: 'hors.exemple.net' });
+  });
+  it('un accueil hors liste est refusé sans rien saisir', async () => {
+    const f = faux();
+    expect(await capturer({ ...avecCompte, url: 'https://autre.exemple.fr/' }, f.lancer)).toMatchObject({ ok: false, cause: 'HOTE_REFUSE' });
+    expect(f.saisies).toEqual([]);
+  });
+});
+
 describe('lireDemande', () => {
   const brute = JSON.stringify(demande);
   it('accepte une demande valide', () => {
     expect(lireDemande(brute)).toEqual(demande);
+  });
+  it('lit le compte d’une demande de connexion et refuse un compte incomplet ou hors mode', () => {
+    const compte = { identifiant: 'a@b.fr', motDePasse: 'x' };
+    expect(lireDemande(JSON.stringify({ ...demande, mode: 'connexion', compte })).compte).toEqual(compte);
+    expect(() => lireDemande(JSON.stringify({ ...demande, mode: 'connexion' }))).toThrow();
+    expect(() => lireDemande(JSON.stringify({ ...demande, mode: 'connexion', compte: { identifiant: 'a', motDePasse: '' } }))).toThrow();
+    expect(() => lireDemande(JSON.stringify({ ...demande, compte }))).toThrow();
+    expect(() => lireDemande(JSON.stringify({ ...demande, mode: 'autre' }))).toThrow();
   });
   it('refuse un proxy désigné par un nom, une taille absurde ou un champ manquant', () => {
     expect(() => lireDemande(JSON.stringify({ ...demande, proxy: { serveur: 'http://proxy-capture:3128', laissezPasser: 'x' } }))).toThrow();

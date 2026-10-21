@@ -811,3 +811,96 @@ Corps de la demande (schéma JSON) :
   "additionalProperties": false
 }
 ```
+
+## `compte.deposer`
+
+Dépose ou remplace le compte de démonstration d’une application (identifiant et mot de passe, chiffrés au coffre). Réservé à l’interface.
+
+- Réservée à l'interface : un identifiant et un mot de passe ne se saisissent que dans l’interface, après une connexion récente à Authentik : aucun outil ni point d’API ne peut les déposer ni les lire (AD-9)
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "applicationId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "identifiant": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "motDePasse": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    }
+  },
+  "required": [
+    "applicationId",
+    "identifiant",
+    "motDePasse"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `compte.etat`
+
+Dit si un compte de démonstration est déposé pour une application, et depuis quand. Ne rend jamais l’identifiant ni le mot de passe.
+
+- API : `POST /api/v1/compte/etat` · outil MCP : `compte_etat`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "applicationId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "applicationId"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `compte.tester`
+
+Lance un test de connexion de l’application avec son compte de démonstration, dans la capture isolée. Rend la tâche à suivre ; le résultat est une mini capture de l’accueil connecté, ou l’étape qui a échoué.
+
+- API : `POST /api/v1/compte/tester` · outil MCP : `compte_tester`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "applicationId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "applicationId"
+  ],
+  "additionalProperties": false
+}
+```

@@ -5,10 +5,19 @@
 // dans deploiement/versions.json. Le jeu de scripts complet arrive avec l'histoire 4.5.
 
 import { optionsContexte, optionsLancement } from './chromium.ts';
-import { lireDemande, type DemandeCapture, type ResultatCapture } from './demande.ts';
+import { lireDemande, type DemandeCapture, type EtapeConnexion, type ResultatCapture } from './demande.ts';
+
+export type LocateurMinimal = Readonly<{
+  count: () => Promise<number>;
+  first: () => LocateurMinimal;
+  fill: (valeur: string, options: { timeout: number }) => Promise<void>;
+  press: (touche: string, options: { timeout: number }) => Promise<void>;
+  waitFor: (options: { state: 'detached' | 'visible'; timeout: number }) => Promise<void>;
+}>;
 
 /** Surface de Playwright utilisée ici : un faux la remplace dans les tests. */
 export type PageMinimale = Readonly<{
+  locator: (selecteur: string) => LocateurMinimal;
   goto: (url: string, options: { timeout: number; waitUntil: 'load' }) => Promise<unknown>;
   title: () => Promise<string>;
   url: () => string;
@@ -32,6 +41,37 @@ function hoteDe(adresse: string): string | undefined {
   }
 }
 
+const CHAMP_MOT_DE_PASSE = 'input[type="password"]';
+const CHAMP_IDENTIFIANT = 'input[type="email"], input[type="text"], input:not([type])';
+const DELAI_SAISIE_MS = 10_000;
+
+/**
+ * Se connecte sur la page ouverte : trouve le formulaire (un champ mot de passe et le premier champ texte), saisit,
+ * valide par Entrée et attend que le champ mot de passe disparaisse. Rend l'étape fautive, ou `undefined` si tout va bien.
+ */
+export async function seConnecter(page: PageMinimale, compte: NonNullable<DemandeCapture['compte']>, delaiMs: number): Promise<EtapeConnexion | undefined> {
+  const motDePasse = page.locator(CHAMP_MOT_DE_PASSE).first();
+  const identifiant = page.locator(CHAMP_IDENTIFIANT).first();
+  try {
+    if ((await motDePasse.count()) === 0 || (await identifiant.count()) === 0) return 'trouver';
+  } catch {
+    return 'trouver';
+  }
+  try {
+    await identifiant.fill(compte.identifiant, { timeout: DELAI_SAISIE_MS });
+    await motDePasse.fill(compte.motDePasse, { timeout: DELAI_SAISIE_MS });
+  } catch {
+    return 'saisir';
+  }
+  try {
+    await motDePasse.press('Enter', { timeout: DELAI_SAISIE_MS });
+    await motDePasse.waitFor({ state: 'detached', timeout: Math.min(delaiMs, 30_000) });
+  } catch {
+    return 'valider';
+  }
+  return undefined;
+}
+
 export async function capturer(demande: DemandeCapture, lancer: LancerNavigateur): Promise<ResultatCapture> {
   const hoteDemande = hoteDe(demande.url);
   if (hoteDemande === undefined || !demande.hotes.includes(hoteDemande)) return { ok: false, cause: 'HOTE_REFUSE', ...(hoteDemande !== undefined ? { hote: hoteDemande } : {}) };
@@ -53,7 +93,13 @@ export async function capturer(demande: DemandeCapture, lancer: LancerNavigateur
     try {
       await page.goto(demande.url, { timeout: demande.delaiMs, waitUntil: 'load' });
     } catch {
+      if (demande.compte !== undefined && refuse === undefined) return { ok: false, cause: 'CONNEXION_ECHEC', etape: 'ouvrir' };
       return refuse !== undefined ? { ok: false, cause: 'HOTE_REFUSE', hote: refuse } : { ok: false, cause: 'PAGE_INJOIGNABLE', hote: hoteDemande };
+    }
+    if (demande.compte !== undefined) {
+      const etape = await seConnecter(page, demande.compte, demande.delaiMs);
+      // Un échec ne rend QUE l'étape : ni capture d'écran (le formulaire contient le mot de passe), ni texte de la page.
+      if (etape !== undefined) return refuse !== undefined ? { ok: false, cause: 'HOTE_REFUSE', hote: refuse } : { ok: false, cause: 'CONNEXION_ECHEC', etape };
     }
     const hoteFinal = hoteDe(page.url());
     if (hoteFinal === undefined || !demande.hotes.includes(hoteFinal)) return { ok: false, cause: 'HOTE_REFUSE', ...(hoteFinal !== undefined ? { hote: hoteFinal } : {}) };
