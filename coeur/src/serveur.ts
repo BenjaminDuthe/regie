@@ -14,6 +14,7 @@ import { Coffre } from './infra/coffre.ts';
 import { ErreurDemarrage, demarrerBase, type Contexte } from './infra/demarrage.ts';
 import { masqueurProcessus } from './infra/masquage.ts';
 import { calculerSante } from './infra/sante.ts';
+import { FONCTIONS_PAR_MODE } from './infra/mode.ts';
 import { AuditPg } from './infra/audit.ts';
 import { EspacesPg } from './infra/espaces.ts';
 import { ApplicationsPg } from './infra/applications.ts';
@@ -97,7 +98,8 @@ export function construireServices(contexte: Contexte): Services {
     comptesDemo: new ComptesDemoPg(contexte.pool, contexte.coffre),
     reseaux: new ReseauxPg(contexte.pool, contexte.coffre),
     comptesReseau: new ComptesReseauPg(contexte.pool, contexte.coffre),
-    connecteurs: { instagram: new ConnecteurInstagram() },
+    // Mode restauration : aucun connecteur, donc aucune publication ne peut partir vers un réseau (histoire 9.2).
+    connecteurs: FONCTIONS_PAR_MODE[env.REGIE_MODE].publications ? { instagram: new ConnecteurInstagram() } : {},
     publications: new PublicationsPg(contexte.pool),
     journauxJeu: new JournauxJeu(),
     voixLocale: voixBranchee(),
@@ -209,7 +211,7 @@ export async function construireServeur(
   }
   // /sante : sans authentification, donc rien d'un utilisateur ni de détaillé (AR-24).
   app.get('/sante', async (_requete, reponse) => {
-    const sante = await calculerSante(options.contexte, '/');
+    const sante = await calculerSante(options.contexte, '/', { mode: env.REGIE_MODE, ...(env.REGIE_SAUVEGARDE_ETAT === undefined ? {} : { dossierSauvegarde: env.REGIE_SAUVEGARDE_ETAT }) });
     return reponse.header('cache-control', 'no-store').code(sante.etat === 'ok' ? 200 : 503).send(sante);
   });
   // Le type de l'instance dépend du journal choisi ; les routes n'en ont pas besoin.
@@ -328,9 +330,15 @@ if (import.meta.main) {
     });
   }
   await app.listen({ host: env.HOTE, port: env.PORT });
-  arreterEcoute = ecouterResultats(contexte.pool, () => travailleur.surNotification(), (message) => app.log.warn({ erreur: message }, 'écoute de la file interrompue'));
-  await travailleur.demarrer();
-  arreterReconciliation = demarrerReconciliation(contexte.pool, services, app.log);
-  // Le planificateur prend place en dernier (AR-3) : tout ce qu'il déclenche trouve la file prête.
-  await planificateur.demarrer();
+  if (!FONCTIONS_PAR_MODE[env.REGIE_MODE].file || !FONCTIONS_PAR_MODE[env.REGIE_MODE].planificateur) {
+    // Histoire 9.2 : une base restaurée se vérifie sans rien exécuter. Ni file, ni planificateur, ni réconciliation : aucune tâche
+    // ne reprend, aucune échéance de publication ne se déclenche, aucune publication ne part.
+    app.log.warn('mode restauration : file, planificateur et publications sont arrêtés');
+  } else {
+    arreterEcoute = ecouterResultats(contexte.pool, () => travailleur.surNotification(), (message) => app.log.warn({ erreur: message }, 'écoute de la file interrompue'));
+    await travailleur.demarrer();
+    arreterReconciliation = demarrerReconciliation(contexte.pool, services, app.log);
+    // Le planificateur prend place en dernier (AR-3) : tout ce qu'il déclenche trouve la file prête.
+    await planificateur.demarrer();
+  }
 }

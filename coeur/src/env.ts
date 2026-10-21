@@ -75,6 +75,11 @@ const schema = z.object({
   // conteneur de voix), il n'y a pas de voix : les vidéos sont rendues sans voix. Le lock donne l'empreinte du modèle.
   REGIE_MODELES: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu').optional(),
   REGIE_MODELES_LOCK: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu').default('/etc/regie/modeles.lock'),
+  // Sauvegarde (histoire 9.2). Le dossier d'état (base_le, vzdump_le) est écrit par les scripts de deploiement/sauvegarde/ ; regie
+  // n'en lit que les dates, pour /sante. Le mode « restauration » démarre regie sans file de travail, sans planificateur et sans connecteur de
+  // réseau : on y vérifie une sauvegarde restaurée sans qu'aucune publication puisse partir.
+  REGIE_SAUVEGARDE_ETAT: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu').optional(),
+  REGIE_MODE: z.enum(['normal', 'restauration']).default('normal'),
   REGIE_VOIX: z.string().regex(/^[\w.-]{1,80}$/, 'doit être le nom d’une voix de modeles.lock').default('fr_FR-gilles-low'),
 }).superRefine((valeurs, contexte) => {
   const adresseSure = (valeur: string) => {
@@ -139,6 +144,8 @@ export function lireEnvironnement(source: Readonly<Record<string, string | undef
     REGIE_RENDU_ENCODEUR: source['REGIE_RENDU_ENCODEUR'] || undefined,
     REGIE_MODELES: source['REGIE_MODELES'] || undefined,
     REGIE_MODELES_LOCK: source['REGIE_MODELES_LOCK'] || undefined,
+    REGIE_SAUVEGARDE_ETAT: source['REGIE_SAUVEGARDE_ETAT'] || undefined,
+    REGIE_MODE: source['REGIE_MODE'] || undefined,
     REGIE_VOIX: source['REGIE_VOIX'] || undefined,
   });
   if (!resultat.success) {

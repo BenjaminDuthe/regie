@@ -271,3 +271,14 @@ Question : quelles décisions et quelles preuves manquent pour suivre et rejouer
 5. **Audit** — chaque tentative inscrit l'utilisateur, l'origine (`api`, `mcp`, `interface`, `echeance`) et l'identifiant du jeton d'API, jamais sa valeur ; le rejeu inscrit en plus l'action `publication.rejouer`.
 6. **Validation de bout en bout** — exige l'inscription de l'application Meta et un jeton réel (voir 7.1 et 7.6).
 
+
+## 9.2 Sauvegardes et restauration
+
+Question : quelles décisions et quels accès réels manquent pour que les sauvegardes existent vraiment ?
+
+1. **Installation réelle** — les scripts et unités systemd sont écrits et testés en local, jamais installés ni lancés. Benjamin les pose dans le CT et sur l'hôte Proxmox (voir `deploiement/restauration.md`). Recommandation : le faire avant la première vidéo réelle.
+2. **Paire de clés age** — à générer par Benjamin hors du CT ; seule la clé publique entre dans la configuration, la privée va dans Vaultwarden. Recommandation : deux destinataires (Benjamin et un secours).
+3. **Clé maîtresse du coffre** — conservée dans Vaultwarden et exclue des sauvegardes : sa perte rend les jetons illisibles (reconnexion des comptes). Option : la sceller aussi dans une enveloppe papier. Recommandation : Vaultwarden plus une copie papier.
+4. **Seuils de fraîcheur** — 26 h pour la base, 8 jours pour le conteneur : valeurs de départ, à confirmer.
+5. **Répétition de restauration** — jamais jouée sur une vraie machine ; le tableau de `deploiement/restauration.md` attend la date et la signature de Benjamin. Recommandation : la jouer une fois avant la mise en service, puis chaque trimestre.
+6. **Alerte** — `/sante` expose l'âge des sauvegardes, mais rien ne surveille `/sante` de l'extérieur. Option : sonde externe ou notification. Recommandation : brancher la sonde existante de Benjamin.

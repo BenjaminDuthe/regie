@@ -90,6 +90,6 @@ describe('/sante sans contexte', () => {
     expect(sante.etat).toBe('degrade');
     expect(sante.base).toBe('indisponible');
     expect(sante.coffre).toBe('indisponible');
-    expect(Object.keys(sante).sort()).toEqual(['base', 'coffre', 'disque', 'etat']);
+    expect(Object.keys(sante).sort()).toEqual(['base', 'coffre', 'disque', 'etat', 'mode']);
   });
 });

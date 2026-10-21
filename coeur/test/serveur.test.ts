@@ -47,7 +47,7 @@ describe('serveur du cœur', () => {
     expect(reponse.headers['cache-control']).toBe('no-store');
     const sante = reponse.json();
     expect(sante).toMatchObject({ etat: 'degrade', base: 'indisponible', coffre: 'indisponible' });
-    expect(Object.keys(sante).sort()).toEqual(['base', 'coffre', 'disque', 'etat']);
+    expect(Object.keys(sante).sort()).toEqual(['base', 'coffre', 'disque', 'etat', 'mode']);
   });
 
   it('répond 404 à une route inconnue (aucune route attrape-tout)', async () => {
