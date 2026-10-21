@@ -5,7 +5,7 @@
 // dans deploiement/versions.json. Le jeu d'un script (histoire 4.5) est dans jeu.ts, jouer.ts et pilote-playwright.ts.
 
 import { optionsContexte, optionsLancement } from './chromium.ts';
-import { lireDemande, type DemandeCapture, type EtapeConnexion, type ResultatCapture, type ResultatJeu } from './demande.ts';
+import { ELEMENTS_EXPLORATION_MAX, lireDemande, type DemandeCapture, type ElementExplore, type EtapeConnexion, type ResultatCapture, type ResultatJeu } from './demande.ts';
 
 export type LocateurMinimal = Readonly<{
   count: () => Promise<number>;
@@ -22,6 +22,8 @@ export type PageMinimale = Readonly<{
   title: () => Promise<string>;
   url: () => string;
   screenshot: (options: { type: 'png' }) => Promise<Uint8Array>;
+  /** Évalue une expression dans la page (exploration, histoire 4.8). */
+  evaluate?: (expression: string) => Promise<unknown>;
   route: (motif: string, gestionnaire: (route: { request: () => { url: () => string }; abort: (code?: string) => Promise<void>; continue: () => Promise<void> }) => Promise<void>) => Promise<void>;
 }>;
 export type NavigateurMinimal = Readonly<{
@@ -39,6 +41,47 @@ function hoteDe(adresse: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Expression évaluée DANS la page explorée : les éléments visibles sur lesquels on peut agir. Rien d'autre n'en sort que
+ * le rôle, un texte court et l'hôte d'un lien ; le contenu des champs (valeurs saisies) n'est jamais lu.
+ */
+export const EXPRESSION_EXPLORATION = `(() => {
+  const vus = [];
+  const visible = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  for (const e of document.querySelectorAll('a[href], button, [role="button"], input[type="submit"], input[type="text"], input[type="email"], input[type="search"], textarea, select')) {
+    if (!visible(e)) continue;
+    const balise = e.tagName.toLowerCase();
+    const champ = balise === 'input' && e.type !== 'submit' || balise === 'textarea' || balise === 'select';
+    const texte = (champ ? (e.getAttribute('aria-label') || e.getAttribute('placeholder') || e.name || '') : (e.innerText || e.getAttribute('aria-label') || e.value || '')).replace(/\\s+/g, ' ').trim();
+    if (texte === '') continue;
+    let hote;
+    if (balise === 'a') { try { const u = new URL(e.href); if (u.protocol === 'https:') hote = u.hostname; } catch (_) {} }
+    vus.push({ role: champ ? 'champ' : balise === 'a' ? 'lien' : 'bouton', texte, ...(hote ? { hote } : {}) });
+    if (vus.length >= 200) break;
+  }
+  return vus;
+})()`;
+
+/** Ce que la page a rendu est une donnée d'un tiers : forme vérifiée, textes coupés, nombre borné. */
+export function nettoyerElements(brut: unknown): ElementExplore[] {
+  if (!Array.isArray(brut)) return [];
+  const sortis: ElementExplore[] = [];
+  const vus = new Set<string>();
+  for (const b of brut) {
+    if (sortis.length >= ELEMENTS_EXPLORATION_MAX) break;
+    if (typeof b !== 'object' || b === null) continue;
+    const e = b as Record<string, unknown>;
+    if ((e['role'] !== 'lien' && e['role'] !== 'bouton' && e['role'] !== 'champ') || typeof e['texte'] !== 'string') continue;
+    const texte = e['texte'].replace(/\s+/g, ' ').trim().slice(0, 80);
+    const hote = typeof e['hote'] === 'string' && /^[a-z0-9.-]{1,253}$/i.test(e['hote']) ? e['hote'].toLowerCase() : undefined;
+    const cle = `${e['role']}|${texte}|${hote ?? ''}`;
+    if (texte === '' || vus.has(cle)) continue;
+    vus.add(cle);
+    sortis.push({ role: e['role'], texte, ...(hote !== undefined ? { hote } : {}) });
+  }
+  return sortis;
 }
 
 const CHAMP_MOT_DE_PASSE = 'input[type="password"]';
@@ -105,7 +148,18 @@ export async function capturer(demande: DemandeCapture, lancer: LancerNavigateur
     if (hoteFinal === undefined || !demande.hotes.includes(hoteFinal)) return { ok: false, cause: 'HOTE_REFUSE', ...(hoteFinal !== undefined ? { hote: hoteFinal } : {}) };
     const png = await page.screenshot({ type: 'png' });
     if (png.byteLength > MINIATURE_MAX_OCTETS) return { ok: false, cause: 'CAPTURE_ECHEC' };
-    return { ok: true, hote: hoteFinal, titre: (await page.title()).slice(0, 200), miniature: Buffer.from(png).toString('base64') };
+    const miniature = Buffer.from(png).toString('base64');
+    const titre = (await page.title()).slice(0, 200);
+    if (demande.explorer === true) {
+      let elements: ElementExplore[] = [];
+      try {
+        elements = nettoyerElements(await page.evaluate?.(EXPRESSION_EXPLORATION));
+      } catch {
+        // Une page qui refuse l'évaluation donne une exploration sans éléments, pas un échec.
+      }
+      return { ok: true, hote: hoteFinal, titre, miniature, elements };
+    }
+    return { ok: true, hote: hoteFinal, titre, miniature };
   } finally {
     await navigateur.close().catch(() => undefined);
   }

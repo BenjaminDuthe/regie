@@ -44,7 +44,12 @@ export const nomAction = (a: Pick<Action, 'domaine' | 'verbe'>): string => `${a.
 export const nomOutil = (a: Pick<Action, 'domaine' | 'verbe'>): string => `${a.domaine}_${a.verbe}`;
 
 /** Actions réservées à l'interface : fichier unique, avec la raison de chacune (test de parité). */
-export type ExceptionParite = Readonly<{ action: string; raison: string }>;
+export type ExceptionParite = Readonly<{
+  action: string;
+  raison: string;
+  /** Absent : réservée à l'interface (ni API ni MCP). `mcp` : offerte au seul MCP (ni interface ni API). */
+  seulement?: 'mcp';
+}>;
 
 /** `jeton` + `creer` ne doivent contenir que des minuscules et des chiffres : ils composent une adresse et un nom d'outil. */
 const FORME_NOM = /^[a-z][a-z0-9]*$/;

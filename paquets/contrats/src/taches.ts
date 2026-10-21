@@ -39,6 +39,8 @@ export const TACHES: Readonly<Record<string, DefinitionTache>> = Object.freeze({
   test_connexion: def({ type: 'test_connexion', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 300, tentativesMax: 1, dureeTypiqueS: 30 }),
   // Jeu et tournage d'un script de démo (histoire 4.5) : le compte peut être saisi, donc une seule tentative.
   jeu_script: def({ type: 'jeu_script', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 300, tentativesMax: 1, dureeTypiqueS: 60 }),
+  // Exploration d'une page pour Claude (histoire 4.8) : pas de compte, donc une relance sans danger.
+  exploration: def({ type: 'exploration', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 300, tentativesMax: 2, dureeTypiqueS: 30 }),
   voix: def({ type: 'voix', classe: 'lot', gpu: true, reprise: 'permise', delaiGardeS: 600, tentativesMax: 3, dureeTypiqueS: 90 }),
   // Un appel vers un réseau social a un effet extérieur : jamais rejoué sans décision.
   reseau: def({ type: 'reseau', classe: 'lot', gpu: false, reprise: 'interdite', delaiGardeS: 600, tentativesMax: 1, dureeTypiqueS: 15 }),

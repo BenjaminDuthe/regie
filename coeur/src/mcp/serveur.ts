@@ -33,7 +33,7 @@ const erreurRpc = (id: IdJsonRpc, code: number, message: string): ReponseJsonRpc
 
 /** Les outils offerts : les actions exposées, indexées par nom d'outil. */
 export function outilsExposes(): Map<string, Action<any, any>> {
-  return new Map(actionsExposees(ACTIONS, EXCEPTIONS_PARITE).map((a) => [nomOutil(a), a]));
+  return new Map(actionsExposees(ACTIONS, EXCEPTIONS_PARITE, 'mcp').map((a) => [nomOutil(a), a]));
 }
 
 function descriptionOutil(a: Action<any, any>) {

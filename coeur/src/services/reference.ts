@@ -8,6 +8,7 @@ import { nomAction, nomOutil, type Action, type ExceptionParite } from './regist
 
 export function genererReference(actions: readonly Action<any, any>[], exceptions: readonly ExceptionParite[]): string {
   const exposees = new Set(actionsExposees(actions, exceptions).map(nomAction));
+  const mcpSeul = new Set(exceptions.filter((e) => e.seulement === 'mcp').map((e) => e.action));
   const sections = actions.map((a) => {
     const schema = JSON.stringify(z.toJSONSchema(a.entree, { io: 'input', target: 'draft-2020-12' }), null, 2);
     const raison = exceptions.find((e) => e.action === nomAction(a))?.raison;
@@ -16,7 +17,9 @@ export function genererReference(actions: readonly Action<any, any>[], exception
       '',
       a.description,
       '',
-      exposees.has(nomAction(a))
+      mcpSeul.has(nomAction(a))
+        ? `- Outil MCP seulement : \`${nomOutil(a)}\` (ni API ni interface) : ${raison}`
+        : exposees.has(nomAction(a))
         ? `- API : \`POST /api/v1/${a.domaine}/${a.verbe}\` · outil MCP : \`${nomOutil(a)}\``
         : `- Réservée à l'interface : ${raison}`,
       `- Portée requise : \`${a.portee}\``,

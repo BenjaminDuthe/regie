@@ -31,6 +31,7 @@ import { MagasinSessionsPg } from './infra/sessions.ts';
 import { enregistrerRoutesAuth } from './auth/routes.ts';
 import { enregistrerRoutesApi } from './api/routes.ts';
 import { enregistrerRoutesOauth } from './oauth/routes.ts';
+import { creerExecutantExploration } from './services/exploration.ts';
 import { enregistrerRoutesMcp } from './mcp/routes.ts';
 import { enregistrerRoutesFlux, type OptionsFlux } from './flux/routes.ts';
 import type { Services } from './auth/services.ts';
@@ -213,6 +214,7 @@ if (import.meta.main) {
             const passerelle = new PasserelleSecretsCoffre({ file: services.file, service: nomService, lecteur: lecteurCoffre(contexte.pool, contexte.coffre) });
             return {
               jeu_script: creerExecutantJeuScript({ applications: services.applications, scripts: services.scripts, passerelle, lanceur, journaux: services.journauxJeu, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
+              exploration: creerExecutantExploration({ applications: services.applications, lanceur, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
               capture: creerExecutantCapture({ applications: services.applications, lanceur, cle: contexte.cleCapture, proxy: env.REGIE_CAPTURE_PROXY }),
               test_connexion: creerExecutantTestConnexion({
                 applications: services.applications,

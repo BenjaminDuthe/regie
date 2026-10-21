@@ -2,8 +2,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { argumentsChromium, exigerBacASableActif, optionsContexte, optionsLancement } from '../src/chromium.ts';
-import { lireDemande, type DemandeCapture } from '../src/demande.ts';
-import { capturer, type LancerNavigateur, type PageMinimale } from '../src/executer.ts';
+import { ELEMENTS_EXPLORATION_MAX, lireDemande, type DemandeCapture } from '../src/demande.ts';
+import { capturer, nettoyerElements, type LancerNavigateur, type PageMinimale } from '../src/executer.ts';
 
 const demande: DemandeCapture = {
   url: 'https://demo.exemple.fr/',
@@ -14,7 +14,7 @@ const demande: DemandeCapture = {
 };
 
 type Formulaire = { motDePasse?: boolean; identifiant?: boolean; echecSaisie?: boolean; echecValidation?: boolean };
-type Reglages = { urlFinale?: string; echecGoto?: boolean; requetes?: string[]; png?: Uint8Array; formulaire?: Formulaire };
+type Reglages = { elements?: unknown; evaluationRefusee?: boolean; urlFinale?: string; echecGoto?: boolean; requetes?: string[]; png?: Uint8Array; formulaire?: Formulaire };
 
 function faux(r: Reglages = {}): { lancer: LancerNavigateur; options: unknown[]; fermetures: string[]; abandonnees: string[]; saisies: string[]; captures: number[] } {
   const options: unknown[] = [];
@@ -52,6 +52,10 @@ function faux(r: Reglages = {}): { lancer: LancerNavigateur; options: unknown[];
                 await gestionnaire!({ request: () => ({ url: () => requete }), abort: async () => void abandonnees.push(requete), continue: async () => undefined });
               }
               if (r.echecGoto === true) throw new Error('net::ERR');
+            },
+            evaluate: async () => {
+              if (r.evaluationRefusee === true) throw new Error('refusé');
+              return r.elements;
             },
             title: async () => 'Accueil',
             url: () => r.urlFinale ?? 'https://demo.exemple.fr/',
@@ -178,5 +182,46 @@ describe('lireDemande', () => {
     expect(() => lireDemande(JSON.stringify({ ...demande, viewport: { largeur: 99999, hauteur: 10 } }))).toThrow();
     expect(() => lireDemande(JSON.stringify({ ...demande, hotes: undefined }))).toThrow();
     expect(() => lireDemande('pas du json')).toThrow();
+  });
+});
+
+describe('exploration d’une page (histoire 4.8)', () => {
+  const explorer: DemandeCapture = { ...demande, explorer: true };
+  it('lit le mode exploration : ni étapes ni compte', () => {
+    const brut = { mode: 'exploration', url: demande.url, hotes: demande.hotes, proxy: demande.proxy, viewport: demande.viewport, delaiMs: 30_000 };
+    expect(lireDemande(JSON.stringify(brut)).explorer).toBe(true);
+    expect(() => lireDemande(JSON.stringify({ ...brut, compte: { identifiant: 'a', motDePasse: 'b' } }))).toThrow();
+    expect(() => lireDemande(JSON.stringify({ ...brut, etapes: [{ verbe: 'connexion' }] }))).toThrow();
+    expect(lireDemande(JSON.stringify({ ...brut, mode: undefined })).explorer).toBeUndefined();
+  });
+  it('rend les éléments nettoyés avec la capture, et rien sans le mode exploration', async () => {
+    const elements = [{ role: 'lien', texte: '  Nouvelle   recette ', hote: 'Demo.Exemple.fr' }, { role: 'bouton', texte: 'Valider' }];
+    const f = faux({ elements });
+    const r = await capturer(explorer, f.lancer);
+    expect(r).toMatchObject({ ok: true, hote: 'demo.exemple.fr', elements: [{ role: 'lien', texte: 'Nouvelle recette', hote: 'demo.exemple.fr' }, { role: 'bouton', texte: 'Valider' }] });
+    const simple = await capturer(demande, faux({ elements }).lancer);
+    expect(simple).not.toHaveProperty('elements');
+  });
+  it('une page qui refuse l’évaluation donne une exploration sans éléments', async () => {
+    const r = await capturer(explorer, faux({ evaluationRefusee: true }).lancer);
+    expect(r).toMatchObject({ ok: true, elements: [] });
+  });
+  it('un hôte hors liste est refusé comme pour une capture', async () => {
+    expect(await capturer({ ...explorer, url: 'https://pirate.example.net/' }, faux().lancer)).toMatchObject({ ok: false, cause: 'HOTE_REFUSE' });
+  });
+  it('nettoie ce que la page raconte : formes, doublons, longueurs, nombre, hôtes', () => {
+    const trop = Array.from({ length: ELEMENTS_EXPLORATION_MAX + 10 }, (_, i) => ({ role: 'bouton', texte: `bouton ${i}` }));
+    expect(nettoyerElements(trop)).toHaveLength(ELEMENTS_EXPLORATION_MAX);
+    expect(nettoyerElements('pas une liste')).toEqual([]);
+    const sortie = nettoyerElements([
+      null,
+      { role: 'script', texte: 'x' },
+      { role: 'lien', texte: 12 },
+      { role: 'lien', texte: '   ' },
+      { role: 'lien', texte: 'a'.repeat(500), hote: 'https://evil/' },
+      { role: 'bouton', texte: 'Valider' },
+      { role: 'bouton', texte: 'Valider' },
+    ]);
+    expect(sortie).toEqual([{ role: 'lien', texte: 'a'.repeat(80) }, { role: 'bouton', texte: 'Valider' }]);
   });
 });

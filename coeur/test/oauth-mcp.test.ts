@@ -282,7 +282,7 @@ describe('serveur d’autorisation et MCP', () => {
     expect((await mcp(c.access_token, rpc(1, 'initialize', { protocolVersion: '1999-01-01' }))).json().result.protocolVersion).toBe('2025-06-18');
     expect((await mcp(c.access_token, { jsonrpc: '2.0', method: 'notifications/initialized' })).statusCode).toBe(202);
     const liste = (await mcp(c.access_token, rpc(2, 'tools/list'))).json().result.tools as { name: string; inputSchema: { type: string }; annotations: { readOnlyHint: boolean } }[];
-    const attendus = actionsExposees(ACTIONS, EXCEPTIONS_PARITE).map(nomOutil).sort();
+    const attendus = actionsExposees(ACTIONS, EXCEPTIONS_PARITE, 'mcp').map(nomOutil).sort();
     expect(liste.map((o) => o.name).sort()).toEqual(attendus);
     expect(attendus).toEqual(expect.arrayContaining(['espace_lister', 'connexion_lister', 'connexion_revoquer']));
     expect(attendus).not.toContain('jeton_creer');

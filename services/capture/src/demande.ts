@@ -12,6 +12,8 @@ export type DemandeCapture = Readonly<{
   compte?: Readonly<{ identifiant: string; motDePasse: string }>;
   /** Présent seulement pour le jeu d'un script (histoire 4.5) : les étapes à rejouer, dans l'ordre. */
   etapes?: readonly EtapeJeu[];
+  /** Exploration d'une page (histoire 4.8) : la capture rend en plus la liste des éléments sur lesquels on peut agir. */
+  explorer?: boolean;
 }>;
 
 /** Une étape de script, telle que la capture la reçoit (même forme que `EtapeScript` du paquet contrats, validée à la main). */
@@ -103,8 +105,12 @@ export type ResultatJeu =
 export const ETAPES_CONNEXION = ['ouvrir', 'trouver', 'saisir', 'valider'] as const;
 export type EtapeConnexion = (typeof ETAPES_CONNEXION)[number];
 
+/** Un élément d'une page explorée : son texte vient de la page, donc d'un tiers. */
+export type ElementExplore = Readonly<{ role: 'lien' | 'bouton' | 'champ'; texte: string; hote?: string }>;
+export const ELEMENTS_EXPLORATION_MAX = 40;
+
 export type ResultatCapture =
-  | Readonly<{ ok: true; hote: string; titre: string; miniature: string }>
+  | Readonly<{ ok: true; hote: string; titre: string; miniature: string; elements?: readonly ElementExplore[] }>
   | Readonly<{ ok: false; cause: 'HOTE_REFUSE' | 'PAGE_INJOIGNABLE' | 'CAPTURE_ECHEC'; hote?: string }>
   | Readonly<{ ok: false; cause: 'CONNEXION_ECHEC'; etape: EtapeConnexion }>;
 
@@ -128,7 +134,7 @@ export function lireDemande(brut: string): DemandeCapture {
   }
   if (!/^http:\/\/\d{1,3}(?:\.\d{1,3}){3}:\d{1,5}$/.test(proxy['serveur'])) throw new Error('le proxy doit être une adresse IPv4 avec port');
   const mode = d['mode'];
-  if (mode !== undefined && mode !== 'connexion' && mode !== 'jeu') throw new Error('demande de capture invalide');
+  if (mode !== undefined && mode !== 'connexion' && mode !== 'jeu' && mode !== 'exploration') throw new Error('demande de capture invalide');
   if ((mode === 'jeu') !== (d['etapes'] !== undefined)) throw new Error('demande de capture invalide');
   let etapes: DemandeCapture['etapes'];
   if (mode === 'jeu') {
@@ -149,6 +155,7 @@ export function lireDemande(brut: string): DemandeCapture {
   return {
     ...(compte !== undefined ? { compte } : {}),
     ...(etapes !== undefined ? { etapes } : {}),
+    ...(mode === 'exploration' ? { explorer: true } : {}),
     url: d['url'],
     hotes: d['hotes'] as string[],
     proxy: { serveur: proxy['serveur'], laissezPasser: proxy['laissezPasser'] },

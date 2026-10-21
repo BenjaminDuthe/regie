@@ -2,9 +2,12 @@
 
 import { nomAction, type Action, type ExceptionParite } from './registre.ts';
 
-/** Les actions offertes à l'API et au MCP : toutes, sauf les exceptions déclarées. */
-export function actionsExposees(actions: readonly Action<any, any>[], exceptions: readonly ExceptionParite[]): Action<any, any>[] {
-  const reservees = new Set(exceptions.map((e) => e.action));
+/**
+ * Les actions offertes à une porte, `api` par défaut : toutes, sauf les exceptions déclarées. Une action réservée au
+ * MCP (`seulement: 'mcp'`) n'est offerte qu'à la porte `mcp` ; une action réservée à l'interface n'est offerte à aucune.
+ */
+export function actionsExposees(actions: readonly Action<any, any>[], exceptions: readonly ExceptionParite[], porte: 'api' | 'mcp' = 'api'): Action<any, any>[] {
+  const reservees = new Set(exceptions.filter((e) => !(porte === 'mcp' && e.seulement === 'mcp')).map((e) => e.action));
   return actions.filter((a) => !reservees.has(nomAction(a)));
 }
 

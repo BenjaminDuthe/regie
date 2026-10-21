@@ -66,3 +66,9 @@ registre y figure (`coeur/test/api.test.ts`).
 
 - Ajout de `script.jouer` (écriture) : lance le jeu et le tournage vertical d'un script dans la capture isolée et rend `{tacheId, scriptId, version}` à suivre par `tache.lire`. Le jeu s'arrête à la première navigation hors de la liste d'hôtes de l'application ; le dernier jeu du script garde l'état, l'étape et la cause. `SCRIPT_SANS_ETAPE` (422), `SCRIPT_HOTE_REFUSE` (422), `COMPTE_ABSENT` (409) si le script se connecte sans compte déposé.
 - Nouveau flux `GET /flux/jeu?tache=<id>` (session seulement, hors API publique) : rejoue puis diffuse le journal horodaté du jeu (événements `journal`, `etat`, `fin`). `fin` porte l'heure estimée du brouillon prêt.
+
+## 2026-10-21 — histoire 4.8
+
+- Ajout de `script.explorer` (écriture) : lance l'exploration d'une page de l'application (tâche `exploration`, sans compte de démonstration), dans les hôtes déclarés.
+- Ajout de `script.exploration` (lecture) : lit la page vue (titre, éléments, capture) ; tout texte venant de la page est dans un champ `non_fiable`.
+- Ajout de `script.proposer` (écriture) : crée un script à partir d'étapes écrites par Claude, vérifiées toutes ensemble (une erreur par étape fautive). **Outil MCP seulement** : ni API ni interface (raison dans `coeur/src/services/exceptions-parite.ts`, champ `seulement: 'mcp'`).

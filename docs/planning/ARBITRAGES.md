@@ -115,3 +115,12 @@ Décisions que le codeur n'a pas à prendre seul (produit, accès, jeton tiers).
 6. **Flux borné** — 2 flux par personne, 15 min au plus, cloisonné par marque et par personne (404 sinon).
 7. **Une tentative, pas de garde de doublon** — `jeu_script` ne se rejoue pas seul ; deux jeux simultanés d'un même script restent possibles. Le jeu d'une version périmée n'écrase pas le dernier jeu.
 8. **Licences** — nouvelle liste « images » dans `licences-tiers.json` (Playwright Apache-2.0, Chromium BSD-3-Clause) ; `scripts.astro` rejoint les fichiers réseau déclarés (EventSource vers l'origine seule).
+
+## 4.8 Demander un script à Claude
+
+1. **Aucun appel à Anthropic** — la « phrase » n'est jamais envoyée par regie : c'est Claude, connecté en MCP, qui écrit les étapes ; `script.proposer` ne reçoit que `applicationId`, `nom` et `etapes`. Le modèle de demande de l'interface est un texte à copier.
+2. **Exploration = tâche de capture sans compte** — nouvelle tâche `exploration` (interactive, 2 tentatives) : mode `exploration` du conteneur, mêmes proxy et deuxième garde que 4.2 ; elle rend titre, vignette et au plus 40 éléments (lien, bouton, champ) au texte coupé à 80 caractères. On explore ce qu'un visiteur voit : le compte de démo n'y entre jamais, et le contenu des champs n'est jamais lu.
+3. **Tout texte de page est `non_fiable`** — titre, textes d'éléments et capture sortent de `script.exploration` dans des champs `non_fiable` ; chaque lien porte `autorise` (son hôte est-il déclaré ?). La capture n'est rendue que sur `avecCapture`.
+4. **Vérification à l'écriture** — `script.proposer` valide toutes les étapes d'un coup (forme, cohérence, hôtes) et rend `{creee:false, erreurs:[{etape, verbe, champ, cause, detail, hote?}]}` en donnée (20 au plus) ; rien n'est créé tant qu'une étape est refusée. Un nom pris reste une erreur 409.
+5. **Parité (FR-47)** — `ExceptionParite.seulement: 'mcp'` : l'action est offerte au MCP et à lui seul (`actionsExposees(..., porte)`) ; en plus, l'action refuse `MCP_SEULEMENT` hors origine `mcp`. La référence de l'API la signale.
+6. **Reporté** — rendu des captures d'exploration dans l'interface ; exploration derrière une connexion (compte de démo) ; fusion avec les résultats de 4.6.

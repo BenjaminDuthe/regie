@@ -19,6 +19,7 @@ const session = Astro.locals.session;
 if (services === undefined || session === undefined) return new Response(null, { status: 401 });
 
 const t = chaines.scripts;
+const d = t.demander;
 const ctx = contexteInterface(services, session);
 const NOM_COOKIE = 'regie_etape_retiree';
 const UUID = /^[0-9a-f-]{36}$/;
@@ -91,6 +92,8 @@ if (Astro.request.method === 'POST') {
 }
 
 // L'affichage n'est pas une action : la liste est lue directement.
+const adresseMcp = `${Astro.url.origin}/mcp`;
+const modeleInitial = d.modele.replace('{application}', applications[0]?.nom ?? '').replace('{nom}', d.nomExemple).replace('{demande}', d.demandeExemple);
 const scripts = await services.scripts.lister(session.marqueId, ctx.utilisateurId, undefined);
 const courant = UUID.test(idDemande) ? await services.scripts.lire(session.marqueId, ctx.utilisateurId, idDemande) : undefined;
 const application = courant === undefined ? undefined : applications.find((a) => a.id === courant.applicationId);
@@ -173,6 +176,27 @@ const champCible = (e: Etape): 'url' | 'cible' | undefined => (e.verbe === 'alle
             );
           })
         }
+        <section aria-labelledby="titre-demander" id="demander-claude">
+          <h2 id="titre-demander">{d.titre}</h2>
+          <p class="intro">{d.intro}</p>
+          <details>
+            <summary>{d.connexionTitre}</summary>
+            <p>{d.connexion}</p>
+            <p>{d.adresse} : <code>{adresseMcp}</code></p>
+            <p class="doux">{d.securite}</p>
+          </details>
+          {
+            applications.length > 0 && (
+              <div class="demande-claude" data-modele={d.modele} data-copie={d.copie} data-exemple={d.demandeExemple} data-nom={d.nomExemple}>
+                <label>{d.application}<select id="demande-application">{applications.map((a) => <option value={a.nom}>{a.nom}</option>)}</select></label>
+                <label for="demande-texte">{d.modeleTitre}</label>
+                <textarea id="demande-texte" readonly rows="6">{modeleInitial}</textarea>
+                <button type="button" class="bouton" id="demande-copier">{d.copier}</button>
+                <p class="doux" id="demande-etat" role="status"></p>
+              </div>
+            )
+          }
+        </section>
         <section aria-labelledby="titre-creer">
           <h2 id="titre-creer">{t.creer.titre}</h2>
           {
@@ -339,6 +363,27 @@ const champCible = (e: Etape): 'url' | 'cible' | undefined => (e.verbe === 'alle
     )
   }
 </Base>
+
+<script>
+  // Modèle de demande à copier : le texte est assemblé par textContent / value, jamais en HTML. Aucun appel réseau.
+  const zone = document.getElementById('demande-texte') as HTMLTextAreaElement | null;
+  const bloc = document.querySelector<HTMLElement>('.demande-claude');
+  if (zone !== null && bloc !== null) {
+    const choix = document.getElementById('demande-application') as HTMLSelectElement;
+    const etat = document.getElementById('demande-etat')!;
+    const modele = bloc.dataset['modele'] ?? '';
+    const refaire = (): void => {
+      zone.value = modele.replace('{application}', choix.value).replace('{nom}', bloc.dataset['nom'] ?? '').replace('{demande}', bloc.dataset['exemple'] ?? '');
+    };
+    choix.addEventListener('change', refaire);
+    document.getElementById('demande-copier')!.addEventListener('click', () => {
+      zone.select();
+      void navigator.clipboard.writeText(zone.value).then(() => {
+        etat.textContent = bloc.dataset['copie'] ?? '';
+      });
+    });
+  }
+</script>
 
 <script>
   // Suivi en direct du jeu : tout est écrit par textContent, jamais interprété comme du HTML. Le journal ne contient
