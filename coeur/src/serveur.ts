@@ -31,6 +31,7 @@ import { enregistrerRoutesMcp } from './mcp/routes.ts';
 import { enregistrerRoutesFlux, type OptionsFlux } from './flux/routes.ts';
 import type { Services } from './auth/services.ts';
 import { EXECUTANTS } from './services/executants.ts';
+import { creerExecutantCapture, LanceurPodman, RESEAU_CAPTURE } from './services/capture.ts';
 import { Travailleur } from './services/travailleur.ts';
 import { EcheancesPg } from './infra/echeances.ts';
 import { Planificateur } from './services/planificateur.ts';
@@ -191,7 +192,19 @@ if (import.meta.main) {
   const travailleur = new Travailleur({
     file: services.file,
     marques: () => services.marques.lister(),
-    executants: EXECUTANTS,
+    executants: {
+      ...EXECUTANTS,
+      ...(env.REGIE_CAPTURE_SOCKET !== undefined && contexte.cleCapture !== undefined
+        ? {
+            capture: creerExecutantCapture({
+              applications: services.applications,
+              lanceur: new LanceurPodman({ socket: env.REGIE_CAPTURE_SOCKET, image: env.REGIE_CAPTURE_IMAGE, reseau: RESEAU_CAPTURE }),
+              cle: contexte.cleCapture,
+              proxy: env.REGIE_CAPTURE_PROXY,
+            }),
+          }
+        : {}),
+    },
     service: `coeur-${process.pid}`,
     journal: app.log,
   });

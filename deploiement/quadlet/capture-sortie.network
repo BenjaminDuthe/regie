@@ -1,0 +1,6 @@
+# regie — réseau de sortie du seul proxy-capture (histoire 4.2). Aucun autre conteneur ne s'y raccorde.
+[Network]
+NetworkName=capture-sortie
+Driver=bridge
+Subnet=10.89.78.0/24
+Gateway=10.89.78.1

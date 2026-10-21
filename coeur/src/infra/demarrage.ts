@@ -33,6 +33,8 @@ export const FICHIERS_SECRETS = Object.freeze({
   baseMigrations: 'regie_base_migrations',
   // Seulement quand la connexion Authentik est configurée (REGIE_OIDC_CLIENT_ID).
   oidcClient: 'regie_oidc_client',
+  // Seulement quand la capture est configurée (REGIE_CAPTURE_SOCKET) : clé partagée avec le proxy de sortie.
+  cleCapture: 'regie_capture_cle',
 });
 
 function lireMotDePasse(chemin: string): string {
@@ -58,6 +60,8 @@ export type Contexte = Readonly<{
   cleAdresses: Buffer;
   /** Secret du client OIDC d'Authentik ; absent quand la connexion n'est pas configurée. */
   secretOidc: string | undefined;
+  /** Clé (32 octets au moins) qui signe les laissez-passer du proxy de capture ; absente sans capture. */
+  cleCapture: Buffer | undefined;
   fermer: () => Promise<void>;
 }>;
 
@@ -86,6 +90,13 @@ export async function demarrerBase(
   masqueur.ajouter(motDePasseMigrations);
   const secretOidc = env.REGIE_OIDC_CLIENT_ID !== undefined ? lireMotDePasse(dossier(FICHIERS_SECRETS.oidcClient)) : undefined;
   if (secretOidc !== undefined) masqueur.ajouter(secretOidc);
+  let cleCapture: Buffer | undefined;
+  if (env.REGIE_CAPTURE_SOCKET !== undefined) {
+    const texte = lireMotDePasse(dossier(FICHIERS_SECRETS.cleCapture));
+    cleCapture = Buffer.from(texte, 'base64url');
+    if (cleCapture.length < 32) throw new ErreurDemarrage('secrets', 'clé de capture trop courte (32 octets au moins, en base64url)');
+    masqueur.ajouter(texte);
+  }
 
   // 2. Base et migrations, sous le rôle regie_migrations, fermé aussitôt après : aucun code applicatif n'y tourne.
   const base = { hote: env.BASE_HOTE, port: env.BASE_PORT, base: env.BASE_NOM };
@@ -120,5 +131,5 @@ export async function demarrerBase(
     if (erreur instanceof ErreurCoffre) throw new ErreurDemarrage('coffre', erreur.message);
     throw new ErreurDemarrage('base', `base inutilisable par ${env.BASE_UTILISATEUR} : ${causeConnexion(erreur)}`);
   }
-  return { pool, coffre, cleAdresses, secretOidc, fermer: () => pool.end() };
+  return { pool, coffre, cleAdresses, secretOidc, cleCapture, fermer: () => pool.end() };
 }

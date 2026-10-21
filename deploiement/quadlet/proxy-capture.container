@@ -1,0 +1,22 @@
+# regie — proxy de sortie de la capture (histoire 4.2). Écrit, NON installé : voir deploiement/infra/capture.md.
+[Unit]
+Description=regie : proxy de sortie de la capture
+
+[Container]
+ContainerName=proxy-capture
+Image=localhost/regie-proxy-capture:local
+Network=capture-interne.network:ip=10.89.77.2
+Network=capture-sortie.network
+ReadOnly=true
+DropCapability=ALL
+NoNewPrivileges=true
+Secret=regie_capture_cle,type=mount,target=regie_capture_cle,mode=0400
+Volume=%h/proxy-capture/config.json:/etc/proxy-capture/config.json:ro
+Volume=%h/proxy-capture/traces:/var/traces-capture:rw
+Tmpfs=/tmp
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

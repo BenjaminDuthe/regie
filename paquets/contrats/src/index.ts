@@ -6,3 +6,4 @@ export const VERSION_CONTRATS = 1;
 export * from './taches.ts';
 export * from './echeances.ts';
 export * from './hotes.ts';
+export * from './laissez-passer.ts';

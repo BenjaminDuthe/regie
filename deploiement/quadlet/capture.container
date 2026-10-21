@@ -1,0 +1,19 @@
+# regie — modèle du conteneur de capture (histoire 4.2). Le cœur lance les captures lui-même (podman run --rm, voir
+# coeur/src/services/capture.ts) avec ces mêmes réglages ; ce fichier les documente et sert de contrôle (le
+# vérificateur de sorties exige un réseau Internal=true). Écrit, NON installé : jamais démarré à demeure.
+[Unit]
+Description=regie : modèle du conteneur de capture (lancé à la demande)
+
+[Container]
+ContainerName=regie-capture-modele
+Image=localhost/regie-capture:local
+Network=capture-interne.network
+ReadOnly=true
+DropCapability=ALL
+NoNewPrivileges=true
+User=1000
+Tmpfs=/tmp:rw,noexec,nosuid,nodev,size=256m
+ShmSize=256m
+PidsLimit=512
+Environment=
+PodmanArgs=--memory=1g --cpus=2 --dns=none --no-hosts

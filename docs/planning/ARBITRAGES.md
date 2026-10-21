@@ -73,3 +73,11 @@ Décisions que le codeur n'a pas à prendre seul (produit, accès, jeton tiers).
 5. **Journal** — `gabarit.creer` et `gabarit.definir` sont au journal ; l'aperçu (image dessinée à chaque réglage) ne l'est pas, rien n'étant écrit ni exposé. `gabarit.apercu` par l'API ou le MCP l'est, comme toute action.
 6. **Marque Établia** — voir l'arbitrage 2.7 : gabarit neutre tant que la charte n'est pas fournie.
 
+
+## 4.2 Capturer une application dans un conteneur séparé
+
+1. **Bac à sable de Chromium sous Podman rootless** — le bac à sable reste actif (jamais `--no-sandbox`), mais le profil seccomp par défaut de Podman peut l'empêcher de créer ses espaces de noms. Options : profil seccomp dédié (recommandé, à valider sur le LXC), `--security-opt seccomp=unconfined` (à refuser). Recommandation : tester à l'installation (`deploiement/infra/capture.md`, étape 6) et fournir un profil minimal si Chromium échoue ; l'installation n'a pas pu être essayée (pas d'accès à l'infra).
+2. **Capture et proxy dans le LXC `regie`** — conformément à l'adaptation V1 : pas de LXC ni de VLAN séparés. L'isolation repose sur l'utilisateur Unix dédié, son socket Podman, le réseau `capture-interne` (`Internal=true`, sans DNS) et la liste blanche du proxy. Recommandation : séparer en LXC quand une deuxième personne utilisera regie.
+3. **Miniature dans le résultat de tâche** — la mini capture (PNG plafonné à environ 200 ko) est stockée en base64 dans le résultat de la tâche, sans zone de fichiers. Recommandation : la déplacer vers la zone de données quand elle existera.
+4. **Reportés** — preuve de contrôle du domaine, et liste « hôte + IP privée » à autoriser par l'administrateur (par exemple pour filmer une application sur le LAN) : refus pur des plages privées et de l'IP du foyer en V1. Le jeu de scripts complet (Playwright) arrive en 4.5 ; ici seule la mini capture d'accueil.
+5. **Installation** — unités Quadlet et Containerfiles écrits mais non installés ni construits (pas d'accès infra) ; clé `regie_capture_cle` à créer par l'administrateur ; test d'intégration `capture.integration.test.ts` à lancer avec `REGIE_TEST_PODMAN` (socket) et `REGIE_TEST_PODMAN_IMAGE`.

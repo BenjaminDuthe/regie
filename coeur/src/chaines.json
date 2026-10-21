@@ -337,7 +337,12 @@
       "TYPE_SANS_EXECUTANT": "Aucun service ne sait encore faire cette tâche.",
       "ECHEC": "La tâche a échoué.",
       "CHAINE_ROMPUE": "Le journal d’audit ne se vérifie plus.",
-      "defaut": "La tâche a échoué."
+      "defaut": "La tâche a échoué.",
+      "ENTREE_INVALIDE": "La demande de capture est incomplète.",
+      "APPLICATION_INTROUVABLE": "L’application à filmer n’existe plus.",
+      "HOTE_REFUSE": "La page demandée sort de la liste des hôtes déclarés pour cette application.",
+      "PAGE_INJOIGNABLE": "La page d’accueil de l’application ne répond pas.",
+      "CAPTURE_ECHEC": "Le navigateur de capture n’a pas pu terminer."
     },
     "actions": {
       "relancer": "Tu peux la relancer.",

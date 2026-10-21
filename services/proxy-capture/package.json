@@ -1,0 +1,8 @@
+{
+  "name": "@regie/proxy-capture",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Proxy de sortie de la capture : seuls les hôtes déclarés, jamais le réseau du foyer.",
+  "license": "AGPL-3.0-only",
+  "type": "module"
+}

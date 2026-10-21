@@ -6,8 +6,13 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['coeur/test/**/*.test.ts', 'paquets/*/test/**/*.test.ts', 'outils/ci/**/*.test.mjs'],
+    include: ['coeur/test/**/*.test.ts', 'paquets/*/test/**/*.test.ts', 'services/*/test/**/*.test.ts', 'outils/ci/**/*.test.mjs'],
     environment: 'node',
-    provide: { urlPostgresTest: process.env['REGIE_TEST_POSTGRES'] ?? '' },
+    provide: {
+      urlPostgresTest: process.env['REGIE_TEST_POSTGRES'] ?? '',
+      // Socket Podman et image de capture pour le test d'intégration de la capture (histoire 4.2) ; vides : ignoré.
+      socketPodmanTest: process.env['REGIE_TEST_PODMAN'] ?? '',
+      imageCaptureTest: process.env['REGIE_TEST_PODMAN_IMAGE'] ?? '',
+    },
   },
 });

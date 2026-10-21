@@ -1,0 +1,8 @@
+{
+  "name": "@regie/capture",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Exécutant de capture : tourne dans un conteneur Chromium jetable, ne joint que le proxy de sortie.",
+  "license": "AGPL-3.0-only",
+  "type": "module"
+}

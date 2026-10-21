@@ -10,9 +10,20 @@
     {
       "hote": "github.com",
       "raison": "lien vers le code source de la version en service (FR-67, AGPL-3.0), lien cliqué par la personne, jamais chargé",
-      "fichiers": ["coeur/src/source.ts"]
+      "fichiers": [
+        "coeur/src/source.ts"
+      ]
     }
   ],
-  "espacesDeNoms": ["www.w3.org"],
-  "fichiersReseau": ["coeur/src/infra/oidc.ts", "coeur/src/pages/taches.astro"]
+  "espacesDeNoms": [
+    "www.w3.org"
+  ],
+  "fichiersReseau": [
+    "coeur/src/infra/oidc.ts",
+    "coeur/src/pages/taches.astro",
+    "services/proxy-capture/src/adresses.ts",
+    "services/proxy-capture/src/proxy.ts",
+    "services/proxy-capture/src/principal.ts",
+    "coeur/src/services/capture.ts"
+  ]
 }

@@ -58,6 +58,14 @@ const schema = z.object({
     .transform((liste) => liste.split(',').map((element) => element.trim()).filter((element) => element !== ''))
     .refine((liste) => liste.length > 0 && liste.every(adresseOuBloc), 'doit être une liste d’adresses IP ou de blocs CIDR séparés par des virgules')
     .optional(),
+  // Capture des applications (histoire 4.2). Sans le socket, la tâche « capture » n'a pas d'exécutant. Le socket est
+  // celui de l'utilisateur Podman dédié ; la clé partagée avec le proxy est le fichier regie_capture_cle.
+  REGIE_CAPTURE_SOCKET: z.string().regex(/^\/[\w./-]{1,200}$/, 'doit être un chemin absolu de socket').optional(),
+  REGIE_CAPTURE_PROXY: z
+    .string()
+    .regex(/^\d{1,3}(\.\d{1,3}){3}:\d{1,5}$/, 'doit être ip:port du proxy de sortie')
+    .default('10.89.77.2:3128'),
+  REGIE_CAPTURE_IMAGE: z.string().regex(/^[\w./:@-]{1,200}$/, 'doit être un nom d’image').default('localhost/regie-capture:local'),
 }).superRefine((valeurs, contexte) => {
   const adresseSure = (valeur: string) => {
     const url = new URL(valeur);
@@ -113,6 +121,9 @@ export function lireEnvironnement(source: Readonly<Record<string, string | undef
     REGIE_ADMIN_SUB: source['REGIE_ADMIN_SUB'] || undefined,
     REGIE_ADMIN_EMAIL: source['REGIE_ADMIN_EMAIL'] || undefined,
     REGIE_PROXYS_DE_CONFIANCE: source['REGIE_PROXYS_DE_CONFIANCE'] || undefined,
+    REGIE_CAPTURE_SOCKET: source['REGIE_CAPTURE_SOCKET'] || undefined,
+    REGIE_CAPTURE_PROXY: source['REGIE_CAPTURE_PROXY'] || undefined,
+    REGIE_CAPTURE_IMAGE: source['REGIE_CAPTURE_IMAGE'] || undefined,
   });
   if (!resultat.success) {
     throw new ErreurEnvironnement(
