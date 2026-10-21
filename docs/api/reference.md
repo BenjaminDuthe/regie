@@ -2848,6 +2848,120 @@ Corps de la demande (schéma JSON) :
 }
 ```
 
+## `montage.bibliotheque`
+
+Liste ta bibliothèque de vidéos : la dernière version de chaque vidéo avec son statut (`prete`, `en_cours`, `bloquee`, `en_echec`, `sans_rendu`, lu sur le rendu allégé le plus récent) et sa date d’archivage. Filtres : `statut`, `depuis` et `jusqua` (jours AAAA-MM-JJ en heure de Paris, bornes comprises, sur la date de la dernière version), `archivees` (`exclure` par défaut, `inclure` ou `seulement`), `espaceId`. La plus récente d’abord ; 200 vidéos au plus.
+
+- API : `POST /api/v1/montage/bibliotheque` · outil MCP : `montage_bibliotheque`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "statut": {
+      "type": "string",
+      "enum": [
+        "prete",
+        "en_cours",
+        "bloquee",
+        "en_echec",
+        "sans_rendu"
+      ]
+    },
+    "depuis": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "jusqua": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "archivees": {
+      "default": "exclure",
+      "type": "string",
+      "enum": [
+        "exclure",
+        "inclure",
+        "seulement"
+      ]
+    },
+    "espaceId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+## `montage.archiver`
+
+Archive une vidéo (toutes ses versions) ou la sort des archives (`archivee` faux). Rien n’est effacé : une vidéo archivée disparaît seulement de la bibliothèque par défaut, avec ses rendus, sa légende et ses fichiers. Rappeler l’action ne change rien.
+
+- API : `POST /api/v1/montage/archiver` · outil MCP : `montage_archiver`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "archivee": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "archivee"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `montage.supprimer`
+
+Supprime définitivement une vidéo : toutes ses versions, ses rendus, ses voix, sa légende et les fichiers (octets effacés du disque). Irréversible : `confirmer` doit valoir vrai. Refusé (VIDEO_PUBLIEE) tant qu’une publication de cette vidéo est publiée : archive-la plutôt. Les publications programmées ne sont pas concernées ici.
+
+- API : `POST /api/v1/montage/supprimer` · outil MCP : `montage_supprimer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "confirmer": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "required": [
+    "id",
+    "confirmer"
+  ],
+  "additionalProperties": false
+}
+```
+
 ## `rendu.lire`
 
 Lit un rendu : son état, la progression de sa tâche, la cause d’un échec, et, pour un rendu bloqué, chaque violation des gardes (scène, élément, mesure, seuil).

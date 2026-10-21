@@ -103,6 +103,7 @@ function servicesSansBase(): Services {
     ajouterFichier: refus, lireFichier: async () => undefined, listerVoix: async () => [], marquerPurge: async () => false,
     creerRendu: refus, lierTache: refus, lireRendu: async () => undefined, lireRenduDeTache: async () => undefined, listerRendus: async () => [],
     demarrerRendu: refus, terminerRendu: refus, lireLegende: async () => undefined, enregistrerLegende: refus,
+    bibliotheque: async () => [], archiver: async () => false, supprimerVideo: async () => undefined, aPublicationPubliee: async () => false,
   };
   return {
     oidc: undefined,

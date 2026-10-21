@@ -5,7 +5,7 @@
 // `media-src 'self' blob:`. Un rendu bloqué par une garde reste lisible, marqué « bloqué », avec la scène fautive.
 import chaines from '../chaines.json' with { type: 'json' };
 import Base from '../mises-en-page/Base.astro';
-import { DUREE_ADRESSE_FICHIER_S, montageLire, montageLister, montageRegenerer, montageRegenererGabarit, renduAdresse } from '../services/actions-montage.ts';
+import { DUREE_ADRESSE_FICHIER_S, montageArchiver, montageBibliotheque, montageLire, montageRegenerer, montageRegenererGabarit, montageSupprimer, renduAdresse } from '../services/actions-montage.ts';
 import { contexteInterface } from '../services/contextes.ts';
 import { ErreurMetier } from '../services/erreurs.ts';
 import { executerAction } from '../services/registre.ts';
@@ -25,7 +25,6 @@ type Violation = { segment: string; element: string; phrase: string };
 type Rendu = { id: string; genre: string; etat: string; fichierId: string | null; violations: Violation[]; cause: string | null; creeLe: string };
 type Vue = { id: string; numero: number; origine: string; dureeMs: number; creeLe: string; gabarit: { nom: string; version: number }; timeline: { scenes: Scene[]; carteFin?: { titre: string; sousTitre: string; dureeMs: number } | null | undefined } };
 
-let liste: Vue[] = [];
 let detail: { montage: Vue; rendus: Rendu[]; versions: { id: string; numero: number; origine: string; creeLe: string }[] } | undefined;
 let introuvable: string | undefined;
 let refus: string | undefined;
@@ -35,7 +34,25 @@ if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const id = typeof form.get('id') === 'string' ? (form.get('id') as string) : '';
   const demande = form.get('regeneration');
-  if (/^[0-9a-f-]{36}$/.test(id) && (demande === 'rendu' || demande === 'gabarit')) {
+  const gestion = form.get('gestion');
+  if (/^[0-9a-f-]{36}$/.test(id) && (gestion === 'archiver' || gestion === 'desarchiver' || gestion === 'supprimer')) {
+    // Archiver et supprimer (histoire 3.9) : les mêmes actions que l'API et le MCP. Supprimer exige la case cochée.
+    try {
+      if (gestion === 'supprimer') {
+        if (form.get('confirmer') !== 'oui') refus = t.bibliotheque.confirmationManquante;
+        else {
+          const r = (await executerAction(ctx, montageSupprimer, { id, confirmer: true })) as { fichiersNonSupprimes: number };
+          return Astro.redirect(`/montages?fait=${r.fichiersNonSupprimes === 0 ? 'supprimee' : `supprimee-reste-${Math.min(r.fichiersNonSupprimes, 999)}`}`, 303);
+        }
+      } else {
+        await executerAction(ctx, montageArchiver, { id, archivee: gestion === 'archiver' });
+        return Astro.redirect(`/montages?fait=${gestion === 'archiver' ? 'archivee' : 'desarchivee'}`, 303);
+      }
+    } catch (e) {
+      if (!(e instanceof ErreurMetier)) throw e;
+      refus = e.message;
+    }
+  } else if (/^[0-9a-f-]{36}$/.test(id) && (demande === 'rendu' || demande === 'gabarit')) {
     try {
       if (demande === 'rendu') {
         await executerAction(ctx, montageRegenerer, { id });
@@ -50,9 +67,25 @@ if (Astro.request.method === 'POST') {
   } else refus = chaines.erreurs.MONTAGE_INTROUVABLE;
 }
 const lance = Astro.url.searchParams.get('lance');
+const fait = Astro.url.searchParams.get('fait') ?? '';
+const reste = /^supprimee-reste-(\d{1,3})$/.exec(fait)?.[1];
+
+// Filtres de la bibliothèque : lus dans l'adresse, validés par le schéma de l'action ; un filtre invalide est ignoré.
+const filtres = { statut: Astro.url.searchParams.get('statut') ?? '', depuis: Astro.url.searchParams.get('depuis') ?? '', jusqua: Astro.url.searchParams.get('jusqua') ?? '', archivees: Astro.url.searchParams.get('archivees') ?? 'exclure' };
+type VueBibliotheque = { montage: Vue; statut: string; archiveeLe: string | null };
+let bibliotheque: VueBibliotheque[] = [];
 
 if (idDemande === '') {
-  liste = ((await montageLister.executer(ctx, {})) as { montages: Vue[] }).montages;
+  const demande = montageBibliotheque.entree.safeParse(Object.fromEntries(Object.entries(filtres).filter(([, v]) => v !== '')));
+  if (!demande.success) refus = chaines.erreurs.PERIODE_INVALIDE;
+  else {
+    try {
+      bibliotheque = ((await executerAction(ctx, montageBibliotheque, demande.data)) as { videos: VueBibliotheque[] }).videos;
+    } catch (e) {
+      if (!(e instanceof ErreurMetier)) throw e;
+      refus = e.message;
+    }
+  }
 } else if (idDemande !== '') {
   try {
     const entree = montageLire.entree.parse({ id: idDemande });
@@ -90,15 +123,46 @@ const titrePage = detail === undefined ? t.titre : `${t.titre} — ${t.version.r
     idDemande === '' && (
       <>
         <p class="intro">{t.intro}</p>
-        {liste.length === 0 && <p class="doux">{t.vide}</p>}
+        {fait === 'archivee' && <p class="succes" role="status">{t.bibliotheque.archiveeOk}</p>}
+        {fait === 'desarchivee' && <p class="succes" role="status">{t.bibliotheque.desarchiveeOk}</p>}
+        {fait === 'supprimee' && <p class="succes" role="status">{t.bibliotheque.supprimeeOk}</p>}
+        {reste !== undefined && <p class="succes" role="status">{t.bibliotheque.supprimeeReste.replace('{nombre}', reste)}</p>}
+        <form method="get" action="/montages" class="filtres" aria-label={t.bibliotheque.filtres}>
+          <label>{t.bibliotheque.statut}
+            <select name="statut">
+              <option value="" selected={filtres.statut === ''}>{t.bibliotheque.tous}</option>
+              {Object.entries(t.bibliotheque.statuts).map(([k, v]) => <option value={k} selected={filtres.statut === k}>{v}</option>)}
+            </select>
+          </label>
+          <label>{t.bibliotheque.depuis} <input type="date" name="depuis" value={filtres.depuis} /></label>
+          <label>{t.bibliotheque.jusqua} <input type="date" name="jusqua" value={filtres.jusqua} /></label>
+          <label>{t.bibliotheque.archivees}
+            <select name="archivees">
+              {Object.entries(t.bibliotheque.archiveesChoix).map(([k, v]) => <option value={k} selected={filtres.archivees === k}>{v}</option>)}
+            </select>
+          </label>
+          <button type="submit" class="bouton">{t.bibliotheque.appliquer}</button>
+        </form>
+        {bibliotheque.length === 0 && <p class="doux">{Object.values(filtres).some((v) => v !== '' && v !== 'exclure') ? t.bibliotheque.aucuneCorrespondance : t.vide}</p>}
         <ul class="grille-demos">
-          {liste.map((m) => (
+          {bibliotheque.map(({ montage: m, statut, archiveeLe }) => (
             <li class="carte-demo">
               <h2>{m.timeline.scenes[0]?.accroche || t.titre} · {t.version.replace('{numero}', String(m.numero))}</h2>
+              <p class={`etat-rendu etat-${statut}`}>{(t.bibliotheque.statuts as Record<string, string>)[statut] ?? statut}</p>
+              {archiveeLe !== null && <p class="doux">{t.bibliotheque.archiveeLe.replace('{date}', formatDate.format(new Date(archiveeLe)))}</p>}
               <p class="doux">{origines[m.origine] ?? m.origine} · {t.duree.replace('{duree}', secondes(m.dureeMs))}</p>
               <p class="doux">{t.gabarit.replace('{nom}', m.gabarit.nom).replace('{version}', String(m.gabarit.version))}</p>
               <p class="doux">{formatDate.format(new Date(m.creeLe))}</p>
               <a class="bouton" href={`/montages?id=${m.id}`}>{t.ouvrir}</a>
+              <form method="post" action="/montages">
+                <input type="hidden" name="id" value={m.id} />
+                <button type="submit" name="gestion" value={archiveeLe === null ? 'archiver' : 'desarchiver'}>{archiveeLe === null ? t.bibliotheque.archiver : t.bibliotheque.desarchiver}</button>
+              </form>
+              <form method="post" action="/montages">
+                <input type="hidden" name="id" value={m.id} />
+                <label><input type="checkbox" name="confirmer" value="oui" /> {t.bibliotheque.confirmer}</label>
+                <button type="submit" name="gestion" value="supprimer">{t.bibliotheque.supprimer}</button>
+              </form>
             </li>
           ))}
         </ul>

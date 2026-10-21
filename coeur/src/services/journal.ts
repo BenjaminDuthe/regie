@@ -103,7 +103,8 @@ export function consulterJournal(chaine: readonly LigneAudit[], lecteur: Lecteur
   };
 }
 
-function prochainJour(jour: string): string {
+/** Le jour suivant (AAAA-MM-JJ), sans heure. */
+export function prochainJour(jour: string): string {
   const d = new Date(`${jour}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);

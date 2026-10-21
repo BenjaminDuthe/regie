@@ -195,3 +195,13 @@ Question : que livre le téléchargement, et comment sans rendu complet ?
 1. **Couverture en SVG** — option A : rastériser en PNG/JPEG au téléchargement (dépendance ou ffmpeg) ; option B : livrer l'image SVG de 3.5 en pièce jointe. Retenu : B, sans dépendance. **Recommandation** : B tant qu'aucun réseau ne refuse le SVG de couverture ; sinon rastériser avec le rendu complet (conteneur ffmpeg).
 2. **Un seul rendu complet à la fois** — `montage.telecharger` ne relance pas un rendu complet déjà en file ou en cours ; un rendu complet bloqué par une garde est refusé (`RENDU_PAS_PRET`) plutôt que relancé à l'identique.
 3. **Rushes purgés** — un rendu complet déjà fait reste téléchargeable (FR-52) ; sans rendu à faire, la demande est refusée (`SEANCE_PURGEE`).
+
+## 3.9 Ma bibliothèque de vidéos
+
+Question : comment filtrer, archiver et supprimer sans publications ni suivi de la période ?
+
+1. **Publications absentes** — la table `publications` n'existe pas avant l'épopée 7. `Montages.aPublicationPubliee` répond toujours faux en PostgreSQL ; la règle (refus `VIDEO_PUBLIEE`, archivage proposé) est en place et testée avec un faux. **Recommandation** : brancher la vraie requête dans 7.x et interdire alors toute suppression d'une vidéo publiée au niveau de la base aussi.
+2. **Période** — le filtre `depuis`/`jusqua` porte sur la date de la dernière version de la vidéo (jours de Paris, bornes comprises), pas sur celle du premier film. Option : date de la première version. Recommandation : garder la dernière, c'est ce que la personne voit.
+3. **Statut** — lu sur le rendu allégé le plus récent de la dernière version (à défaut, sur le rendu le plus récent) ; `sans_rendu` s'il n'y en a pas. Le filtre par réseau attend 7.5.
+4. **Droit DELETE** — la migration 0014 accorde `DELETE` sur `montages`, `rendus`, `fichiers` et `legendes`, jusque-là refusé : la suppression d'une vidéo est la seule voie, en une transaction, sous RLS forcée, et chaque suppression est inscrite dans `suppressions` (insertion seule). Option : une fonction SQL `SECURITY DEFINER`. Recommandation : garder les droits actuels, la RLS suffit.
+5. **Octets** — effacés du disque après la transaction ; un fichier qui résiste est compté dans `fichiersNonSupprimes` sans annuler la suppression (la base est déjà à jour). Un nettoyage des orphelins reste à écrire avec la purge (5.x).

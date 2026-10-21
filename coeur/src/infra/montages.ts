@@ -67,6 +67,12 @@ export type FinRendu = Readonly<{ etat: 'pret' | 'bloque' | 'echec'; fichierId?:
 
 export type LegendeEnregistree = Readonly<{ serieId: string; reseau: string; legende: string; hashtags: readonly string[]; majLe: Date }>;
 
+/** Une vidéo de la bibliothèque : sa dernière version, les rendus de cette version et son archivage (histoire 3.9). */
+export type EntreeBibliotheque = Readonly<{ montage: Montage; rendus: readonly Rendu[]; archiveeLe: Date | null }>;
+
+/** Ce qu'une suppression a retiré de la base : les fichiers dont les octets restent à effacer du disque. */
+export type SuppressionVideo = Readonly<{ fichiers: readonly { id: string; espaceId: string }[] }>;
+
 export type ResultatVersion = Readonly<{ etat: 'ok'; montage: Montage }> | Readonly<{ etat: 'introuvable' }> | Readonly<{ etat: 'perimee'; derniere: number }>;
 
 export interface Montages {
@@ -97,6 +103,21 @@ export interface Montages {
   listerRendus(marqueId: string, utilisateurId: string, montageId: string): Promise<Rendu[]>;
   demarrerRendu(marqueId: string, utilisateurId: string, id: string): Promise<void>;
   terminerRendu(marqueId: string, utilisateurId: string, id: string, fin: FinRendu): Promise<void>;
+
+  /** Les dernières versions des vidéos visibles (archivées comprises), la plus récente d'abord, avec leurs rendus. */
+  bibliotheque(marqueId: string, utilisateurId: string, filtre?: { espaceId?: string; limite?: number }): Promise<EntreeBibliotheque[]>;
+  /** Archive (ou désarchive) toutes les versions d'une vidéo ; `false` si elle n'existe pas pour cette personne. Rien n'est effacé. */
+  archiver(marqueId: string, utilisateurId: string, serieId: string, archivee: boolean): Promise<boolean>;
+  /**
+   * Supprime une vidéo entière en une transaction (rendus, légendes, voix, versions, films, rendus) et l'inscrit dans
+   * `suppressions`. `undefined` si elle n'existe pas pour cette personne. Les octets sont à effacer ensuite (AR-12).
+   */
+  supprimerVideo(marqueId: string, utilisateurId: string, serieId: string): Promise<SuppressionVideo | undefined>;
+  /**
+   * Une publication publiée existe-t-elle pour cette vidéo ? Il n'y a pas encore de publication (épopée 7) : le
+   * stockage PostgreSQL répond toujours `false` ; le faux de test permet d'exercer le refus.
+   */
+  aPublicationPubliee(marqueId: string, utilisateurId: string, serieId: string): Promise<boolean>;
 
   /** La légende enregistrée d'une vidéo (sa série) pour un réseau ; `undefined` si aucune. */
   lireLegende(marqueId: string, utilisateurId: string, serieId: string, reseau: string): Promise<LegendeEnregistree | undefined>;
@@ -294,6 +315,51 @@ export class MontagesPg implements Montages {
         [id, fin.etat, fin.fichierId ?? null, JSON.stringify(fin.violations ?? []), fin.cause ?? null],
       );
     });
+  }
+
+  async bibliotheque(marqueId: string, utilisateurId: string, filtre: { espaceId?: string; limite?: number } = {}): Promise<EntreeBibliotheque[]> {
+    return dansTransactionUtilisateur(this.#pool, marqueId, utilisateurId, async (client) => {
+      const { rows } = await client.query<LigneMontage & { archivee_le: Date | null }>(
+        `SELECT ${COL_MONTAGE}, archivee_le FROM montages m
+         WHERE ($1::uuid IS NULL OR m.espace_id = $1::uuid)
+           AND m.numero = (SELECT max(numero) FROM montages x WHERE x.serie_id = m.serie_id)
+         ORDER BY m.cree_le DESC, m.id LIMIT $2`,
+        [filtre.espaceId ?? null, Math.min(Math.max(filtre.limite ?? 200, 1), 500)],
+      );
+      const rendus = rows.length === 0 ? [] : (await client.query<LigneRendu>(`SELECT ${COL_RENDU} FROM rendus WHERE montage_id = ANY($1::uuid[]) ORDER BY cree_le DESC, id`, [rows.map((r) => r.id)])).rows.map(versRendu);
+      return rows.map((r) => ({ montage: versMontage(r), rendus: rendus.filter((x) => x.montageId === r.id), archiveeLe: r.archivee_le }));
+    });
+  }
+
+  async archiver(marqueId: string, utilisateurId: string, serieId: string, archivee: boolean): Promise<boolean> {
+    return dansTransactionUtilisateur(this.#pool, marqueId, utilisateurId, async (client) => {
+      const r = await client.query('UPDATE montages SET archivee_le = CASE WHEN $2::boolean THEN coalesce(archivee_le, now()) ELSE NULL END WHERE serie_id = $1', [serieId, archivee]);
+      return (r.rowCount ?? 0) > 0;
+    });
+  }
+
+  async supprimerVideo(marqueId: string, utilisateurId: string, serieId: string): Promise<SuppressionVideo | undefined> {
+    return dansTransactionUtilisateur(this.#pool, marqueId, utilisateurId, async (client) => {
+      // Même verrou que la création d'une version : pas de version ajoutée pendant la suppression.
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [serieId]);
+      const montages = await client.query<{ id: string; film_fichier_id: string }>('SELECT id, film_fichier_id FROM montages WHERE serie_id = $1', [serieId]);
+      if (montages.rows.length === 0) return undefined;
+      const ids = montages.rows.map((m) => m.id);
+      const fichiers = new Map<string, string>();
+      const noter = (rows: { id: string; espace_id: string }[]) => rows.forEach((f) => fichiers.set(f.id, f.espace_id));
+      noter((await client.query<{ id: string; espace_id: string }>('SELECT id, espace_id FROM fichiers WHERE id = ANY($1::uuid[]) OR montage_id = ANY($2::uuid[]) OR id IN (SELECT fichier_id FROM rendus WHERE montage_id = ANY($2::uuid[]) AND fichier_id IS NOT NULL)', [montages.rows.map((m) => m.film_fichier_id), ids])).rows);
+      await client.query('DELETE FROM rendus WHERE montage_id = ANY($1::uuid[])', [ids]);
+      await client.query('DELETE FROM legendes WHERE serie_id = $1', [serieId]);
+      await client.query('DELETE FROM fichiers WHERE montage_id = ANY($1::uuid[])', [ids]);
+      await client.query('DELETE FROM montages WHERE serie_id = $1', [serieId]);
+      await client.query('DELETE FROM fichiers WHERE id = ANY($1::uuid[])', [[...fichiers.keys()]]);
+      await client.query("INSERT INTO suppressions (marque_id, utilisateur_id, genre, objet_id, fichiers) VALUES ($1, $2, 'video', $3, $4)", [marqueId, utilisateurId, serieId, fichiers.size]);
+      return { fichiers: [...fichiers].map(([id, espaceId]) => ({ id, espaceId })) };
+    });
+  }
+
+  async aPublicationPubliee(_marqueId: string, _utilisateurId: string, _serieId: string): Promise<boolean> {
+    return false;
   }
 
   async lireLegende(marqueId: string, utilisateurId: string, serieId: string, reseau: string): Promise<LegendeEnregistree | undefined> {

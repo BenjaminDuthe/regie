@@ -807,10 +807,76 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
 
       // RLS forcée : sans marque, rien ; jamais d'UPDATE ni de DELETE sur les montages ; pas de film hors liste.
       for (const t of ['fichiers', 'montages', 'rendus']) expect((await contexte.pool.query(`SELECT count(*)::int AS n FROM ${t}`)).rows[0].n).toBe(0);
-      await expect(contexte.pool.query('DELETE FROM montages')).rejects.toThrow(/permission denied/);
+      // Depuis la bibliothèque (3.9), supprimer une vidéo est permis, mais la RLS ne laisse rien à une session sans marque.
+      expect((await contexte.pool.query('DELETE FROM montages')).rowCount).toBe(0);
       await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE montages SET timeline = timeline'))).rejects.toThrow(/permission denied/);
       await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE fichiers SET octets = 0'))).rejects.toThrow(/permission denied/);
       await expect(montages.ajouterFichier(marqueA, a.utilisateurId, espaceA, { ...film, id: randomUUID(), mime: 'audio/wav' as const, genre: 'rendu' as const, sha256: 'xyz' })).rejects.toThrow(/check/i);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('bibliothèque : archiver sans rien perdre, supprimer une vidéo entière en une transaction, journal des suppressions, cloisonnement (histoire 3.9)', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const montages = new MontagesPg(contexte.pool);
+      const marqueA = await marques.creer(`Biblio A ${suffixe}`);
+      const marqueB = await marques.creer(`Biblio B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-ba', undefined, 'Établia');
+      const a2 = await espaces.assurer(marqueA, 'sub-ba2', undefined, 'Autre');
+      const b = await espaces.assurer(marqueB, 'sub-bb', undefined, 'Autre');
+      const espaceA = a.espaces[0]!.id;
+      const timeline = depuisJournal([{ t: 0, genre: 'film_debut' }, { t: 100, genre: 'narration', cible: 'Bonjour.' }, { t: 3000, genre: 'film_fin' }], { filmDureeMs: 3000 });
+      const gabarit = figerGabarit({ id: randomUUID(), nom: 'Départ', version: 1, definition: GABARIT_DE_DEPART });
+      const film = { id: randomUUID(), genre: 'film' as const, mime: 'video/webm' as const, octets: 12, sha256: 'a'.repeat(64) };
+      const m = (await montages.creerDepuisFilm({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espaceA, scriptId: null, montageId: randomUUID(), film, timeline, gabarit }))!;
+      const v2 = await montages.creerVersion({ marqueId: marqueA, utilisateurId: a.utilisateurId, parentId: m.id, origine: 'edition', timeline });
+      if (v2.etat !== 'ok') throw new Error('version refusée');
+      const rendu = (await montages.creerRendu({ marqueId: marqueA, utilisateurId: a.utilisateurId, montageId: v2.montage.id, genre: 'allege' }))!;
+      const sortie = await montages.ajouterFichier(marqueA, a.utilisateurId, espaceA, { id: randomUUID(), genre: 'rendu', mime: 'video/mp4', octets: 10, sha256: 'b'.repeat(64) });
+      await montages.terminerRendu(marqueA, a.utilisateurId, rendu.id, { etat: 'pret', fichierId: sortie.id } as never);
+      await montages.enregistrerLegende({ marqueId: marqueA, utilisateurId: a.utilisateurId, serieId: m.serieId, reseau: 'tiktok', legende: 'Ma légende', hashtags: [] });
+
+      // La bibliothèque donne la dernière version et ses rendus ; archiver ne touche à rien d'autre.
+      const liste = await montages.bibliotheque(marqueA, a.utilisateurId);
+      expect(liste.map((e) => e.montage.id)).toEqual([v2.montage.id]);
+      expect(liste[0]!.rendus.map((r) => r.id)).toEqual([rendu.id]);
+      expect(liste[0]!.archiveeLe).toBeNull();
+      expect(await montages.archiver(marqueA, a.utilisateurId, m.serieId, true)).toBe(true);
+      expect((await montages.bibliotheque(marqueA, a.utilisateurId))[0]!.archiveeLe).toBeInstanceOf(Date);
+      expect((await montages.listerSerie(marqueA, a.utilisateurId, m.serieId))).toHaveLength(2);
+      expect(await montages.archiver(marqueA, a.utilisateurId, m.serieId, false)).toBe(true);
+      expect((await montages.bibliotheque(marqueA, a.utilisateurId))[0]!.archiveeLe).toBeNull();
+
+      // Cloisonnement : autre personne de la marque, autre marque. Rien n'est archivé ni supprimé pour eux.
+      for (const [marque, user] of [[marqueA, a2.utilisateurId], [marqueB, b.utilisateurId]] as const) {
+        expect(await montages.bibliotheque(marque, user)).toHaveLength(0);
+        expect(await montages.archiver(marque, user, m.serieId, true)).toBe(false);
+        expect(await montages.supprimerVideo(marque, user, m.serieId)).toBeUndefined();
+      }
+      expect(await montages.listerSerie(marqueA, a.utilisateurId, m.serieId)).toHaveLength(2);
+      expect(await montages.aPublicationPubliee(marqueA, a.utilisateurId, m.serieId)).toBe(false);
+
+      // Suppression : tout part d'un coup (versions, rendus, légende, fichiers), les fichiers à effacer sont rendus.
+      const retire = (await montages.supprimerVideo(marqueA, a.utilisateurId, m.serieId))!;
+      expect(retire.fichiers.map((f) => f.id).sort()).toEqual([m.filmFichierId, sortie.id].sort());
+      expect(await montages.listerSerie(marqueA, a.utilisateurId, m.serieId)).toHaveLength(0);
+      expect(await montages.lireRendu(marqueA, a.utilisateurId, rendu.id)).toBeUndefined();
+      expect(await montages.lireLegende(marqueA, a.utilisateurId, m.serieId, 'tiktok')).toBeUndefined();
+      expect(await montages.lireFichier(marqueA, a.utilisateurId, sortie.id)).toBeUndefined();
+      expect(await montages.supprimerVideo(marqueA, a.utilisateurId, m.serieId)).toBeUndefined();
+
+      // Le journal des suppressions : une ligne, lue seulement par sa marque, jamais modifiée ni effacée.
+      const lignes = await dansTransactionMarque(contexte.pool, marqueA, async (c) => (await c.query('SELECT genre, objet_id, fichiers, utilisateur_id FROM suppressions')).rows);
+      expect(lignes).toEqual([{ genre: 'video', objet_id: m.serieId, fichiers: 2, utilisateur_id: a.utilisateurId }]);
+      expect(await dansTransactionMarque(contexte.pool, marqueB, async (c) => (await c.query('SELECT 1 FROM suppressions')).rows)).toHaveLength(0);
+      expect((await contexte.pool.query('SELECT count(*)::int AS n FROM suppressions')).rows[0].n).toBe(0);
+      await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE suppressions SET fichiers = 0'))).rejects.toThrow(/permission denied/);
+      await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('DELETE FROM suppressions'))).rejects.toThrow(/permission denied/);
+      await expect(dansTransactionMarque(contexte.pool, marqueB, (c) => c.query("INSERT INTO suppressions (marque_id, utilisateur_id, genre, objet_id, fichiers) VALUES ($1, $2, 'video', $3, 0)", [marqueA, a.utilisateurId, m.serieId]))).rejects.toThrow(/row-level security/);
     } finally {
       await contexte.fermer();
     }
@@ -847,7 +913,7 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
 
       // RLS forcée : sans marque, rien ; jamais de DELETE ; réseau hors liste refusé par la base.
       expect((await contexte.pool.query('SELECT count(*)::int AS n FROM legendes')).rows[0].n).toBe(0);
-      await expect(contexte.pool.query('DELETE FROM legendes')).rejects.toThrow(/permission denied/);
+      expect((await contexte.pool.query('DELETE FROM legendes')).rowCount).toBe(0);
       await expect(montages.enregistrerLegende({ marqueId: marqueA, utilisateurId: a.utilisateurId, serieId: m.serieId, reseau: 'snapchat', legende: 'x', hashtags: [] })).rejects.toThrow(/check/i);
     } finally {
       await contexte.fermer();

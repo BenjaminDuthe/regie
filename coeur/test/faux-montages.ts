@@ -2,13 +2,18 @@
 // montage ne change plus, une nouvelle version est une nouvelle ligne, `perimee` si le parent n'est plus la dernière.
 import type { Timeline } from '@regie/contrats';
 import type { GabaritFige } from '../src/domaine/montage.ts';
-import type { Fichier, FinRendu, LegendeEnregistree, GenreRendu, Montage, Montages, NouveauFichier, Rendu, ResultatVersion } from '../src/infra/montages.ts';
+import type { EntreeBibliotheque, Fichier, FinRendu, LegendeEnregistree, GenreRendu, Montage, Montages, NouveauFichier, Rendu, ResultatVersion, SuppressionVideo } from '../src/infra/montages.ts';
 
 export class MontagesMemoire implements Montages {
   readonly montages: Montage[] = [];
   readonly fichiers: Fichier[] = [];
   readonly rendus: Rendu[] = [];
   readonly legendes: LegendeEnregistree[] = [];
+  /** Séries archivées (AAAA : date d'archivage) et vidéos supprimées (le journal `suppressions`). */
+  readonly archivees = new Map<string, Date>();
+  readonly suppressions: { serieId: string; fichiers: number; utilisateurId: string }[] = [];
+  /** Séries ayant une publication publiée : la table `publications` n'existe pas encore (épopée 7). */
+  readonly publiees = new Set<string>();
   /** Espaces que la personne voit : `undefined` = tous (la RLS est testée avec PostgreSQL). */
   espacesVisibles: readonly string[] | undefined;
   maintenant = (): number => Date.now();
@@ -112,6 +117,41 @@ export class MontagesMemoire implements Montages {
 
   async terminerRendu(_m: string, _u: string, id: string, fin: FinRendu): Promise<void> {
     this.#maj(id, (r) => ({ ...r, etat: fin.etat, fichierId: fin.fichierId ?? null, violations: fin.violations ?? [], cause: fin.cause ?? null, termineLe: new Date(this.maintenant()) }));
+  }
+
+  async bibliotheque(_m: string, _u: string, filtre: { espaceId?: string; limite?: number } = {}): Promise<EntreeBibliotheque[]> {
+    const dernieres = this.montages.filter((m) => this.#visible(m.espaceId) && (filtre.espaceId === undefined || m.espaceId === filtre.espaceId) && m.numero === Math.max(...this.montages.filter((x) => x.serieId === m.serieId).map((x) => x.numero)));
+    return dernieres
+      .sort((a, b) => b.creeLe.getTime() - a.creeLe.getTime())
+      .slice(0, filtre.limite ?? 200)
+      .map((montage) => ({ montage, rendus: this.rendus.filter((r) => r.montageId === montage.id).sort((a, b) => b.creeLe.getTime() - a.creeLe.getTime()), archiveeLe: this.archivees.get(montage.serieId) ?? null }));
+  }
+
+  async archiver(_m: string, _u: string, serieId: string, archivee: boolean): Promise<boolean> {
+    const serie = this.montages.find((m) => m.serieId === serieId);
+    if (serie === undefined || !this.#visible(serie.espaceId)) return false;
+    if (archivee) this.archivees.set(serieId, this.archivees.get(serieId) ?? new Date(this.maintenant()));
+    else this.archivees.delete(serieId);
+    return true;
+  }
+
+  async supprimerVideo(_m: string, utilisateurId: string, serieId: string): Promise<SuppressionVideo | undefined> {
+    const versions = this.montages.filter((m) => m.serieId === serieId);
+    if (versions.length === 0 || !this.#visible(versions[0]!.espaceId)) return undefined;
+    const ids = new Set(versions.map((m) => m.id));
+    const aRetirer = new Set([...versions.map((m) => m.filmFichierId), ...this.rendus.filter((r) => ids.has(r.montageId) && r.fichierId !== null).map((r) => r.fichierId!), ...this.fichiers.filter((f) => f.montageId !== null && ids.has(f.montageId)).map((f) => f.id)]);
+    const retires = this.fichiers.filter((f) => aRetirer.has(f.id)).map((f) => ({ id: f.id, espaceId: f.espaceId }));
+    this.rendus.splice(0, this.rendus.length, ...this.rendus.filter((r) => !ids.has(r.montageId)));
+    this.legendes.splice(0, this.legendes.length, ...this.legendes.filter((l) => l.serieId !== serieId));
+    this.fichiers.splice(0, this.fichiers.length, ...this.fichiers.filter((f) => !aRetirer.has(f.id)));
+    this.montages.splice(0, this.montages.length, ...this.montages.filter((m) => m.serieId !== serieId));
+    this.archivees.delete(serieId);
+    this.suppressions.push({ serieId, fichiers: retires.length, utilisateurId });
+    return { fichiers: retires };
+  }
+
+  async aPublicationPubliee(_m: string, _u: string, serieId: string): Promise<boolean> {
+    return this.publiees.has(serieId);
   }
 
   async lireLegende(_m: string, _u: string, serieId: string, reseau: string): Promise<LegendeEnregistree | undefined> {

@@ -109,3 +109,9 @@ registre y figure (`coeur/test/api.test.ts`).
 ## 2026-10-21 — histoire 3.8
 
 - Ajout de `montage.telecharger` (écriture) : rend l’adresse signée (moins d’une heure) de la vidéo complète 1 080×1 920 sans filigrane, la couverture choisie (SVG) et la légende de chaque réseau ; sans rendu complet, le met en file (une seule fois) et rend `etat: en_preparation` avec l’heure de fin estimée. Refus `SEANCE_PURGEE` si rien n’est rendu et que les rushes sont purgés, `RENDU_PAS_PRET` si le rendu complet est bloqué par une garde.
+
+## 2026-10-21 — histoire 3.9
+
+- Ajout de `montage.bibliotheque` (lecture) : la dernière version de chaque vidéo avec son statut (`prete`, `en_cours`, `bloquee`, `en_echec`, `sans_rendu`) et sa date d’archivage ; filtres `statut`, `depuis` et `jusqua` (jours AAAA-MM-JJ en heure de Paris, bornes comprises), `archivees` (`exclure` par défaut, `inclure`, `seulement`) et `espaceId`. `PERIODE_INVALIDE` (422) si une date n’existe pas ou si le début suit la fin.
+- Ajout de `montage.archiver` (écriture) : archive (ou sort des archives) toutes les versions d’une vidéo, sans rien effacer.
+- Ajout de `montage.supprimer` (écriture) : supprime définitivement une vidéo (versions, rendus, voix, légende, fichiers et octets) ; `confirmer: true` est obligatoire. `VIDEO_PUBLIEE` (409) tant qu’une publication de la vidéo est publiée : archive-la plutôt.

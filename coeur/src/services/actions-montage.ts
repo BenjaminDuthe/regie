@@ -17,6 +17,7 @@ import { definirAction, type ContexteAction } from './registre.ts';
 import { lancerRendu } from './rendu.ts';
 import { lancerVoix } from './voix.ts';
 import { suivreUneTache } from './suivi.ts';
+import { debutDeJourParis, prochainJour } from './journal.ts';
 
 const identifiant = z.uuid();
 
@@ -358,4 +359,95 @@ export const montageTelecharger = definirAction({
   objet: (entree) => `montage:${entree.id}`,
 });
 
-export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, montageRegenerer, montageRegenererGabarit, montageCouvertures, montageCouvrir, montageLegende, montageLegender, montageTelecharger, renduLire, renduAdresse] as const;
+const STATUTS_VIDEO = ['prete', 'en_cours', 'bloquee', 'en_echec', 'sans_rendu'] as const;
+type StatutVideo = (typeof STATUTS_VIDEO)[number];
+const JOUR = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+/** Le statut d'une vidéo se lit sur son rendu allégé le plus récent, à défaut sur son rendu le plus récent. */
+export function statutVideo(rendus: readonly Rendu[]): StatutVideo {
+  const tries = [...rendus].sort((a, b) => b.creeLe.getTime() - a.creeLe.getTime());
+  const r = tries.find((x) => x.genre === 'allege') ?? tries[0];
+  if (r === undefined) return 'sans_rendu';
+  return r.etat === 'pret' ? 'prete' : r.etat === 'bloque' ? 'bloquee' : r.etat === 'echec' ? 'en_echec' : 'en_cours';
+}
+
+/**
+ * Ma bibliothèque de vidéos (histoire 3.9, FR-45, FR-47) : la dernière version de chaque vidéo, filtrable par statut,
+ * par période (jours en heure de Paris, bornes comprises) et par archivage. Le filtre par réseau attend les publications.
+ */
+export const montageBibliotheque = definirAction({
+  domaine: 'montage',
+  verbe: 'bibliotheque',
+  description: 'Liste ta bibliothèque de vidéos : la dernière version de chaque vidéo avec son statut (`prete`, `en_cours`, `bloquee`, `en_echec`, `sans_rendu`, lu sur le rendu allégé le plus récent) et sa date d’archivage. Filtres : `statut`, `depuis` et `jusqua` (jours AAAA-MM-JJ en heure de Paris, bornes comprises, sur la date de la dernière version), `archivees` (`exclure` par défaut, `inclure` ou `seulement`), `espaceId`. La plus récente d’abord ; 200 vidéos au plus.',
+  portee: 'lecture',
+  entree: z.strictObject({
+    statut: z.enum(STATUTS_VIDEO).optional(),
+    depuis: JOUR.optional(),
+    jusqua: JOUR.optional(),
+    archivees: z.enum(['exclure', 'inclure', 'seulement']).default('exclure'),
+    espaceId: identifiant.optional(),
+  }),
+  executer: async (ctx, entree) => {
+    const debut = entree.depuis === undefined ? undefined : debutDeJourParis(entree.depuis);
+    const fin = entree.jusqua === undefined ? undefined : debutDeJourParis(prochainJour(entree.jusqua));
+    if ((entree.depuis !== undefined && debut === undefined) || (entree.jusqua !== undefined && fin === undefined)) throw new ErreurMetier('PERIODE_INVALIDE', 422, {});
+    if (debut !== undefined && fin !== undefined && debut >= fin) throw new ErreurMetier('PERIODE_INVALIDE', 422, {});
+    const toutes = await ctx.services.montages.bibliotheque(ctx.marqueId, ctx.utilisateurId, entree.espaceId === undefined ? {} : { espaceId: entree.espaceId });
+    const videos = toutes
+      .filter((e) => ctx.espaceIds === undefined || ctx.espaceIds.includes(e.montage.espaceId))
+      .map((e) => ({ ...e, statut: statutVideo(e.rendus) }))
+      .filter((e) => entree.statut === undefined || e.statut === entree.statut)
+      .filter((e) => (debut === undefined || e.montage.creeLe >= debut) && (fin === undefined || e.montage.creeLe < fin))
+      .filter((e) => (entree.archivees === 'inclure' ? true : entree.archivees === 'seulement' ? e.archiveeLe !== null : e.archiveeLe === null));
+    return {
+      videos: videos.map((e) => ({ montage: montageVisible(e.montage), statut: e.statut, archiveeLe: e.archiveeLe?.toISOString() ?? null })),
+    };
+  },
+  objet: () => 'montage',
+});
+
+export const montageArchiver = definirAction({
+  domaine: 'montage',
+  verbe: 'archiver',
+  description: 'Archive une vidéo (toutes ses versions) ou la sort des archives (`archivee` faux). Rien n’est effacé : une vidéo archivée disparaît seulement de la bibliothèque par défaut, avec ses rendus, sa légende et ses fichiers. Rappeler l’action ne change rien.',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant, archivee: z.boolean() }),
+  executer: async (ctx, entree) => {
+    const m = await montageAccessible(ctx, entree.id);
+    const ok = await ctx.services.montages.archiver(ctx.marqueId, ctx.utilisateurId, m.serieId, entree.archivee);
+    if (!ok) throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
+    return { serieId: m.serieId, archivee: entree.archivee };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+/**
+ * Supprimer une vidéo (histoire 3.9, FR-46, AR-12) : toutes ses versions, ses rendus, ses voix, sa légende et leurs
+ * fichiers. Irréversible, donc `confirmer: true` obligatoire. Une vidéo publiée n'est pas supprimée : on propose d'archiver.
+ */
+export const montageSupprimer = definirAction({
+  domaine: 'montage',
+  verbe: 'supprimer',
+  description: 'Supprime définitivement une vidéo : toutes ses versions, ses rendus, ses voix, sa légende et les fichiers (octets effacés du disque). Irréversible : `confirmer` doit valoir vrai. Refusé (VIDEO_PUBLIEE) tant qu’une publication de cette vidéo est publiée : archive-la plutôt. Les publications programmées ne sont pas concernées ici.',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant, confirmer: z.literal(true) }),
+  executer: async (ctx, entree) => {
+    const m = await montageAccessible(ctx, entree.id);
+    if (await ctx.services.montages.aPublicationPubliee(ctx.marqueId, ctx.utilisateurId, m.serieId)) throw new ErreurMetier('VIDEO_PUBLIEE', 409, { id: entree.id });
+    const r = await ctx.services.montages.supprimerVideo(ctx.marqueId, ctx.utilisateurId, m.serieId);
+    if (r === undefined) throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
+    // La base est déjà à jour (une seule transaction) : un fichier qui résiste est signalé, pas une raison d'échouer.
+    let nonSupprimes = 0;
+    for (const f of r.fichiers) {
+      try {
+        await ctx.services.stockage.supprimer(ctx.marqueId, f.id);
+      } catch {
+        nonSupprimes += 1;
+      }
+    }
+    return { serieId: m.serieId, supprimee: true, fichiersSupprimes: r.fichiers.length - nonSupprimes, fichiersNonSupprimes: nonSupprimes };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, montageRegenerer, montageRegenererGabarit, montageCouvertures, montageCouvrir, montageLegende, montageLegender, montageTelecharger, montageBibliotheque, montageArchiver, montageSupprimer, renduLire, renduAdresse] as const;
