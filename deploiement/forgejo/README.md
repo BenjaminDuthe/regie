@@ -75,7 +75,7 @@ Avant ce réglage, la tâche `update_mirrors` ne passait que toutes les 10 minut
    ssh -t root@192.168.20.200 pct exec 130 -- /root/installer.sh mot-de-passe
    ```
 2. **Jeton de statut GitHub.** Sur GitHub, *Settings → Developer settings → Fine-grained tokens* : dépôt `BenjaminDuthe/regie` seulement, permission **Commit statuses: Read and write**, rien d'autre. Dans Forgejo, *dépôt regie → Paramètres → Actions → Secrets* : secret `GITHUB_STATUTS`. Range aussi le jeton dans Vaultwarden. Ne le colle ni dans le dépôt ni dans le chat.
-3. **Protection de `main` sur GitHub.** *Settings → Branches → main* : exige le statut `forgejo/ci` avant la fusion.
+3. ~~**Protection de `main` sur GitHub.**~~ Faite le 2026-10-22 par un *ruleset* (*Settings → Rules → Rulesets → main protegee*), car la protection classique ne propose que les statuts vus la semaine passée : suppression et force-push interdits, statut `forgejo/ci` exigé (toute source).
 
 Le job `statut-github` publie `success` seulement si `suites` et `python` passent ; sinon `failure`. Tant que le secret manque, il laisse un avertissement sur Forgejo et le commit GitHub reste sans statut. Une fois la protection de `main` en place, la fusion est alors bloquée.
 
