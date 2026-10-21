@@ -112,17 +112,24 @@ export async function pivoterCleMaitresse(pool: PoolType, ancien: Coffre, nouvea
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query("SELECT set_config('app.rotation_cle', 'oui', true)");
-    const { rows } = await client.query<{ id: string; marque_id: string; type: string; chiffre: Buffer }>(
-      'SELECT id, marque_id, type, chiffre FROM secrets ORDER BY id FOR UPDATE',
-    );
-    for (const ligne of rows) {
-      const contexte: ContexteSecret = { secretId: ligne.id, marqueId: ligne.marque_id, type: ligne.type };
-      await client.query('UPDATE secrets SET chiffre = $2, modifie_le = now() WHERE id = $1', [
-        ligne.id,
-        rechiffrer(ligne.chiffre, contexte, ancien, nouveau),
-      ]);
+    // Marque par marque : la RLS reste active, aucune variable de session ne l'élargit.
+    const marques = await client.query<{ id: string }>('SELECT marques_identifiants() AS id');
+    let total = 0;
+    for (const { id: marqueId } of marques.rows) {
+      await client.query("SELECT set_config('app.marque_id', $1, true)", [marqueId]);
+      const { rows } = await client.query<{ id: string; type: string; chiffre: Buffer }>(
+        'SELECT id, type, chiffre FROM secrets ORDER BY id FOR UPDATE',
+      );
+      for (const ligne of rows) {
+        const contexte: ContexteSecret = { secretId: ligne.id, marqueId, type: ligne.type };
+        await client.query('UPDATE secrets SET chiffre = $2, modifie_le = now() WHERE id = $1', [
+          ligne.id,
+          rechiffrer(ligne.chiffre, contexte, ancien, nouveau),
+        ]);
+      }
+      total += rows.length;
     }
+    await client.query("SELECT set_config('app.marque_id', '', true)");
     const temoin = await client.query<{ chiffre: Buffer }>('SELECT chiffre FROM coffre_temoin FOR UPDATE');
     if (temoin.rows[0] !== undefined) verifierTemoin(ancien, temoin.rows[0].chiffre);
     await client.query(
@@ -130,7 +137,7 @@ export async function pivoterCleMaitresse(pool: PoolType, ancien: Coffre, nouvea
       [creerTemoin(nouveau)],
     );
     await client.query('COMMIT');
-    return rows.length;
+    return total;
   } catch (erreur) {
     await client.query('ROLLBACK').catch(() => undefined);
     throw erreur;

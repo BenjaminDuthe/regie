@@ -55,13 +55,20 @@ CREATE POLICY marques_de_la_marque ON marques TO regie_coeur
   USING (id = nullif(current_setting('app.marque_id', true), '')::uuid)
   WITH CHECK (id = nullif(current_setting('app.marque_id', true), '')::uuid);
 
--- La rotation de la clé maîtresse rechiffre les secrets de toutes les marques dans une seule
--- transaction : elle pose `app.rotation_cle` à « oui ». Seul le code de rotation le fait.
 CREATE POLICY secrets_de_la_marque ON secrets TO regie_coeur
-  USING (marque_id = nullif(current_setting('app.marque_id', true), '')::uuid
-         OR current_setting('app.rotation_cle', true) = 'oui')
-  WITH CHECK (marque_id = nullif(current_setting('app.marque_id', true), '')::uuid
-              OR current_setting('app.rotation_cle', true) = 'oui');
+  USING (marque_id = nullif(current_setting('app.marque_id', true), '')::uuid)
+  WITH CHECK (marque_id = nullif(current_setting('app.marque_id', true), '')::uuid);
+
+-- La rotation de la clé maîtresse parcourt les marques une à une, chacune sous sa propre RLS.
+-- Cette fonction ne rend que les identifiants (aucune donnée), et seul regie_coeur peut l'appeler.
+-- Aucune variable de session ne lève la RLS : une injection de set_config ne voit rien de plus.
+-- FORCE RLS s'applique aussi au propriétaire : il lui faut sa propre politique, en lecture seule.
+CREATE POLICY marques_lecture_proprietaire ON marques FOR SELECT TO CURRENT_USER USING (true);
+CREATE FUNCTION marques_identifiants() RETURNS SETOF uuid
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+  AS $$ SELECT id FROM marques ORDER BY id $$;
+REVOKE ALL ON FUNCTION marques_identifiants() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION marques_identifiants() TO regie_coeur;
 
 GRANT SELECT, INSERT, UPDATE ON marques TO regie_coeur;
 GRANT SELECT, INSERT, UPDATE, DELETE ON secrets TO regie_coeur;

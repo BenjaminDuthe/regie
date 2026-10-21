@@ -133,6 +133,14 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       expect(role.rows[0]).toEqual({ rolbypassrls: false, rolsuper: false });
       await expect(contexte.pool.query('ALTER TABLE secrets DISABLE ROW LEVEL SECURITY')).rejects.toThrow();
 
+      // Aucune variable de session ne lève la RLS (l'ancien passe-droit app.rotation_cle n'existe plus).
+      const passeDroit = await dansTransactionMarque(contexte.pool, marqueA, async (client) => {
+        await client.query("SELECT set_config('app.marque_id', '', true)");
+        await client.query("SELECT set_config('app.rotation_cle', 'oui', true)");
+        return client.query('SELECT id FROM secrets');
+      });
+      expect(passeDroit.rows).toEqual([]);
+
       // Rotation : tout est rechiffré sans perte ; l'ancienne clé ne lit plus rien.
       const ancien = contexte.coffre;
       const nouveau = new Coffre(randomBytes(32));
