@@ -53,3 +53,11 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `compte.etat` (lecture) : dit si le compte de démonstration d’une application est déposé et depuis quand, jamais l’identifiant ni le mot de passe.
 - Ajout de `compte.tester` (écriture) : lance un test de connexion dans la capture isolée et rend la tâche à suivre (`tache.lire`) ; le résultat est une mini capture de l’accueil connecté, ou l’étape qui a échoué. `COMPTE_ABSENT` (409) si rien n’est déposé.
 - `compte.deposer` existe pour l’interface seulement (raison dans `coeur/src/services/exceptions-parite.ts`) : aucun outil ni point d’API ne dépose, remplace ni ne lit un compte.
+
+## 2026-10-21 — histoire 4.4
+
+- Ajout de `script.lister` (lecture) : tes scripts de démo avec leur origine (claude, parcours, test_importe), leurs étapes et l'état du dernier jeu (réussi, échec à l'étape N, hôte refusé). La capture d'écran d'un échec reste à l'interface ; la cause de l'échec est une donnée `non_fiable`.
+- Ajout de `script.lire` (lecture) : un script avec la `version` à rendre pour le modifier.
+- Ajout de `script.creer` (écriture) : crée un script (nom, origine, étapes). Une étape invalide est refusée en `SCRIPT_ETAPE_INVALIDE` (422) qui nomme son numéro et la cause ; une étape vers un hôte non déclaré en `SCRIPT_HOTE_REFUSE` (422) qui nomme l'hôte.
+- Ajout de `script.definir` (écriture) : remplace le nom et toutes les étapes ; la version monte, le dernier jeu est remis à vide.
+- Ajout de `script.ajouteretape`, `script.deplaceretape`, `script.retireretape`, `script.modifieretape` (écriture) : ajouter, monter ou descendre, retirer (l'étape retirée est rendue, `script.ajouteretape` la remet) et remplacer une étape. Elles rendent la `version` lue ; une version périmée est refusée en `SCRIPT_VERSION_PERIMEE` (409).

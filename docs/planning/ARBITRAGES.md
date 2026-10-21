@@ -91,3 +91,16 @@ Décisions que le codeur n'a pas à prendre seul (produit, accès, jeton tiers).
 5. **Pas de capture en cas d'échec** — après une saisie, la page contient le mot de passe : sur échec, le conteneur ne rend que l'étape fautive (ouvrir, trouver, saisir, valider). Le mot de passe est refusé s'il apparaît dans la sortie du conteneur.
 6. **Sélecteurs de connexion génériques** — champ mot de passe `input[type=password]`, identifiant `input[type=email]` ou texte : suffit pour la démo d'Établia ; un formulaire plus exotique se pilotera avec les scripts (4.4/4.5, étape « connexion »).
 7. **Essai réel non fait** — ni Chromium ni Podman accessibles ici : testé avec faux navigateur et faux lanceur seulement (voir 4.2, point 5).
+
+## 4.4 Liste des scripts et éditeur d'étapes
+
+1. **Éditeur sur `/scripts?id=`** — le projet n'a aucune route dynamique Astro ; la liste et l'éditeur partagent la page `scripts.astro`. Recommandation : garder tant qu'il n'y a pas besoin de liens courts.
+2. **Étapes en JSON dans la table `scripts`** — une colonne `etapes jsonb` (au plus 100 étapes) plutôt qu'une table d'étapes : un geste remplace la liste entière sous contrôle de version. La migration 0011 crée la table, RLS forcée par marque et espace visible, sans DELETE.
+3. **Version vérifiée à chaque geste** — monter, descendre, retirer, ajouter et remplacer rendent `SCRIPT_VERSION_PERIMEE` (409) si la version lue n'est plus la bonne : deux fenêtres ou Claude et la personne ne s'écrasent pas.
+4. **Modifier un script remet à vide son dernier jeu** — l'état « échec à l'étape 3 » parlerait d'un autre script. Le dernier jeu (4.5) le réécrit au jeu suivant.
+5. **Cohérence du tournage partout** — « filmer arrêter » sans « filmer démarrer » et deux « démarrer » de suite sont refusés ; un « démarrer » sans « arrêter » reste permis (la fin du jeu arrête). Pour retirer la paire, on retire d'abord « arrêter ».
+6. **La capture d'un échec ne sort pas par l'API ni le MCP** — elle pèse des centaines de ko et montre la page filmée ; seule l'interface l'affiche, l'API rend `captureDisponible`. La cause d'échec, qui peut citer la page, est marquée `non_fiable`.
+7. **« Annuler » sans JavaScript** — le retrait pose un cookie de 60 s (l'étape retirée, jamais dans l'adresse) ; la page affiche un formulaire « Annuler » que la CSS masque après 4 s. Au-delà de 3,5 ko de cookie (longue narration), le retrait reste valable sans « Annuler ». Recommandation : un vrai toast en JavaScript avec le minuteur quand l'interface en aura un.
+8. **« Viser le … »** — un petit formulaire qui donne la nouvelle cible (ou la nouvelle adresse pour « aller ») et passe par `script.modifieretape` : l'hôte est revérifié. La sélection à la souris dans la capture est reportée.
+9. **Création à partir d'une phrase** — pas en 4.4 : c'est l'objet de 4.8 (MCP). L'interface crée un script vide.
+10. **`contrats` dépend de zod** — le schéma des étapes vit dans `@regie/contrats`, partagé par le cœur et l'exécutant de capture (4.5).

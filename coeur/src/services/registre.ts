@@ -33,6 +33,8 @@ export type Action<E = unknown, S = unknown> = Readonly<{
   executer: (contexte: ContexteAction, entree: E) => Promise<S>;
   /** Sur quoi porte l'action, pour le journal (par défaut le domaine). */
   objet?: (entree: E, sortie: S) => string;
+  /** Rend une entrée invalide plus précise que « vérifie tel champ » (par exemple en nommant l'étape d'un script). */
+  erreurEntree?: (erreur: z.ZodError, entreeBrute: unknown) => ErreurMetier | undefined;
 }>;
 
 export const definirAction = <E, S>(action: Action<E, S>): Action<E, S> => action;
@@ -93,6 +95,8 @@ export async function executerAction(contexte: ContexteAction, action: Action<an
   const lecture = action.entree.safeParse(entreeBrute ?? {});
   if (!lecture.success) {
     // Les messages de zod sont en anglais : on ne rend que les champs en cause.
+    const precise = action.erreurEntree?.(lecture.error, entreeBrute ?? {});
+    if (precise !== undefined) return refuser(precise);
     const champs = [...new Set(lecture.error.issues.map((i) => i.path.join('.') || '(corps)'))];
     return refuser(new ErreurMetier('ENTREE_INVALIDE', 400, { champs: champs.join(', ') }));
   }

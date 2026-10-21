@@ -9,6 +9,7 @@ import type { ConnexionClaude } from '../infra/oauth.ts';
 import { DUREE_MAX_JETON_JOURS, PORTEES, type JetonApi } from '../infra/jetons.ts';
 import { ACTIONS_APPLICATION } from './actions-application.ts';
 import { ACTIONS_COMPTE } from './actions-compte.ts';
+import { ACTIONS_SCRIPT } from './actions-script.ts';
 import { ACTIONS_GABARIT } from './actions-gabarit.ts';
 import { ErreurMetier } from './erreurs.ts';
 import { Registre, definirAction } from './registre.ts';
@@ -210,5 +211,5 @@ export const notificationAcquitter = definirAction({
   objet: (entree) => `notification:${entree.id}`,
 });
 
-export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer, connexionLister, connexionRevoquer, tacheLister, tacheLire, tacheRelancer, notificationLister, notificationAcquitter, ...ACTIONS_GABARIT, ...ACTIONS_APPLICATION, ...ACTIONS_COMPTE]);
+export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer, connexionLister, connexionRevoquer, tacheLister, tacheLire, tacheRelancer, notificationLister, notificationAcquitter, ...ACTIONS_GABARIT, ...ACTIONS_APPLICATION, ...ACTIONS_COMPTE, ...ACTIONS_SCRIPT]);
 export const REGISTRE = new Registre(ACTIONS);

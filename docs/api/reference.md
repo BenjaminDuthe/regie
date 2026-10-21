@@ -904,3 +904,1102 @@ Corps de la demande (schéma JSON) :
   "additionalProperties": false
 }
 ```
+
+## `script.lister`
+
+Liste les scripts de démo de tes applications : nom, origine (claude, parcours, test_importe), étapes et état du dernier jeu (réussi, échec à l’étape N, hôte refusé).
+
+- API : `POST /api/v1/script/lister` · outil MCP : `script_lister`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "applicationId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+## `script.lire`
+
+Lit un script de démo avec toutes ses étapes et la version à rendre pour le modifier.
+
+- API : `POST /api/v1/script/lire` · outil MCP : `script_lire`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `script.creer`
+
+Crée un script de démo pour une application, avec ses étapes. Chaque étape a un « verbe » parmi aller (url https), cliquer (cible), saisir (cible, valeur), attendre (cible), connexion, filmer (mode demarrer ou arreter), survoler (cible), defiler (cible, pixels), pause (secondes) et narration (texte). Une cible est le texte visible de l’élément, ou un sélecteur précédé de css=. Une étape qui vise un hôte non déclaré pour l’application est refusée en nommant l’hôte ; une étape invalide est refusée en nommant son numéro.
+
+- API : `POST /api/v1/script/creer` · outil MCP : `script_creer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "applicationId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "nom": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "origine": {
+      "default": "claude",
+      "type": "string",
+      "enum": [
+        "claude",
+        "parcours",
+        "test_importe"
+      ]
+    },
+    "etapes": {
+      "default": [],
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "aller"
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "verbe",
+              "url"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "cliquer"
+              },
+              "cible": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "verbe",
+              "cible"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "saisir"
+              },
+              "cible": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "valeur": {
+                "type": "string",
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "verbe",
+              "cible",
+              "valeur"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "attendre"
+              },
+              "cible": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "verbe",
+              "cible"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "connexion"
+              }
+            },
+            "required": [
+              "verbe"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "filmer"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "demarrer",
+                  "arreter"
+                ]
+              }
+            },
+            "required": [
+              "verbe",
+              "mode"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "survoler"
+              },
+              "cible": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "verbe",
+              "cible"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "defiler"
+              },
+              "cible": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "pixels": {
+                "type": "integer",
+                "minimum": -5000,
+                "maximum": 5000
+              }
+            },
+            "required": [
+              "verbe"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "pause"
+              },
+              "secondes": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 30
+              }
+            },
+            "required": [
+              "verbe",
+              "secondes"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "narration"
+              },
+              "texte": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "verbe",
+              "texte"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "applicationId",
+    "nom"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `script.definir`
+
+Remplace le nom et toutes les étapes d’un script (mêmes verbes que script_creer). Rends la version lue ; une version périmée est refusée. Le dernier jeu est remis à vide : il parlait d’un autre script.
+
+- API : `POST /api/v1/script/definir` · outil MCP : `script_definir`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "nom": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "etapes": {
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "aller"
+              },
+              "url": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "verbe",
+              "url"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "cliquer"
+              },
+              "cible": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "verbe",
+              "cible"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "saisir"
+              },
+              "cible": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "valeur": {
+                "type": "string",
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "verbe",
+              "cible",
+              "valeur"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "attendre"
+              },
+              "cible": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "verbe",
+              "cible"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "connexion"
+              }
+            },
+            "required": [
+              "verbe"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "filmer"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "demarrer",
+                  "arreter"
+                ]
+              }
+            },
+            "required": [
+              "verbe",
+              "mode"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "survoler"
+              },
+              "cible": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "verbe",
+              "cible"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "defiler"
+              },
+              "cible": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "pixels": {
+                "type": "integer",
+                "minimum": -5000,
+                "maximum": 5000
+              }
+            },
+            "required": [
+              "verbe"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "pause"
+              },
+              "secondes": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 30
+              }
+            },
+            "required": [
+              "verbe",
+              "secondes"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "verbe": {
+                "type": "string",
+                "const": "narration"
+              },
+              "texte": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "verbe",
+              "texte"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "nom",
+    "etapes"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `script.ajouteretape`
+
+Ajoute une étape à un script, à la position donnée (à partir de 1 ; à la fin si elle manque). Rends la version lue.
+
+- API : `POST /api/v1/script/ajouteretape` · outil MCP : `script_ajouteretape`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "etape": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "aller"
+            },
+            "url": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "verbe",
+            "url"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "cliquer"
+            },
+            "cible": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "verbe",
+            "cible"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "saisir"
+            },
+            "cible": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "valeur": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "verbe",
+            "cible",
+            "valeur"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "attendre"
+            },
+            "cible": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "verbe",
+            "cible"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "connexion"
+            }
+          },
+          "required": [
+            "verbe"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "filmer"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "demarrer",
+                "arreter"
+              ]
+            }
+          },
+          "required": [
+            "verbe",
+            "mode"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "survoler"
+            },
+            "cible": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "verbe",
+            "cible"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "defiler"
+            },
+            "cible": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "pixels": {
+              "type": "integer",
+              "minimum": -5000,
+              "maximum": 5000
+            }
+          },
+          "required": [
+            "verbe"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "pause"
+            },
+            "secondes": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 30
+            }
+          },
+          "required": [
+            "verbe",
+            "secondes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "narration"
+            },
+            "texte": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "verbe",
+            "texte"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "etape"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `script.deplaceretape`
+
+Monte ou descend l’étape à la position donnée (à partir de 1) d’un cran. Rends la version lue.
+
+- API : `POST /api/v1/script/deplaceretape` · outil MCP : `script_deplaceretape`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "sens": {
+      "type": "string",
+      "enum": [
+        "monter",
+        "descendre"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "position",
+    "sens"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `script.retireretape`
+
+Retire l’étape à la position donnée (à partir de 1). La réponse rend l’étape retirée : script_ajouteretape la remet à sa place. Rends la version lue.
+
+- API : `POST /api/v1/script/retireretape` · outil MCP : `script_retireretape`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "position"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `script.modifieretape`
+
+Remplace l’étape à la position donnée (à partir de 1) par une autre, par exemple pour viser un nouvel élément quand une étape est en panne. Rends la version lue.
+
+- API : `POST /api/v1/script/modifieretape` · outil MCP : `script_modifieretape`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "etape": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "aller"
+            },
+            "url": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "verbe",
+            "url"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "cliquer"
+            },
+            "cible": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "verbe",
+            "cible"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "saisir"
+            },
+            "cible": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "valeur": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "verbe",
+            "cible",
+            "valeur"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "attendre"
+            },
+            "cible": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "verbe",
+            "cible"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "connexion"
+            }
+          },
+          "required": [
+            "verbe"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "filmer"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "demarrer",
+                "arreter"
+              ]
+            }
+          },
+          "required": [
+            "verbe",
+            "mode"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "survoler"
+            },
+            "cible": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "verbe",
+            "cible"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "defiler"
+            },
+            "cible": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "pixels": {
+              "type": "integer",
+              "minimum": -5000,
+              "maximum": 5000
+            }
+          },
+          "required": [
+            "verbe"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "pause"
+            },
+            "secondes": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 30
+            }
+          },
+          "required": [
+            "verbe",
+            "secondes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "verbe": {
+              "type": "string",
+              "const": "narration"
+            },
+            "texte": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "verbe",
+            "texte"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "position",
+    "etape"
+  ],
+  "additionalProperties": false
+}
+```

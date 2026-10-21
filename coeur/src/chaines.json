@@ -21,7 +21,8 @@
     "journal": "Journal",
     "taches": "Tâches",
     "gabarit": "Gabarit",
-    "demos": "Démos d’app"
+    "demos": "Démos d’app",
+    "scripts": "Scripts"
   },
   "connexion": {
     "titre": "Connexion",
@@ -178,7 +179,13 @@
     "ACCUEIL_REFUSE": "L’adresse d’accueil n’est pas acceptée : elle doit commencer par https:// et viser un nom de domaine public, sans identifiants ni port.",
     "HOTE_REFUSE": "L’hôte « {hote} » est refusé : {cause}",
     "HOTES_TROP_NOMBREUX": "Une application ne peut pas déclarer plus de {max} hôtes.",
-    "COMPTE_ABSENT": "Aucun compte de démonstration n’est déposé pour cette application : dépose-le d’abord dans Démos d’app."
+    "COMPTE_ABSENT": "Aucun compte de démonstration n’est déposé pour cette application : dépose-le d’abord dans Démos d’app.",
+    "SCRIPT_INTROUVABLE": "Ce script n’existe pas, ou tu n’y as pas accès.",
+    "SCRIPT_NOM_PRIS": "Un script s’appelle déjà « {nom} » pour cette application : choisis un autre nom.",
+    "SCRIPT_VERSION_PERIMEE": "Ce script a changé depuis que tu l’as lu (version {actuelle}, tu as lu la {lue}) : relis-le puis recommence.",
+    "SCRIPT_ETAPE_INTROUVABLE": "Ce script n’a pas d’étape {position} : il en compte {total}.",
+    "SCRIPT_ETAPE_INVALIDE": "Le script n’est pas valable. {detail}",
+    "SCRIPT_HOTE_REFUSE": "L’étape {etape} vise l’hôte « {hote} », qui n’est pas déclaré pour cette application : ajoute-le d’abord à ses hôtes autorisés (Démos d’app), ou change l’adresse."
   },
   "jetons": {
     "titre": "Jetons d’API",
@@ -490,6 +497,107 @@
       "testEchoue": "Test de connexion échoué.",
       "testApercu": "Mini capture de l’accueil après connexion",
       "champsRequis": "L’identifiant et le mot de passe sont tous deux nécessaires."
+    }
+  },
+  "scripts": {
+    "titre": "Scripts de démo",
+    "intro": "Un script est la suite d’étapes que regie rejoue dans un navigateur isolé pour filmer ton application. Tu peux corriger une étape ici ; Claude propose les mêmes modifications par le MCP.",
+    "vide": "Aucun script pour l’instant. Crée le premier ci-dessous, ou demande-le à Claude.",
+    "aucuneApplication": "Déclare d’abord une application dans Démos d’app : un script filme toujours une application connue.",
+    "sansEtape": "Aucune étape.",
+    "ouvrir": "Ouvrir",
+    "retour": "Tous les scripts",
+    "version": "version {version}",
+    "etapesNombre": "{n} étapes",
+    "enregistre": "Script enregistré.",
+    "origines": {
+      "claude": "Écrit par Claude",
+      "parcours": "Parcours enregistré",
+      "test_importe": "Test importé"
+    },
+    "jeu": {
+      "jamais": "Jamais joué",
+      "reussi": "Dernier jeu réussi le {date}",
+      "echec": "Échec à l’étape {etape} le {date}",
+      "hote_refuse": "Hôte refusé : {hote}",
+      "hote_refuse_etape": "Hôte refusé à l’étape {etape} : {hote}"
+    },
+    "creer": {
+      "titre": "Créer un script",
+      "application": "Application",
+      "nom": "Nom du script",
+      "bouton": "Créer le script"
+    },
+    "editeur": {
+      "titre": "Étapes",
+      "numero": "Étape {n}",
+      "monter": "Monter",
+      "descendre": "Descendre",
+      "retirer": "Retirer",
+      "retiree": "Étape {n} retirée.",
+      "annuler": "Annuler",
+      "annulee": "Étape remise à sa place.",
+      "ajouter": "Ajouter une étape",
+      "ajouterBouton": "Ajouter l’étape",
+      "verbe": "Verbe",
+      "apres": "Après l’étape",
+      "finDeScript": "À la fin",
+      "aideCible": "Cible : le texte visible de l’élément, ou un sélecteur précédé de css= (par exemple css=#nom).",
+      "hotesApplication": "Hôtes autorisés pour {application} : {hotes}"
+    },
+    "champs": {
+      "url": "Adresse (https://…)",
+      "cible": "Cible",
+      "valeur": "Texte à saisir",
+      "mode": "Tournage",
+      "secondes": "Secondes",
+      "texte": "Texte de la narration",
+      "pixels": "Pixels (négatif = vers le haut)"
+    },
+    "modes": {
+      "demarrer": "Démarrer",
+      "arreter": "Arrêter"
+    },
+    "verbes": {
+      "aller": "Aller à",
+      "cliquer": "Cliquer sur",
+      "saisir": "Saisir",
+      "attendre": "Attendre",
+      "connexion": "Se connecter avec le compte de démo",
+      "filmer": "Filmer",
+      "survoler": "Survoler",
+      "defiler": "Faire défiler",
+      "pause": "Pause",
+      "narration": "Narration"
+    },
+    "panne": {
+      "titre": "Cette étape a échoué au dernier jeu",
+      "cause": "Cause : {cause}",
+      "capture": "Capture de la page au moment de l’échec",
+      "pasDeCapture": "Pas de capture disponible.",
+      "viserCible": "Viser le nouvel élément",
+      "viserAdresse": "Viser la nouvelle adresse",
+      "nouvelleCible": "Nouvel élément visé",
+      "nouvelleAdresse": "Nouvelle adresse",
+      "retirer": "Retirer l’étape",
+      "hoteRefuse": "Cette étape a été refusée : l’hôte « {hote} » n’est pas déclaré pour l’application."
+    },
+    "etapeErreur": "Étape {etape}{verbe} : {cause}",
+    "causes": {
+      "VERBE_INCONNU": "le verbe n’existe pas. Verbes permis : aller, cliquer, saisir, attendre, connexion, filmer, survoler, defiler, pause, narration.",
+      "CHAMP_MANQUANT": "le champ « {champ} » manque.",
+      "CHAMP_INCONNU": "le champ « {champ} » n’existe pas pour ce verbe.",
+      "VALEUR_INVALIDE": "la valeur du champ « {champ} » n’est pas valable.",
+      "URL_REFUSEE": "l’adresse doit commencer par https:// et viser un nom de domaine public, sans identifiants ni port.",
+      "FILMER_DEJA_EN_COURS": "le tournage est déjà démarré : arrête-le d’abord.",
+      "FILMER_SANS_DEBUT": "il n’y a pas de « filmer démarrer » avant cette étape.",
+      "TROP_D_ETAPES": "un script compte au plus {max} étapes."
+    },
+    "format": {
+      "citation": "« {texte} »",
+      "saisie": "{valeur} dans {cible}",
+      "pixels": "{pixels} px",
+      "secondes": "{secondes} s"
     }
   }
 }

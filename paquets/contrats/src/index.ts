@@ -7,3 +7,4 @@ export * from './taches.ts';
 export * from './echeances.ts';
 export * from './hotes.ts';
 export * from './laissez-passer.ts';
+export * from './scripts.ts';

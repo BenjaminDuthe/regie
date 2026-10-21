@@ -7,6 +7,8 @@ import type { AddressInfo } from 'node:net';
 import type { Services } from '../src/auth/services.ts';
 import { chainer, type Audit, type EntreeAudit, type LigneAudit } from '../src/infra/audit.ts';
 import { GABARIT_DE_DEPART, NOM_GABARIT_DE_DEPART, type DefinitionGabarit } from '../src/domaine/gabarit.ts';
+import { NomScriptPris, type ChampsScript, type ResultatRemplacement, type Script, type Scripts } from '../src/infra/scripts.ts';
+import type { DernierJeu, OrigineScript } from '@regie/contrats';
 import { NomApplicationPris, type Application, type Applications, type ChampsApplication } from '../src/infra/applications.ts';
 import type { ComptesDemo, CompteDemo, EtatCompteDemo } from '../src/infra/comptes-demo.ts';
 import type { Gabarit, Gabarits } from '../src/infra/gabarits.ts';
@@ -407,6 +409,57 @@ export class ApplicationsMemoire implements Applications {
   }
 }
 
+/** Scripts en mémoire : même contrat que ScriptsPg (visibles par l'espace de leur application, nom unique par application, version lue). */
+export class ScriptsMemoire implements Scripts {
+  readonly lignes: (Script & { marqueId: string })[] = [];
+  maintenant = () => Date.now();
+  readonly #applications: ApplicationsMemoire;
+  constructor(applications: ApplicationsMemoire) {
+    this.#applications = applications;
+  }
+  async #visible(marqueId: string, utilisateurId: string, applicationId: string): Promise<boolean> {
+    return (await this.#applications.lire(marqueId, utilisateurId, applicationId)) !== undefined;
+  }
+  async lister(marqueId: string, utilisateurId: string, applicationId?: string) {
+    const sortie: Script[] = [];
+    for (const l of this.lignes) {
+      if (l.marqueId !== marqueId || (applicationId !== undefined && l.applicationId !== applicationId)) continue;
+      if (await this.#visible(marqueId, utilisateurId, l.applicationId)) sortie.push(l);
+    }
+    return sortie;
+  }
+  async lire(marqueId: string, utilisateurId: string, id: string) {
+    const l = this.lignes.find((x) => x.id === id && x.marqueId === marqueId);
+    return l !== undefined && (await this.#visible(marqueId, utilisateurId, l.applicationId)) ? l : undefined;
+  }
+  async creer(n: { marqueId: string; utilisateurId: string; applicationId: string; origine: OrigineScript } & ChampsScript) {
+    const a = await this.#applications.lire(n.marqueId, n.utilisateurId, n.applicationId);
+    if (a === undefined) return undefined;
+    if (this.lignes.some((l) => l.applicationId === n.applicationId && l.nom === n.nom)) throw new NomScriptPris();
+    const t = new Date(this.maintenant());
+    const s = { id: crypto.randomUUID(), marqueId: n.marqueId, espaceId: a.espaceId, applicationId: n.applicationId, nom: n.nom, origine: n.origine, etapes: structuredClone([...n.etapes]), dernierJeu: null, version: 1, creeLe: t, modifieLe: t };
+    this.lignes.push(s);
+    return s;
+  }
+  async remplacer(marqueId: string, utilisateurId: string, id: string, c: ChampsScript, versionLue: number): Promise<ResultatRemplacement> {
+    const avant = await this.lire(marqueId, utilisateurId, id);
+    if (avant === undefined) return { etat: 'introuvable' };
+    if (avant.version !== versionLue) return { etat: 'perimee' };
+    if (this.lignes.some((l) => l.id !== id && l.applicationId === avant.applicationId && l.nom === c.nom)) throw new NomScriptPris();
+    const i = this.lignes.findIndex((l) => l.id === id);
+    const apres = { ...this.lignes[i]!, nom: c.nom, etapes: structuredClone([...c.etapes]), dernierJeu: null, version: avant.version + 1, modifieLe: new Date(this.maintenant()) };
+    this.lignes[i] = apres;
+    return { etat: 'ok', script: apres };
+  }
+  async enregistrerJeu(marqueId: string, utilisateurId: string, id: string, jeu: DernierJeu) {
+    const avant = await this.lire(marqueId, utilisateurId, id);
+    if (avant === undefined) return false;
+    const i = this.lignes.findIndex((l) => l.id === id);
+    this.lignes[i] = { ...this.lignes[i]!, dernierJeu: jeu };
+    return true;
+  }
+}
+
 /** Comptes de démonstration en mémoire : le contenu n'est lisible que par `lire`, que le faux de passerelle seul utilise. */
 export class ComptesDemoMemoire implements ComptesDemo {
   readonly #comptes = new Map<string, { compte: CompteDemo; modifieLe: Date }>();
@@ -423,7 +476,7 @@ export class ComptesDemoMemoire implements ComptesDemo {
   }
 }
 
-export type BancDeTest = { comptesDemo: ComptesDemoMemoire; services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
+export type BancDeTest = { scripts: ScriptsMemoire; comptesDemo: ComptesDemoMemoire; services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
 
 export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
@@ -442,6 +495,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
   gabarits.maintenant = () => horloge.t;
   const applications = new ApplicationsMemoire(espaces);
   applications.maintenant = () => horloge.t;
+  const scripts = new ScriptsMemoire(applications);
+  scripts.maintenant = () => horloge.t;
   const comptesDemo = new ComptesDemoMemoire();
   comptesDemo.maintenant = () => horloge.t;
   const notifications = new NotificationsMemoire();
@@ -463,8 +518,9 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     notifications,
     gabarits,
     applications,
+    scripts,
     comptesDemo,
     maintenant: () => horloge.t,
   };
-  return { comptesDemo, services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
+  return { scripts, comptesDemo, services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
 }

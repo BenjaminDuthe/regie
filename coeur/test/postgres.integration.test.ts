@@ -20,6 +20,7 @@ import { calculerSante } from '../src/infra/sante.ts';
 import { AuditPg, verifierChaine } from '../src/infra/audit.ts';
 import { EspacesPg, idUtilisateur } from '../src/infra/espaces.ts';
 import { ApplicationsPg, NomApplicationPris } from '../src/infra/applications.ts';
+import { NomScriptPris, ScriptsPg } from '../src/infra/scripts.ts';
 import { GabaritsPg } from '../src/infra/gabarits.ts';
 import { GABARIT_DE_DEPART } from '../src/domaine/gabarit.ts';
 import { JetonsApiPg, hacherJeton } from '../src/infra/jetons.ts';
@@ -705,6 +706,50 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       await expect(contexte.pool.query('DELETE FROM applications')).rejects.toThrow(/permission denied/);
       await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE applications SET marque_id = marque_id'))).rejects.toThrow(/permission denied/);
       await expect(applications.creer({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espace, ...champs, nom: 'Vide', hotes: [] })).rejects.toThrow(/check/i);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('scripts : cloisonnés par marque et par personne, version vérifiée, dernier jeu remis à vide, RLS forcée (histoire 4.4)', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const applications = new ApplicationsPg(contexte.pool);
+      const scripts = new ScriptsPg(contexte.pool);
+      const marqueA = await marques.creer(`Scripts A ${suffixe}`);
+      const marqueB = await marques.creer(`Scripts B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-sa', undefined, 'Établia');
+      const a2 = await espaces.assurer(marqueA, 'sub-sa2', undefined, 'Autre');
+      const b = await espaces.assurer(marqueB, 'sub-sb', undefined, 'Autre');
+      const app = (await applications.creer({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: a.espaces[0]!.id, nom: 'Démo', accueil: 'https://demo.etablia.fr/', hotes: ['demo.etablia.fr'] }))!;
+      const etapes = [{ verbe: 'aller' as const, url: 'https://demo.etablia.fr/' }, { verbe: 'cliquer' as const, cible: 'Connexion' }];
+
+      const cree = (await scripts.creer({ marqueId: marqueA, utilisateurId: a.utilisateurId, applicationId: app.id, origine: 'claude', nom: 'Parcours', etapes }))!;
+      expect(cree).toMatchObject({ espaceId: app.espaceId, origine: 'claude', version: 1, dernierJeu: null, etapes });
+      await expect(scripts.creer({ marqueId: marqueA, utilisateurId: a.utilisateurId, applicationId: app.id, origine: 'claude', nom: 'Parcours', etapes })).rejects.toBeInstanceOf(NomScriptPris);
+
+      // Le dernier jeu s'enregistre, puis un remplacement le remet à vide et fait monter la version.
+      expect(await scripts.enregistrerJeu(marqueA, a.utilisateurId, cree.id, { etat: 'echec', etape: 2, cause: 'introuvable', capture: 'AAAA', jouLe: new Date().toISOString() })).toBe(true);
+      expect((await scripts.lire(marqueA, a.utilisateurId, cree.id))!.dernierJeu).toMatchObject({ etat: 'echec', etape: 2 });
+      const remplace = await scripts.remplacer(marqueA, a.utilisateurId, cree.id, { nom: 'Parcours', etapes: [etapes[0]!] }, 1);
+      expect(remplace).toMatchObject({ etat: 'ok', script: { version: 2, dernierJeu: null } });
+      expect(await scripts.remplacer(marqueA, a.utilisateurId, cree.id, { nom: 'Parcours', etapes }, 1)).toMatchObject({ etat: 'perimee' });
+
+      // Cloisonnement : une autre personne, une autre marque.
+      expect(await scripts.lire(marqueA, a2.utilisateurId, cree.id)).toBeUndefined();
+      expect(await scripts.lire(marqueB, b.utilisateurId, cree.id)).toBeUndefined();
+      expect(await scripts.remplacer(marqueA, a2.utilisateurId, cree.id, { nom: 'X', etapes }, 2)).toMatchObject({ etat: 'introuvable' });
+      expect(await scripts.creer({ marqueId: marqueA, utilisateurId: a2.utilisateurId, applicationId: app.id, origine: 'claude', nom: 'Intrus', etapes })).toBeUndefined();
+      expect(await scripts.lister(marqueB, b.utilisateurId)).toHaveLength(0);
+
+      // Sans marque posée, aucune ligne ; jamais de DELETE ; au plus cent étapes.
+      expect((await contexte.pool.query('SELECT count(*)::int AS n FROM scripts')).rows[0].n).toBe(0);
+      await expect(contexte.pool.query('DELETE FROM scripts')).rejects.toThrow(/permission denied/);
+      await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE scripts SET marque_id = marque_id'))).rejects.toThrow(/permission denied/);
+      const trop = Array.from({ length: 101 }, () => ({ verbe: 'connexion' as const }));
+      await expect(scripts.creer({ marqueId: marqueA, utilisateurId: a.utilisateurId, applicationId: app.id, origine: 'claude', nom: 'Trop', etapes: trop })).rejects.toThrow(/check/i);
     } finally {
       await contexte.fermer();
     }

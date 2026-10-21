@@ -2,6 +2,7 @@
 // dans les tests de fausses implémentations en mémoire.
 
 import type { Applications } from '../infra/applications.ts';
+import type { Scripts } from '../infra/scripts.ts';
 import type { Audit } from '../infra/audit.ts';
 import type { ComptesDemo } from '../infra/comptes-demo.ts';
 import type { Coffre } from '../infra/coffre.ts';
@@ -42,6 +43,8 @@ export type Services = Readonly<{
   gabarits: Gabarits;
   /** Applications à filmer et leurs hôtes autorisés (histoire 4.1). */
   applications: Applications;
+  /** Scripts de démo de chaque application (histoire 4.4). */
+  scripts: Scripts;
   /** Compte de démonstration de chaque application, au coffre (histoire 4.3). */
   comptesDemo: ComptesDemo;
   maintenant: () => number;

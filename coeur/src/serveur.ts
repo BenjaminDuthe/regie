@@ -16,6 +16,7 @@ import { calculerSante } from './infra/sante.ts';
 import { AuditPg } from './infra/audit.ts';
 import { EspacesPg } from './infra/espaces.ts';
 import { ApplicationsPg } from './infra/applications.ts';
+import { ScriptsPg } from './infra/scripts.ts';
 import { ComptesDemoPg } from './infra/comptes-demo.ts';
 import { GabaritsPg } from './infra/gabarits.ts';
 import { JetonsApiPg } from './infra/jetons.ts';
@@ -71,6 +72,7 @@ export function construireServices(contexte: Contexte): Services {
     notifications: new NotificationsPg(contexte.pool),
     gabarits: new GabaritsPg(contexte.pool),
     applications: new ApplicationsPg(contexte.pool),
+    scripts: new ScriptsPg(contexte.pool),
     comptesDemo: new ComptesDemoPg(contexte.pool, contexte.coffre),
     maintenant: Date.now,
   };
@@ -125,6 +127,7 @@ function servicesSansBase(): Services {
     notifications: { creer: refus, lister: async () => [], acquitter: async () => false },
     gabarits: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus },
     applications: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus },
+    scripts: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus, enregistrerJeu: refus },
     comptesDemo: { remplacer: refus, etat: async () => ({ depose: false, modifieLe: undefined }) },
     maintenant: Date.now,
   };
