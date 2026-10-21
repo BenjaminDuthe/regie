@@ -4,6 +4,7 @@
 import chaines from '../chaines.json' with { type: 'json' };
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { emetteur, enregistrerClient, metadonneesRessource, metadonneesServeur, traiterToken, type Resultat } from '../auth/oauth.ts';
+import { LimiteDebit } from '../auth/limite-debit.ts';
 import type { Services } from '../auth/services.ts';
 
 /** Inscriptions dynamiques par adresse IP et par heure (en mémoire, par processus). */
@@ -26,19 +27,8 @@ export function enregistrerRoutesOauth(app: FastifyInstance, services: Services)
   });
 
   // Enregistrement dynamique (RFC 7591) : ouvert à tous mais borné (forme des adresses, plafond de clients par marque).
-  const inscriptions = new Map<string, number[]>();
-  const inscriptionPermise = (ip: string): boolean => {
-    const maintenant = services.maintenant();
-    for (const [cle, dates] of inscriptions) {
-      const recentes = dates.filter((t) => maintenant - t < FENETRE_INSCRIPTION_MS);
-      if (recentes.length === 0) inscriptions.delete(cle);
-      else inscriptions.set(cle, recentes);
-    }
-    const dates = inscriptions.get(ip) ?? [];
-    if (dates.length >= INSCRIPTIONS_PAR_HEURE) return false;
-    inscriptions.set(ip, [...dates, maintenant]);
-    return true;
-  };
+  const inscriptions = new LimiteDebit(INSCRIPTIONS_PAR_HEURE, FENETRE_INSCRIPTION_MS, services.maintenant);
+  const inscriptionPermise = (ip: string): boolean => inscriptions.permettre(ip);
   app.post('/oauth/register', { bodyLimit: 8192 }, async (requete, reponse) => {
     if (!inscriptionPermise(requete.ip)) return envoyer(reponse, { statut: 429, corps: { error: 'temporarily_unavailable', error_description: chaines.oauth.erreurs.trop_d_inscriptions } });
     return envoyer(reponse, await enregistrerClient(services, requete.body));

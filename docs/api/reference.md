@@ -3123,3 +3123,91 @@ Corps de la demande (schéma JSON) :
   "additionalProperties": false
 }
 ```
+
+## `reseau.etat`
+
+Dit, pour chaque réseau de publication ouvert, si la clé de l’application est déposée et depuis quand. Ne rend jamais la clé.
+
+- API : `POST /api/v1/reseau/etat` · outil MCP : `reseau_etat`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+## `reseau.deposer`
+
+Dépose ou remplace la clé de l’application d’un réseau (identifiant et secret, chiffrés au coffre). Réservé à l’interface.
+
+- Réservée à l'interface : la clé d’application d’un réseau ne se saisit que dans l’interface, après une connexion récente à Authentik : aucun outil ni point d’API ne peut la déposer ni la lire (AD-9)
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "reseau": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "facebook",
+        "tiktok"
+      ]
+    },
+    "idApplication": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]{3,100}$"
+    },
+    "secret": {
+      "type": "string",
+      "pattern": "^[\\x21-\\x7e]{8,200}$"
+    }
+  },
+  "required": [
+    "reseau",
+    "idApplication",
+    "secret"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `reseau.tester`
+
+Teste auprès du réseau la clé d’application déposée. Rend `valide` et, si elle est refusée ou si le réseau ne répond pas, la cause. Ne rend jamais la clé.
+
+- API : `POST /api/v1/reseau/tester` · outil MCP : `reseau_tester`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "reseau": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "facebook",
+        "tiktok"
+      ]
+    }
+  },
+  "required": [
+    "reseau"
+  ],
+  "additionalProperties": false
+}
+```

@@ -123,3 +123,9 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `montage.bibliotheque` (lecture) : la dernière version de chaque vidéo avec son statut (`prete`, `en_cours`, `bloquee`, `en_echec`, `sans_rendu`) et sa date d’archivage ; filtres `statut`, `depuis` et `jusqua` (jours AAAA-MM-JJ en heure de Paris, bornes comprises), `archivees` (`exclure` par défaut, `inclure`, `seulement`) et `espaceId`. `PERIODE_INVALIDE` (422) si une date n’existe pas ou si le début suit la fin.
 - Ajout de `montage.archiver` (écriture) : archive (ou sort des archives) toutes les versions d’une vidéo, sans rien effacer.
 - Ajout de `montage.supprimer` (écriture) : supprime définitivement une vidéo (versions, rendus, voix, légende, fichiers et octets) ; `confirmer: true` est obligatoire. `VIDEO_PUBLIEE` (409) tant qu’une publication de la vidéo est publiée : archive-la plutôt.
+
+## 2026-10-21 — histoire 7.1
+
+- Ajout de `reseau.etat` (lecture) : pour chaque réseau ouvert, si la clé d’application est déposée et depuis quand ; jamais la clé.
+- Ajout de `reseau.tester` (écriture) : teste auprès du réseau la clé déposée ; rend `valide` et, sinon, la cause (`RESEAU_CLE_REFUSEE`, `RESEAU_INJOIGNABLE`...). `RESEAU_CLE_ABSENTE` (409) sans clé déposée.
+- `reseau.deposer` existe pour l’interface seulement (raison dans `coeur/src/services/exceptions-parite.ts`).

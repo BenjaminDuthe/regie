@@ -213,3 +213,13 @@ Question : comment filtrer, archiver et supprimer sans publications ni suivi de 
 3. **Séance liée** — le jeu de rejeu ne crée pas d'autre objet qu'une tâche `jeu_script` et le montage de sa série : la « séance » est la tâche (entrée `rejeu: true`) ; pas de table de séances en V1.
 4. **Un jeton par script** — activer un nouveau jeton révoque l'ancien (migration 0015 : `jetons_api.script_id`, durée ≤ 366 jours, portée `ecriture`, un seul espace). Alternative : plusieurs jetons (un par chaîne). Recommandation : un seul tant qu'aucune demande contraire.
 5. **Limite de débit** — aucune limite de débit n'existe encore sur l'API ; un jeton de rejeu fuité peut enfiler des jeux (non cumulés par la file). Options : limite par jeton (fenêtre glissante) en 7.x ou au proxy. Recommandation : au proxy (Traefik) dès la mise en production.
+
+## 7.1 L'administrateur ouvre la publication
+
+Question : quelles décisions et quelles preuves manquent avant de publier réellement sur Instagram ?
+
+1. **Inscription de l'application Meta** — aucune application n'est inscrite et aucun jeton n'existe : le connecteur Instagram (`publication/connecteur-instagram.ts`, « Instagram API with Instagram Login », hôtes `instagram.com`, `api.instagram.com`, `graph.instagram.com`, `graph.facebook.com`) n'a été testé que contre un faux serveur local. Options : Instagram Login (retenu, sans Page Facebook) ou Facebook Login avec Page. **Recommandation** : inscrire l'application, la passer en revue chez Meta avec les portées de `deploiement/reseaux.json` (`instagram_business_basic`, `instagram_business_content_publish`), puis rejouer le parcours avec un compte professionnel de test et corriger les écarts (versions d'API, champs).
+2. **Test de la clé** — il appelle `client_credentials` sur `graph.facebook.com` avec l'identifiant et le secret : à confirmer qu'Instagram Login l'accepte avec la clé d'application Instagram (sinon, le test devra se limiter à la vérification de forme).
+3. **Portées** — liste de départ, à confirmer à la revue d'application de Meta.
+4. **Droit de publication par espace** — écarté en V1 (ajustement du 2026-10-18) : toute personne de la marque peut publier. Recommandation : le rouvrir si deux équipes partagent une marque.
+5. **Limite de débit** — la limite par IP de l'inscription OAuth est factorisée (`auth/limite-debit.ts`), en mémoire et par processus. Recommandation : au proxy pour une limite globale.

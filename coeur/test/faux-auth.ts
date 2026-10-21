@@ -13,6 +13,9 @@ import { NomScriptPris, type ChampsScript, type ResultatRemplacement, type Scrip
 import type { DernierJeu, OrigineScript } from '@regie/contrats';
 import { NomApplicationPris, type Application, type Applications, type ChampsApplication } from '../src/infra/applications.ts';
 import type { CibleCompte, ComptesDemo, CompteDemo, EtatCompteDemo } from '../src/infra/comptes-demo.ts';
+import type { EtatCle, Reseaux } from '../src/infra/reseaux.ts';
+import type { CleApplication } from '../src/publication/connecteur.ts';
+import type { Reseau } from '../src/domaine/bornes.ts';
 import { JournauxJeu } from '../src/services/journaux-jeu.ts';
 import type { Gabarit, Gabarits } from '../src/infra/gabarits.ts';
 import { idUtilisateur, trierEspaces, type Espace, type Espaces } from '../src/infra/espaces.ts';
@@ -490,9 +493,25 @@ export class ComptesDemoMemoire implements ComptesDemo {
   }
 }
 
-export type BancDeTest = { montages: MontagesMemoire; stockage: StockageMemoire; journauxJeu: JournauxJeu; scripts: ScriptsMemoire; comptesDemo: ComptesDemoMemoire; services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
+/** Clés d'application des réseaux en mémoire : la clé n'est lisible que par `lireCle`, jamais rendue par une action. */
+export class ReseauxMemoire implements Reseaux {
+  readonly cles = new Map<string, { cle: CleApplication; modifieLe: Date }>();
+  maintenant = () => Date.now();
+  async remplacerCle(marqueId: string, reseau: Reseau, cle: CleApplication) {
+    this.cles.set(`${marqueId}/${reseau}`, { cle: { ...cle }, modifieLe: new Date(this.maintenant()) });
+  }
+  async lireCle(marqueId: string, reseau: Reseau) {
+    return this.cles.get(`${marqueId}/${reseau}`)?.cle;
+  }
+  async etatCle(marqueId: string, reseau: Reseau): Promise<EtatCle> {
+    const c = this.cles.get(`${marqueId}/${reseau}`);
+    return { deposee: c !== undefined, modifieLe: c?.modifieLe };
+  }
+}
 
-export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique' | 'voixLocale'>> = {}): BancDeTest {
+export type BancDeTest = { reseaux: ReseauxMemoire; montages: MontagesMemoire; stockage: StockageMemoire; journauxJeu: JournauxJeu; scripts: ScriptsMemoire; comptesDemo: ComptesDemoMemoire; services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
+
+export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique' | 'voixLocale' | 'connecteurs'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
   const sessions = new SessionsMemoire();
   sessions.maintenant = () => horloge.t;
@@ -513,6 +532,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
   scripts.maintenant = () => horloge.t;
   const comptesDemo = new ComptesDemoMemoire();
   comptesDemo.maintenant = () => horloge.t;
+  const reseaux = new ReseauxMemoire();
+  reseaux.maintenant = () => horloge.t;
   const montages = new MontagesMemoire();
   montages.maintenant = () => horloge.t;
   const stockage = new StockageMemoire();
@@ -537,11 +558,13 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     applications,
     scripts,
     comptesDemo,
+    reseaux,
+    connecteurs: options.connecteurs ?? {},
     montages,
     stockage,
     journauxJeu: new JournauxJeu(),
     voixLocale: options.voixLocale,
     maintenant: () => horloge.t,
   };
-  return { montages, stockage, journauxJeu: services.journauxJeu, scripts, comptesDemo, services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
+  return { reseaux, montages, stockage, journauxJeu: services.journauxJeu, scripts, comptesDemo, services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
 }

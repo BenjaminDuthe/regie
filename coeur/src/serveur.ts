@@ -19,6 +19,8 @@ import { EspacesPg } from './infra/espaces.ts';
 import { ApplicationsPg } from './infra/applications.ts';
 import { ScriptsPg } from './infra/scripts.ts';
 import { ComptesDemoPg } from './infra/comptes-demo.ts';
+import { ReseauxPg } from './infra/reseaux.ts';
+import { ConnecteurInstagram } from './publication/connecteur-instagram.ts';
 import { creerExecutantJeuScript } from './services/jeu-script.ts';
 import { JournauxJeu } from './services/journaux-jeu.ts';
 import { GabaritsPg } from './infra/gabarits.ts';
@@ -87,6 +89,8 @@ export function construireServices(contexte: Contexte): Services {
     montages: new MontagesPg(contexte.pool),
     stockage: new StockageDisque(env.REGIE_DONNEES),
     comptesDemo: new ComptesDemoPg(contexte.pool, contexte.coffre),
+    reseaux: new ReseauxPg(contexte.pool, contexte.coffre),
+    connecteurs: { instagram: new ConnecteurInstagram() },
     journauxJeu: new JournauxJeu(),
     voixLocale: voixBranchee(),
     maintenant: Date.now,
@@ -154,6 +158,8 @@ function servicesSansBase(): Services {
     stockage: { ecrire: refus, lire: async () => undefined, ouvrir: async () => undefined, supprimer: refus },
     journauxJeu: new JournauxJeu(),
     comptesDemo: { remplacer: refus, supprimer: async () => false, etat: async () => ({ depose: false, modifieLe: undefined }) },
+    reseaux: { remplacerCle: refus, lireCle: async () => undefined, etatCle: async () => ({ deposee: false, modifieLe: undefined }) },
+    connecteurs: {},
     maintenant: Date.now,
   };
 }

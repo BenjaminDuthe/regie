@@ -10,6 +10,7 @@ import { DUREE_MAX_JETON_JOURS, PORTEES, type JetonApi } from '../infra/jetons.t
 import { ACTIONS_APPLICATION } from './actions-application.ts';
 import { ACTIONS_COMPTE } from './actions-compte.ts';
 import { ACTIONS_MONTAGE } from './actions-montage.ts';
+import { ACTIONS_RESEAU } from './actions-reseau.ts';
 import { ACTIONS_SCRIPT } from './actions-script.ts';
 import { ACTIONS_GABARIT } from './actions-gabarit.ts';
 import { ErreurMetier } from './erreurs.ts';
@@ -212,5 +213,5 @@ export const notificationAcquitter = definirAction({
   objet: (entree) => `notification:${entree.id}`,
 });
 
-export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer, connexionLister, connexionRevoquer, tacheLister, tacheLire, tacheRelancer, notificationLister, notificationAcquitter, ...ACTIONS_GABARIT, ...ACTIONS_APPLICATION, ...ACTIONS_COMPTE, ...ACTIONS_SCRIPT, ...ACTIONS_MONTAGE]);
+export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer, connexionLister, connexionRevoquer, tacheLister, tacheLire, tacheRelancer, notificationLister, notificationAcquitter, ...ACTIONS_GABARIT, ...ACTIONS_APPLICATION, ...ACTIONS_COMPTE, ...ACTIONS_SCRIPT, ...ACTIONS_MONTAGE, ...ACTIONS_RESEAU]);
 export const REGISTRE = new Registre(ACTIONS);

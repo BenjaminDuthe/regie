@@ -23,7 +23,8 @@
     "gabarit": "Gabarit",
     "demos": "Démos d’app",
     "scripts": "Scripts",
-    "montages": "Vidéos"
+    "montages": "Vidéos",
+    "reseaux": "Réseaux"
   },
   "connexion": {
     "titre": "Connexion",
@@ -204,7 +205,9 @@
     "RENDU_PAS_PRET": "Cette vidéo n’est pas encore rendue (état : {etat}) : attends la fin du rendu ou relance-le.",
     "SEANCE_PURGEE": "Les rushes de cette séance ont été purgés le {date} : le film brut n’existe plus, la vidéo ne peut plus être rendue de nouveau. Refilme la séance pour obtenir une nouvelle vidéo.",
     "SCRIPT_SANS_ETAPE": "Ce script n’a aucune étape : ajoute-en une avant de le jouer.",
-    "MCP_SEULEMENT": "Créer un script à partir d’une phrase n’est possible que par Claude connecté en MCP. Ici, crée le script étape par étape."
+    "MCP_SEULEMENT": "Créer un script à partir d’une phrase n’est possible que par Claude connecté en MCP. Ici, crée le script étape par étape.",
+    "RESEAU_CLE_ABSENTE": "Aucune clé d’application n’est déposée pour {reseau} : dépose-la d’abord dans Réseaux.",
+    "RESEAU_CONNECTEUR_ABSENT": "Le connecteur de {reseau} n’est pas branché sur cette installation."
   },
   "jetons": {
     "titre": "Jetons d’API",
@@ -869,5 +872,34 @@
       "application": "Application",
       "nomExemple": "Visite guidée"
     }
+  },
+  "reseaux": {
+    "titre": "Réseaux de publication",
+    "intro": "Pour publier, regie a besoin de la clé de l’application que tu as déclarée chez chaque réseau. Elle est chiffrée au coffre : regie ne la montre plus jamais, tu ne vois que son état.",
+    "vide": "Aucun réseau n’est ouvert pour l’instant.",
+    "portees": "Autorisations demandées",
+    "cle": {
+      "absente": "Aucune clé déposée.",
+      "deposee": "Clé déposée le {date}. Elle ne s’affiche plus.",
+      "deposer": "Déposer la clé",
+      "remplacer": "Remplacer la clé",
+      "identifiant": "Identifiant de l’application",
+      "secret": "Secret de l’application",
+      "aide": "La clé est chiffrée au coffre dès l’envoi. Tu devras te reconnecter à Authentik pour la déposer.",
+      "champsRequis": "l’identifiant et le secret de l’application",
+      "enregistree": "Clé enregistrée."
+    },
+    "tester": {
+      "bouton": "Tester la clé",
+      "valide": "La clé est acceptée par {reseau}.",
+      "refusee": "Le test a échoué : {cause}"
+    },
+    "causes": {
+      "RESEAU_CLE_REFUSEE": "le réseau refuse cette clé d’application.",
+      "RESEAU_INJOIGNABLE": "le réseau ne répond pas, réessaie plus tard.",
+      "RESEAU_REPONSE_INVALIDE": "la réponse du réseau est inattendue.",
+      "RESEAU_REFUSE": "le réseau a refusé la demande."
+    },
+    "sansConnecteur": "Le connecteur de ce réseau n’est pas branché : la clé peut être déposée mais pas testée."
   }
 }

@@ -9,6 +9,34 @@
   },
   "hotes": [
     {
+      "hote": "www.instagram.com",
+      "raison": "autorisation OAuth de la personne (redirection de son navigateur) et lien vers la publication ; appelé par le connecteur Instagram, service « publication » (histoires 7.1, 7.6)",
+      "fichiers": [
+        "coeur/src/publication/connecteur-instagram.ts"
+      ]
+    },
+    {
+      "hote": "api.instagram.com",
+      "raison": "échange du code d'autorisation contre un jeton (connecteur Instagram, service « publication », histoire 7.6)",
+      "fichiers": [
+        "coeur/src/publication/connecteur-instagram.ts"
+      ]
+    },
+    {
+      "hote": "graph.instagram.com",
+      "raison": "jeton long, quota et publication des Reels (connecteur Instagram, service « publication », histoires 7.3 et 7.6)",
+      "fichiers": [
+        "coeur/src/publication/connecteur-instagram.ts"
+      ]
+    },
+    {
+      "hote": "graph.facebook.com",
+      "raison": "test de la clé d'application Meta (connecteur Instagram, service « publication », histoire 7.1)",
+      "fichiers": [
+        "coeur/src/publication/connecteur-instagram.ts"
+      ]
+    },
+    {
       "hote": "github.com",
       "raison": "lien vers le code source de la version en service (FR-67, AGPL-3.0), lien cliqué par la personne, jamais chargé",
       "fichiers": [
@@ -26,6 +54,7 @@
     "services/proxy-capture/src/adresses.ts",
     "services/proxy-capture/src/proxy.ts",
     "services/proxy-capture/src/principal.ts",
-    "coeur/src/services/capture.ts"
+    "coeur/src/services/capture.ts",
+    "coeur/src/publication/connecteur-instagram.ts"
   ]
 }

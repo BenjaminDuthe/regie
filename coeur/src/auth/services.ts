@@ -14,6 +14,8 @@ import type { JetonsApi } from '../infra/jetons.ts';
 import type { Notifications } from '../infra/notifications.ts';
 import type { Oauth } from '../infra/oauth.ts';
 import type { Marques } from '../infra/marques.ts';
+import type { Reseaux } from '../infra/reseaux.ts';
+import type { Connecteurs } from '../publication/connecteur.ts';
 import type { Montages } from '../infra/montages.ts';
 import type { Stockage } from '../infra/stockage.ts';
 import type { FournisseurOidc } from '../infra/oidc.ts';
@@ -58,5 +60,9 @@ export type Services = Readonly<{
   journauxJeu: JournauxJeu;
   /** Vrai quand une voix de synthèse locale est branchée (histoire 4.7) : sinon, les vidéos sont rendues sans voix. */
   voixLocale?: boolean | undefined;
+  /** Clés d'application des réseaux de publication, au coffre (histoire 7.1). */
+  reseaux: Reseaux;
+  /** Un connecteur par réseau ouvert : seul passage vers les réseaux (histoire 7.1). */
+  connecteurs: Connecteurs;
   maintenant: () => number;
 }>;
