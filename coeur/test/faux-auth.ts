@@ -313,6 +313,9 @@ export class AuditMemoire implements Audit {
   async ajouter(marqueId: string, entree: EntreeAudit): Promise<void> {
     this.lignes.push(chainer(marqueId, entree, this.lignes.filter((l) => l.marqueId === marqueId).at(-1)?.hache, new Date()));
   }
+  async lire(marqueId: string): Promise<LigneAudit[]> {
+    return this.lignes.filter((l) => l.marqueId === marqueId);
+  }
 }
 
 export type BancDeTest = { services: Services; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; horloge: { t: number } };

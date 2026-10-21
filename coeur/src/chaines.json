@@ -17,7 +17,8 @@
     "espaces": "Espaces",
     "espaceActif": "Espace actif",
     "jetons": "Jetons",
-    "connexions": "Connexions de Claude"
+    "connexions": "Connexions de Claude",
+    "journal": "Journal"
   },
   "connexion": {
     "titre": "Connexion",
@@ -238,5 +239,34 @@
     "revoque": "révoquée le {date}",
     "expire_deja": "expirée",
     "revoquer": "Révoquer"
+  },
+  "journal": {
+    "titre": "Journal d’audit",
+    "intro": "Ce qui a été fait sur regie, par l’interface, par Claude (MCP) ou par l’API. Les heures sont celles de Paris.",
+    "perimetre": "Périmètre",
+    "moi": "Mes actions",
+    "espace": "Mon espace",
+    "instance": "Toute l’instance",
+    "du": "Du",
+    "au": "Au",
+    "origine": "Origine",
+    "toutes": "Toutes",
+    "interface": "Interface",
+    "mcp": "Claude (MCP)",
+    "api": "API",
+    "objet": "Objet (début)",
+    "filtrer": "Filtrer",
+    "chaine_ok": "Chaîne vérifiée : {n} lignes, aucune n’a été modifiée ni retirée.",
+    "chaine_rompue": "Chaîne rompue à la ligne {n} : le journal a été modifié ou une ligne a disparu.",
+    "vide": "Aucune ligne pour ces filtres.",
+    "coupe": "{total} lignes correspondent ; les {n} plus récentes sont affichées.",
+    "colonnes": {
+      "heure": "Heure",
+      "acteur": "Acteur",
+      "action": "Action",
+      "objet": "Objet",
+      "origine": "Origine"
+    },
+    "periode_invalide": "Une date n’est pas valide : le filtre de période est ignoré."
   }
 }

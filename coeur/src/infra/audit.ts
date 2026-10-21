@@ -32,6 +32,8 @@ export type LigneAudit = Readonly<{
 
 export interface Audit {
   ajouter(marqueId: string, entree: EntreeAudit): Promise<void>;
+  /** Relit la chaîne entière d'une marque, dans l'ordre : la consultation (1.13) et `verifierChaine` s'appuient dessus. */
+  lire(marqueId: string): Promise<LigneAudit[]>;
 }
 
 export class ErreurAudit extends Error {
@@ -126,7 +128,7 @@ export class AuditPg implements Audit {
     });
   }
 
-  /** Relit la chaîne d'une marque, dans l'ordre (pour `verifierChaine` ; la consultation arrive en 1.13). */
+  /** Relit la chaîne d'une marque, dans l'ordre (pour `verifierChaine` et la consultation, histoire 1.13). */
   async lire(marqueId: string): Promise<LigneAudit[]> {
     return dansTransactionMarque(this.#pool, marqueId, async (client) => {
       const { rows } = await client.query<{

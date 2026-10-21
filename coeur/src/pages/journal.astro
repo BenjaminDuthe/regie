@@ -1,0 +1,102 @@
+---
+// Journal d'audit (histoire 1.13, NFR-21) : mes actions, celles de mon espace, ou, pour l'administrateur, celles de
+// l'instance (sans le détail des objets des autres). Filtres : période, origine, objet. Heure de Paris.
+// La chaîne de hachés est vérifiée à chaque affichage et le résultat est montré.
+import chaines from '../chaines.json' with { type: 'json' };
+import Base from '../mises-en-page/Base.astro';
+import { consulterJournal, debutDeJourParis, formaterParis, LIMITE_LIGNES, ORIGINES, PERIMETRES, type Origine, type Perimetre } from '../services/journal.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.journal;
+const q = Astro.url.searchParams;
+const estAdmin = services.admin.sub !== undefined && services.admin.sub === session.sub;
+const perimetres = PERIMETRES.filter((p) => p !== 'instance' || estAdmin);
+const demande = q.get('perimetre');
+const perimetre: Perimetre = perimetres.find((p) => p === demande) ?? 'moi';
+const origineDemandee = q.get('origine');
+const origine: Origine | undefined = ORIGINES.find((o) => o === origineDemandee);
+const jourValide = (v: string | null) => (v !== null && debutDeJourParis(v) !== undefined ? v : undefined);
+const du = jourValide(q.get('du'));
+const au = jourValide(q.get('au'));
+const periodeInvalide = (q.get('du') ?? '') !== '' && du === undefined || (q.get('au') ?? '') !== '' && au === undefined;
+const objet = (q.get('objet') ?? '').slice(0, 120);
+
+const espaces = await services.espaces.lister(session.marqueId, session.sub);
+const chaine = await services.audit.lire(session.marqueId);
+const vue = consulterJournal(chaine, { sub: session.sub, espaceIds: espaces.map((e) => e.id), estAdmin }, { perimetre, du, au, origine, objet });
+const libelleOrigine = (o: string) => (o === 'interface' || o === 'mcp' || o === 'api' ? t[o] : o);
+---
+
+<Base titre={t.titre}>
+  <h1>{t.titre}</h1>
+  <p class="intro">{t.intro}</p>
+  {periodeInvalide && <p class="erreur" role="alert">{t.periode_invalide}</p>}
+  {
+    vue.chaineRompueA === undefined ? (
+      <p class="chaine ok" data-chaine="ok">{t.chaine_ok.replace('{n}', String(vue.verifiees))}</p>
+    ) : (
+      <p class="chaine rompue" role="alert" data-chaine="rompue">{t.chaine_rompue.replace('{n}', String(vue.chaineRompueA + 1))}</p>
+    )
+  }
+  <form method="get" action="/journal" class="filtres">
+    <label>{t.perimetre}
+      <select name="perimetre">
+        {perimetres.map((p) => <option value={p} selected={p === perimetre}>{t[p]}</option>)}
+      </select>
+    </label>
+    <label>{t.du}<input type="date" name="du" value={du ?? ''} /></label>
+    <label>{t.au}<input type="date" name="au" value={au ?? ''} /></label>
+    <label>{t.origine}
+      <select name="origine">
+        <option value="">{t.toutes}</option>
+        {ORIGINES.map((o) => <option value={o} selected={o === origine}>{t[o]}</option>)}
+      </select>
+    </label>
+    <label>{t.objet}<input type="text" name="objet" value={objet} maxlength="120" /></label>
+    <button type="submit" class="bouton">{t.filtrer}</button>
+  </form>
+  {vue.lignes.length === 0 && <p class="doux">{t.vide}</p>}
+  {vue.total > LIMITE_LIGNES && <p class="doux">{t.coupe.replace('{total}', String(vue.total)).replace('{n}', String(LIMITE_LIGNES))}</p>}
+  {
+    vue.lignes.length > 0 && (
+      <div class="tableau">
+        <table>
+          <thead>
+            <tr><th>{t.colonnes.heure}</th><th>{t.colonnes.acteur}</th><th>{t.colonnes.action}</th><th>{t.colonnes.objet}</th><th>{t.colonnes.origine}</th></tr>
+          </thead>
+          <tbody>
+            {vue.lignes.map((l) => (
+              <tr>
+                <td><time datetime={l.horodatage}>{formaterParis(l.horodatage)}</time></td>
+                <td>{l.acteur}</td>
+                <td>{l.action}</td>
+                <td>{l.objet}</td>
+                <td>{libelleOrigine(l.origine)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+</Base>
+
+<style>
+  h1 { font-size: clamp(24px, 6vw, 32px); line-height: 1.15; margin: 8px 0 12px; }
+  .intro, .doux { color: var(--doux); }
+  .intro { max-width: 60ch; margin: 0 0 16px; }
+  .erreur, .chaine { border-radius: var(--rayon); padding: 10px 14px; margin: 0 0 12px; }
+  .erreur, .rompue { color: var(--jeter); background: var(--jeter-fond); }
+  .ok { color: var(--doux); border: 1px solid var(--trait); }
+  .filtres { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 0 0 16px; }
+  .filtres label { display: grid; gap: 4px; font-size: 14px; color: var(--doux); }
+  .filtres input, .filtres select { font: inherit; padding: 8px 10px; border: 1px solid var(--trait); border-radius: var(--rayon); background: none; color: inherit; }
+  .bouton { padding: 10px 16px; border-radius: var(--rayon); border: 1px solid var(--trait); background: none; color: inherit; font: inherit; cursor: pointer; }
+  .tableau { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--trait); vertical-align: top; word-break: break-word; }
+  th { color: var(--doux); font-weight: 600; }
+</style>

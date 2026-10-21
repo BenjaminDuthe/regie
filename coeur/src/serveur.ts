@@ -67,7 +67,7 @@ function servicesSansBase(): Services {
     sessions: { creer: refus, trouver: async () => undefined, revoquer: async () => false, changerEspace: async () => false },
     marques: { trouverUnique: async () => ({ etat: 'aucune' }), creer: refus },
     espaces: { assurer: refus, lister: async () => [] },
-    audit: { ajouter: refus },
+    audit: { ajouter: refus, lire: refus },
     coffre: new Coffre(randomBytes(32)),
     cleAdresses: randomBytes(32),
     admin: { sub: undefined, email: undefined },
