@@ -146,3 +146,10 @@ Décisions que le codeur n'a pas à prendre seul (produit, accès, jeton tiers).
 5. **Activation** — la voix n'est active que si `REGIE_MODELES` et `REGIE_CAPTURE_SOCKET` sont posés ; sinon le rendu part directement, sans voix. Aucun appel sortant à l'exécution.
 6. **Sous-titres** — le sous-titrage ASS incrusté existe déjà dans le plan de rendu (4.6) ; l'action `montage.soustitres` ne sert que le SRT.
 7. **Pas de réutilisation entre versions** — une nouvelle version de timeline refait toutes les voix (simple et sûr) ; à l'intérieur d'une même version, une tâche rejouée ne redit pas les scènes déjà dites.
+
+## 2.12 Page d'aperçu d'une démo
+
+1. **Aucune écriture, aucune nouvelle action** — la page lit par `montage.lister`, `montage.lire` et `rendu.adresse` (déjà en parité API/MCP) ; l'adresse est signée à chaque affichage, valable 30 minutes, relative à l'origine du cœur.
+2. **Rafraîchissement sans script** — pendant un rendu en file ou en cours, une balise `<meta http-equiv="refresh">` recharge la page toutes les 5 s ; le suivi SSE (2.5) reste sur `/taches`.
+3. **Montage hors de portée = introuvable** — un identifiant mal formé, inconnu ou d'un autre lecteur donne la même réponse (aucune fuite d'existence).
+4. **Reportés** — reproductibilité à 40 ms et chronométrage de recette (exigent GPU et rushes réels) ; notification « série prête ».

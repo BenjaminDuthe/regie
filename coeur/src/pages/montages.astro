@@ -1,0 +1,178 @@
+---
+// Vidéos (histoire 2.12, FR-26, FR-28) : la liste des montages et l'aperçu d'un montage, avec le lecteur vidéo HTML natif.
+// Rien n'est écrit ici : la page lit par les mêmes actions que l'API et le MCP (`montage.lister`, `montage.lire`,
+// `rendu.adresse`). L'adresse de lecture est signée (moins d'une heure) et de même origine que la page, donc dans
+// `media-src 'self' blob:`. Un rendu bloqué par une garde reste lisible, marqué « bloqué », avec la scène fautive.
+import chaines from '../chaines.json' with { type: 'json' };
+import Base from '../mises-en-page/Base.astro';
+import { DUREE_ADRESSE_FICHIER_S, montageLire, montageLister, renduAdresse } from '../services/actions-montage.ts';
+import { contexteInterface } from '../services/contextes.ts';
+import { ErreurMetier } from '../services/erreurs.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.montages;
+const ctx = contexteInterface(services, session);
+const idDemande = Astro.url.searchParams.get('id') ?? '';
+const formatDate = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' });
+const secondes = (ms: number): string => String(Math.round(ms / 100) / 10).replace('.', ',');
+
+type Scene = { id: string; accroche: string; texteEcran: string; voix: string; dureeMs: number };
+type Violation = { segment: string; element: string; phrase: string };
+type Rendu = { id: string; genre: string; etat: string; fichierId: string | null; violations: Violation[]; cause: string | null; creeLe: string };
+type Vue = { id: string; numero: number; origine: string; dureeMs: number; creeLe: string; gabarit: { nom: string; version: number }; timeline: { scenes: Scene[]; carteFin?: { titre: string; sousTitre: string; dureeMs: number } | null | undefined } };
+
+let liste: Vue[] = [];
+let detail: { montage: Vue; rendus: Rendu[]; versions: { id: string; numero: number; origine: string; creeLe: string }[] } | undefined;
+let introuvable: string | undefined;
+
+if (idDemande === '') {
+  liste = ((await montageLister.executer(ctx, {})) as { montages: Vue[] }).montages;
+} else {
+  try {
+    const entree = montageLire.entree.parse({ id: idDemande });
+    detail = (await montageLire.executer(ctx, entree)) as typeof detail;
+  } catch (e) {
+    // Un identifiant mal formé et un montage hors de portée donnent la même réponse : rien n'est révélé.
+    if (e instanceof ErreurMetier || (e instanceof Error && e.name === 'ZodError')) introuvable = chaines.erreurs.MONTAGE_INTROUVABLE;
+    else throw e;
+  }
+}
+
+// Le rendu allégé le plus récent est celui qu'on regarde.
+const allege = detail?.rendus.filter((r) => r.genre === 'allege').sort((a, b) => b.creeLe.localeCompare(a.creeLe))[0];
+let video: { adresse: string; mime: string; bloque: boolean } | undefined;
+if (allege !== undefined && (allege.etat === 'pret' || allege.etat === 'bloque')) {
+  try {
+    video = (await renduAdresse.executer(ctx, { id: allege.id })) as typeof video;
+  } catch (e) {
+    if (!(e instanceof ErreurMetier)) throw e;
+  }
+}
+const enCours = allege?.etat === 'en_file' || allege?.etat === 'en_cours';
+const fautives = new Set(allege?.violations.map((v) => v.segment) ?? []);
+const causeEchec = allege?.cause === null || allege?.cause === undefined ? '' : ((chaines.taches.causes as Record<string, string>)[allege.cause] ?? allege.cause);
+const etats = t.etats as Record<string, string>;
+const origines = t.origines as Record<string, string>;
+const titrePage = detail === undefined ? t.titre : `${t.titre} — ${t.version.replace('{numero}', String(detail.montage.numero))}`;
+---
+
+<Base titre={titrePage}>
+  {enCours && <meta slot="tete" http-equiv="refresh" content="5" />}
+  <h1>{t.titre}</h1>
+
+  {
+    idDemande === '' && (
+      <>
+        <p class="intro">{t.intro}</p>
+        {liste.length === 0 && <p class="doux">{t.vide}</p>}
+        <ul class="grille-demos">
+          {liste.map((m) => (
+            <li class="carte-demo">
+              <h2>{m.timeline.scenes[0]?.accroche || t.titre} · {t.version.replace('{numero}', String(m.numero))}</h2>
+              <p class="doux">{origines[m.origine] ?? m.origine} · {t.duree.replace('{duree}', secondes(m.dureeMs))}</p>
+              <p class="doux">{t.gabarit.replace('{nom}', m.gabarit.nom).replace('{version}', String(m.gabarit.version))}</p>
+              <p class="doux">{formatDate.format(new Date(m.creeLe))}</p>
+              <a class="bouton" href={`/montages?id=${m.id}`}>{t.ouvrir}</a>
+            </li>
+          ))}
+        </ul>
+      </>
+    )
+  }
+
+  {introuvable !== undefined && <p class="probleme" role="alert">{introuvable}</p>}
+  {idDemande !== '' && <p><a href="/montages">{t.retour}</a></p>}
+
+  {
+    detail !== undefined && (
+      <>
+        <p class="doux">
+          {t.version.replace('{numero}', String(detail.montage.numero))} · {origines[detail.montage.origine] ?? detail.montage.origine} · {t.duree.replace('{duree}', secondes(detail.montage.dureeMs))} · {t.gabarit.replace('{nom}', detail.montage.gabarit.nom).replace('{version}', String(detail.montage.gabarit.version))}
+        </p>
+        {allege !== undefined && <p class={`etat-rendu etat-${allege.etat}`} role="status">{etats[allege.etat] ?? allege.etat}</p>}
+        {enCours && <p class="doux">{t.enCours}</p>}
+        {allege?.etat === 'echec' && <p class="probleme" role="alert">{t.echecTexte.replace('{cause}', causeEchec)}</p>}
+
+        {
+          video !== undefined ? (
+            <section aria-label={t.lecteur}>
+              <video class="lecteur" controls preload="metadata" playsinline aria-label={t.lecteurAlt}>
+                <source src={video.adresse} type={video.mime} />
+              </video>
+              <p class="doux">{t.lecteurNote.replace('{minutes}', String(DUREE_ADRESSE_FICHIER_S / 60))}</p>
+            </section>
+          ) : (
+            !enCours && allege?.etat !== 'echec' && <p class="doux">{t.pasDeVideo}</p>
+          )
+        }
+
+        {
+          allege?.etat === 'bloque' && (
+            <section aria-labelledby="titre-bloque" class="bloque">
+              <h2 id="titre-bloque">{t.bloqueTitre}</h2>
+              <p>{t.bloqueTexte}</p>
+              <ul>{allege.violations.map((v) => <li>{v.phrase}</li>)}</ul>
+            </section>
+          )
+        }
+
+        <h2>{t.scenes}</h2>
+        <ol class="scenes">
+          {detail.montage.timeline.scenes.map((s, i) => (
+            <li class={fautives.has(s.id) ? 'scene fautive' : 'scene'} id={`scene-${s.id}`}>
+              <h3>
+                {t.sceneNumero.replace('{numero}', String(i + 1))} · {t.duree.replace('{duree}', secondes(s.dureeMs))}
+                {fautives.has(s.id) && <strong class="marque-fautive"> · {t.sceneFautive}</strong>}
+              </h3>
+              <dl>
+                <dt>{t.accroche}</dt><dd>{s.accroche || t.aucun}</dd>
+                <dt>{t.texteEcran}</dt><dd>{s.texteEcran || t.aucun}</dd>
+                <dt>{t.voix}</dt><dd>{s.voix || t.aucun}</dd>
+              </dl>
+              {allege?.violations.filter((v) => v.segment === s.id).map((v) => <p class="probleme">{v.phrase}</p>)}
+            </li>
+          ))}
+        </ol>
+        {
+          detail.montage.timeline.carteFin != null && (
+            <p class="doux">{t.carteFin} : {detail.montage.timeline.carteFin.titre} — {detail.montage.timeline.carteFin.sousTitre}</p>
+          )
+        }
+
+        {
+          detail.versions.length > 1 && (
+            <section aria-labelledby="titre-versions">
+              <h2 id="titre-versions">{t.versions}</h2>
+              <ul>
+                {detail.versions.map((v) => (
+                  <li>
+                    {v.id === detail!.montage.id ? <strong aria-current="page">{t.version.replace('{numero}', String(v.numero))} ({t.versionCourante})</strong> : <a href={`/montages?id=${v.id}`}>{t.version.replace('{numero}', String(v.numero))}</a>}
+                    {' '}· {origines[v.origine] ?? v.origine} · {formatDate.format(new Date(v.creeLe))}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
+        }
+      </>
+    )
+  }
+</Base>
+
+<style is:global>
+  .lecteur { width: 100%; max-width: 360px; aspect-ratio: 9 / 16; background: #000; border-radius: var(--rayon); display: block; }
+  .etat-rendu { display: inline-block; padding: 4px 12px; border: 1px solid var(--trait); border-radius: var(--rayon); font-weight: 600; }
+  .etat-bloque, .etat-echec { border-color: #ff6b6b; color: #ff8a8a; }
+  .bloque { border: 2px solid #ff6b6b; border-radius: var(--rayon); padding: 12px 16px; margin: 16px 0; }
+  .scenes { list-style: none; padding: 0; display: grid; gap: 12px; grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .scenes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .scene { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px 16px; min-width: 0; overflow-wrap: anywhere; }
+  .scene.fautive { border: 2px solid #ff6b6b; }
+  .scene h3 { margin: 0 0 8px; }
+  .scene dt { color: var(--doux); }
+  .scene dd { margin: 0 0 8px; }
+  .marque-fautive { color: #ff8a8a; }
+</style>

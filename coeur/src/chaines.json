@@ -22,7 +22,8 @@
     "taches": "Tâches",
     "gabarit": "Gabarit",
     "demos": "Démos d’app",
-    "scripts": "Scripts"
+    "scripts": "Scripts",
+    "montages": "Vidéos"
   },
   "connexion": {
     "titre": "Connexion",
@@ -508,6 +509,43 @@
       "testApercu": "Mini capture de l’accueil après connexion",
       "champsRequis": "L’identifiant et le mot de passe (8 caractères au moins) sont tous deux nécessaires."
     }
+  },
+  "montages": {
+    "titre": "Vidéos",
+    "intro": "Les montages tirés de tes démos : ouvre-en un pour le regarder, voir ses scènes et l’état de son rendu.",
+    "vide": "Aucune vidéo pour l’instant. Un montage apparaît ici dès qu’une démo a été filmée.",
+    "retour": "Toutes les vidéos",
+    "ouvrir": "Ouvrir",
+    "version": "version {numero}",
+    "duree": "{duree} s",
+    "gabarit": "Gabarit : {nom} (version {version})",
+    "origines": { "jeu": "filmé depuis un script", "edition": "modifié à la main", "regeneration": "régénéré" },
+    "lecteur": "Lecteur de la vidéo allégée",
+    "lecteurAlt": "Ta vidéo allégée, à lire ici",
+    "lecteurNote": "Aperçu allégé ; l’adresse de lecture expire dans {minutes} minutes, recharge la page pour en obtenir une nouvelle.",
+    "etats": {
+      "en_file": "Rendu en attente",
+      "en_cours": "Rendu en cours",
+      "pret": "Prête",
+      "bloque": "Bloquée",
+      "echec": "Rendu en échec"
+    },
+    "enCours": "Le rendu avance : cette page se rafraîchit toute seule.",
+    "pasDeVideo": "Pas encore de vidéo à lire.",
+    "bloqueTitre": "Bloquée par les garde-fous",
+    "bloqueTexte": "Cette vidéo est lisible, mais elle ne peut pas passer « prête » ni être publiée tant que les scènes marquées ci-dessous enfreignent un garde-fou.",
+    "echecTexte": "Le rendu a échoué : {cause}",
+    "scenes": "Scènes",
+    "sceneFautive": "Scène fautive",
+    "sceneNumero": "Scène {numero}",
+    "accroche": "Accroche",
+    "texteEcran": "Texte à l’écran",
+    "voix": "Voix",
+    "aucun": "aucun",
+    "carteFin": "Carte de fin",
+    "versions": "Versions de la série",
+    "versionCourante": "Version affichée",
+    "violation": "{phrase}"
   },
   "scripts": {
     "titre": "Scripts de démo",
