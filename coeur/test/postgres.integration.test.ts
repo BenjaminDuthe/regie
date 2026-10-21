@@ -17,6 +17,7 @@ import { calculerSante } from '../src/infra/sante.ts';
 import { AuditPg, verifierChaine } from '../src/infra/audit.ts';
 import { EspacesPg, idUtilisateur } from '../src/infra/espaces.ts';
 import { JetonsApiPg, hacherJeton } from '../src/infra/jetons.ts';
+import { FilePg } from '../src/infra/file.ts';
 import { MarquesPg } from '../src/infra/marques.ts';
 import { OauthPg } from '../src/infra/oauth.ts';
 import { MagasinSessionsPg } from '../src/infra/sessions.ts';
@@ -334,6 +335,119 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       });
       expect((await contexte.pool.query('SELECT 1 FROM oauth_connexions')).rowCount).toBe(0);
     } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('file : SKIP LOCKED, interactive avant lot, un seul GPU, bail, reprise, application unique, RLS', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    const superutilisateur = new Client({ connectionString: Object.assign(new URL(adresse), { pathname: `/${baseNom}` }).toString() });
+    await superutilisateur.connect();
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const file = new FilePg(contexte.pool);
+      const marqueA = await marques.creer(`File A ${suffixe}`);
+      const marqueB = await marques.creer(`File B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-fa', undefined, 'Établia');
+      const b = await espaces.assurer(marqueB, 'sub-fb', undefined, 'Autre');
+      expect(await marques.lister()).toEqual(expect.arrayContaining([marqueA, marqueB]));
+
+      // Concurrence : dix tâches, cinq preneurs simultanés, aucune tâche prise deux fois.
+      const ids = new Set<string>();
+      for (let i = 0; i < 10; i += 1) ids.add((await file.enfiler(marqueA, a.utilisateurId, 'essai', { i })).id);
+      const prises = (await Promise.all(Array.from({ length: 10 }, (_, i) => file.prendre(marqueA, `svc-${i % 5}`)))).filter((t) => t !== undefined);
+      expect(prises.length).toBe(10);
+      expect(new Set(prises.map((t) => t!.id)).size).toBe(10);
+      for (const t of prises) expect(await file.terminer(marqueA, t!.id, t!.verrouPar!, { ok: true })).toBe(true);
+      expect(await file.prendre(marqueA, 'svc')).toBeUndefined();
+
+      // Interactive avant lot ; le bail doit couvrir trois renouvellements.
+      const lot = await file.enfiler(marqueA, a.utilisateurId, 'essai', {});
+      const inter = await file.enfiler(marqueA, a.utilisateurId, 'montage', {});
+      await expect(file.prendre(marqueA, 'svc', 40, 15)).rejects.toThrow();
+      expect((await file.prendre(marqueA, 'svc'))?.id).toBe(inter.id);
+      expect((await file.prendre(marqueA, 'svc'))?.id).toBe(lot.id);
+
+      // Un seul GPU : la seconde tâche GPU attend, une tâche sans GPU passe.
+      const g1 = await file.enfiler(marqueA, a.utilisateurId, 'transcription', {});
+      const v = await file.enfiler(marqueA, a.utilisateurId, 'voix', {});
+      const sans = await file.enfiler(marqueA, a.utilisateurId, 'controle', {});
+      expect((await file.prendre(marqueA, 'gpu'))?.id).toBe(sans.id);
+      expect((await file.prendre(marqueA, 'gpu'))?.id).toBe(g1.id);
+      expect(await file.prendre(marqueA, 'gpu')).toBeUndefined();
+      expect(await file.annuler(marqueA, a.utilisateurId, v.id)).toBe(true);
+
+      // Échec transitoire : retardé de 15 s ; la marque B ne voit rien.
+      const e = await file.enfiler(marqueA, a.utilisateurId, 'capture', {});
+      await superutilisateur.query("UPDATE taches SET etat = 'terminee', terminee_le = now(), resultat_applique_le = now() WHERE etat = 'en_cours' AND id <> $1", [e.id]);
+      const pris = (await file.prendre(marqueA, 'svc'))!;
+      expect(pris.id).toBe(e.id);
+      expect(await file.echouer(marqueA, e.id, 'svc', 'ECHEC', 'relancer', true)).toBe('prete');
+      const apres = (await file.lire(marqueA, a.utilisateurId, e.id))!;
+      expect(apres.disponibleLe.getTime() - Date.now()).toBeGreaterThan(10_000);
+      expect(await file.prendre(marqueA, 'svc')).toBeUndefined();
+      expect(await file.lire(marqueB, b.utilisateurId, e.id)).toBeUndefined();
+      expect(await file.lire(marqueA, b.utilisateurId, e.id)).toBeUndefined();
+      expect(await file.annuler(marqueB, b.utilisateurId, e.id)).toBe(false);
+      expect(await file.lister(marqueB, b.utilisateurId, 50)).toEqual([]);
+      await dansTransactionMarque(contexte.pool, marqueB, async (c) => {
+        expect((await c.query('SELECT 1 FROM taches')).rowCount).toBe(0);
+        expect((await c.query('SELECT 1 FROM tentatives_taches')).rowCount).toBe(0);
+      });
+      expect((await contexte.pool.query('SELECT 1 FROM taches')).rowCount).toBe(0);
+
+      // Crash : bail expiré → une reprise, puis RESULTAT_INCONNU ; point de non-retour et reprise interdite : jamais repris.
+      await superutilisateur.query("DELETE FROM tentatives_taches; DELETE FROM taches");
+      const c1 = await file.enfiler(marqueA, a.utilisateurId, 'essai', {});
+      await file.prendre(marqueA, 'mort');
+      await superutilisateur.query("UPDATE taches SET bail_jusqua = now() - interval '1 second'");
+      expect(await file.recuperer(marqueA)).toBe(1);
+      expect(await file.lire(marqueA, a.utilisateurId, c1.id)).toMatchObject({ etat: 'prete', reprises: 1 });
+      await file.prendre(marqueA, 'mort');
+      await superutilisateur.query("UPDATE taches SET bail_jusqua = now() - interval '1 second'");
+      await file.recuperer(marqueA);
+      expect(await file.lire(marqueA, a.utilisateurId, c1.id)).toMatchObject({ etat: 'echouee', cause: 'RESULTAT_INCONNU', action: 'verifier' });
+      const c2 = await file.enfiler(marqueA, a.utilisateurId, 'reseau', {});
+      await file.prendre(marqueA, 'mort');
+      await superutilisateur.query("UPDATE taches SET bail_jusqua = now() - interval '1 second' WHERE etat = 'en_cours'");
+      await file.recuperer(marqueA);
+      expect(await file.lire(marqueA, a.utilisateurId, c2.id)).toMatchObject({ etat: 'echouee', cause: 'RESULTAT_INCONNU' });
+      const c3 = await file.enfiler(marqueA, a.utilisateurId, 'montage', {});
+      await file.prendre(marqueA, 'mort');
+      expect(await file.pointDeNonRetour(marqueA, c3.id, 'mort')).toBe(true);
+      expect(await file.annuler(marqueA, a.utilisateurId, c3.id)).toBe(false);
+      await superutilisateur.query("UPDATE taches SET bail_jusqua = now() - interval '1 second' WHERE etat = 'en_cours'");
+      await file.recuperer(marqueA);
+      expect(await file.lire(marqueA, a.utilisateurId, c3.id)).toMatchObject({ etat: 'echouee', cause: 'RESULTAT_INCONNU' });
+      // Délai de garde dépassé même avec un bail vivant.
+      const c4 = await file.enfiler(marqueA, a.utilisateurId, 'essai', {}, { delaiGardeS: 1 });
+      await file.prendre(marqueA, 'long');
+      await superutilisateur.query("UPDATE taches SET demarree_le = now() - interval '5 seconds' WHERE id = $1", [c4.id]);
+      expect(await file.renouveler(marqueA, c4.id, 'long')).toBe(false);
+      await file.recuperer(marqueA);
+      expect(await file.lire(marqueA, a.utilisateurId, c4.id)).toMatchObject({ etat: 'echouee', cause: 'DELAI_DEPASSE', action: 'relancer' });
+      expect(await file.relancer(marqueA, a.utilisateurId, c4.id)).toBe(true);
+
+      // Application des résultats : une seule fois, même à deux appliqueurs concurrents.
+      // La relance a gardé l'historique (tentative 2) et refait un budget complet.
+      const relancee = (await file.prendre(marqueA, 'ap'))!;
+      expect(relancee).toMatchObject({ id: c4.id, tentatives: 2 });
+      expect(await file.terminer(marqueA, c4.id, 'ap', null)).toBe(true);
+      expect((await file.historique(marqueA, a.utilisateurId, c4.id)).map((h) => h.numero)).toEqual([1, 2]);
+      const r = await file.enfiler(marqueA, a.utilisateurId, 'essai', { message: 'x' });
+      const p = (await file.prendre(marqueA, 'ap'))!;
+      expect(p.id).toBe(r.id);
+      expect(await file.terminer(marqueA, r.id, 'ap', { echo: 'x' })).toBe(true);
+      expect(await file.terminer(marqueA, r.id, 'ap', { echo: 'y' })).toBe(false);
+      const appliques: string[] = [];
+      const compte = await Promise.all([1, 2].map(() => file.appliquerResultats(marqueA, async (t) => void appliques.push(t.id))));
+      expect(compte.reduce((x, y) => x + y, 0)).toBe(2);
+      expect(appliques.sort()).toEqual([c4.id, r.id].sort());
+      expect(await file.appliquerResultats(marqueA, async (t) => void appliques.push(t.id))).toBe(0);
+      expect((await file.historique(marqueA, a.utilisateurId, r.id)).length).toBe(1);
+    } finally {
+      await superutilisateur.end();
       await contexte.fermer();
     }
   });

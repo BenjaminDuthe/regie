@@ -4,6 +4,7 @@
 import type { Audit } from '../infra/audit.ts';
 import type { Coffre } from '../infra/coffre.ts';
 import type { Espaces } from '../infra/espaces.ts';
+import type { File } from '../infra/file.ts';
 import type { JetonsApi } from '../infra/jetons.ts';
 import type { Oauth } from '../infra/oauth.ts';
 import type { Marques } from '../infra/marques.ts';
@@ -29,5 +30,7 @@ export type Services = Readonly<{
   jetons: JetonsApi;
   /** Clients, codes et connexions OAuth de Claude (histoire 1.12). */
   oauth: Oauth;
+  /** File de traitement durable (histoire 2.1). */
+  file: File;
   maintenant: () => number;
 }>;

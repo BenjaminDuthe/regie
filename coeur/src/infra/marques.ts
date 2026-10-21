@@ -11,6 +11,8 @@ export type MarqueUnique = Readonly<{ etat: 'une'; id: string }> | Readonly<{ et
 export interface Marques {
   trouverUnique(): Promise<MarqueUnique>;
   creer(nom: string): Promise<string>;
+  /** Toutes les marques : les travailleurs de fond parcourent les marques une à une (la RLS interdit de lire entre elles). */
+  lister(): Promise<string[]>;
 }
 
 export const NOM_MARQUE_UNIQUE = 'Établia';
@@ -27,6 +29,11 @@ export class MarquesPg implements Marques {
     if (rows.length === 0) return { etat: 'aucune' };
     const premiere = rows[0];
     return rows.length === 1 && premiere !== undefined ? { etat: 'une', id: premiere.id } : { etat: 'plusieurs' };
+  }
+
+  async lister(): Promise<string[]> {
+    const { rows } = await this.#pool.query<{ id: string }>('SELECT marques_identifiants() AS id');
+    return rows.map((r) => r.id);
   }
 
   async creer(nom: string): Promise<string> {

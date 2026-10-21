@@ -17,6 +17,7 @@ import { AuditPg } from './infra/audit.ts';
 import { EspacesPg } from './infra/espaces.ts';
 import { JetonsApiPg } from './infra/jetons.ts';
 import { OauthPg } from './infra/oauth.ts';
+import { FilePg, ecouterResultats } from './infra/file.ts';
 import { MarquesPg } from './infra/marques.ts';
 import { ClientOidc } from './infra/oidc.ts';
 import { MagasinSessionsPg } from './infra/sessions.ts';
@@ -25,6 +26,8 @@ import { enregistrerRoutesApi } from './api/routes.ts';
 import { enregistrerRoutesOauth } from './oauth/routes.ts';
 import { enregistrerRoutesMcp } from './mcp/routes.ts';
 import type { Services } from './auth/services.ts';
+import { EXECUTANTS } from './services/executants.ts';
+import { Travailleur } from './services/travailleur.ts';
 
 type HandlerAstro = (
   requete: import('node:http').IncomingMessage,
@@ -53,6 +56,7 @@ export function construireServices(contexte: Contexte): Services {
     urlPublique: env.REGIE_URL_PUBLIQUE,
     jetons: new JetonsApiPg(contexte.pool),
     oauth: new OauthPg(contexte.pool),
+    file: new FilePg(contexte.pool),
     maintenant: Date.now,
   };
 }
@@ -65,7 +69,7 @@ function servicesSansBase(): Services {
   return {
     oidc: undefined,
     sessions: { creer: refus, trouver: async () => undefined, revoquer: async () => false, changerEspace: async () => false },
-    marques: { trouverUnique: async () => ({ etat: 'aucune' }), creer: refus },
+    marques: { trouverUnique: async () => ({ etat: 'aucune' }), creer: refus, lister: async () => [] },
     espaces: { assurer: refus, lister: async () => [] },
     audit: { ajouter: refus, lire: refus },
     coffre: new Coffre(randomBytes(32)),
@@ -83,6 +87,23 @@ function servicesSansBase(): Services {
       authentifierAcces: async () => undefined,
       lister: async () => [],
       revoquer: async () => false,
+    },
+    file: {
+      enfiler: refus,
+      prendre: async () => undefined,
+      renouveler: async () => false,
+      terminer: async () => false,
+      echouer: async () => undefined,
+      pointDeNonRetour: async () => false,
+      recuperer: async () => 0,
+      appliquerResultats: async () => 0,
+      lire: async () => undefined,
+      lister: async () => [],
+      historique: async () => [],
+      annuler: async () => false,
+      geler: async () => false,
+      degeler: async () => false,
+      relancer: async () => false,
     },
     maintenant: Date.now,
   };
@@ -147,10 +168,23 @@ if (import.meta.main) {
     }
     throw erreur;
   }
-  const app = await construireServeur({ contexte });
+  const services = construireServices(contexte);
+  const app = await construireServeur({ contexte, services });
+  // Ordre de démarrage (AR-15) : le serveur écoute, puis la file (application des résultats laissés par un arrêt, puis
+  // reprise et prise des tâches). Le planificateur d'échéances viendra en dernier (histoire 2.2).
+  const travailleur = new Travailleur({
+    file: services.file,
+    marques: () => services.marques.lister(),
+    executants: EXECUTANTS,
+    service: `coeur-${process.pid}`,
+    journal: app.log,
+  });
+  let arreterEcoute: () => void = () => undefined;
   // Arrêt propre : en PID 1 du conteneur, node n'a pas de gestionnaire de SIGTERM par défaut.
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     process.once(signal, () => {
+      travailleur.arreter();
+      arreterEcoute();
       Promise.all([app.close(), contexte.fermer()]).then(
         () => process.exit(0),
         () => process.exit(1),
@@ -158,4 +192,6 @@ if (import.meta.main) {
     });
   }
   await app.listen({ host: env.HOTE, port: env.PORT });
+  arreterEcoute = ecouterResultats(contexte.pool, () => travailleur.surNotification(), (message) => app.log.warn({ erreur: message }, 'écoute de la file interrompue'));
+  await travailleur.demarrer();
 }
