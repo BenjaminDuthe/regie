@@ -14,5 +14,5 @@
     }
   ],
   "espacesDeNoms": ["www.w3.org"],
-  "fichiersReseau": ["coeur/src/infra/oidc.ts"]
+  "fichiersReseau": ["coeur/src/infra/oidc.ts", "coeur/src/pages/taches.astro"]
 }

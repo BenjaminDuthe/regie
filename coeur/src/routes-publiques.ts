@@ -33,7 +33,7 @@ export const ROUTES_STATIQUES: readonly string[] = Object.freeze(['/*']);
  * Routes que fastify sert hors garde et qui contrôlent la session elles-mêmes. Elles ne sont pas publiques :
  * sans session valide elles refusent.
  */
-export const ROUTES_AVEC_SESSION_PROPRE: readonly string[] = Object.freeze(['/deconnexion', '/espaces/:id/activer']);
+export const ROUTES_AVEC_SESSION_PROPRE: readonly string[] = Object.freeze(['/deconnexion', '/espaces/:id/activer', '/flux/taches']);
 
 /** Chemin sans barre finale (sauf la racine) : `/conditions/` et `/conditions` sont la même route. */
 export function normaliser(chemin: string): string {

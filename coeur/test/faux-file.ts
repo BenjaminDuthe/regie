@@ -161,5 +161,18 @@ export class FileMemoire implements File {
     Object.assign(t, { etat: 'prete', serie: t.tentatives, reprises: 0, disponibleLe: new Date(this.maintenant()), verrouPar: undefined, bailJusqua: undefined, pointDeNonRetour: false, termineeLe: undefined, cause: undefined, action: undefined, resultat: undefined });
     return true;
   }
-}
 
+  async instantane(marqueId: string): Promise<Tache[]> {
+    return this.taches.filter((t) => t.marqueId === marqueId && (t.etat === 'prete' || t.etat === 'en_cours')).map((t) => ({ ...t }));
+  }
+
+  async durees(marqueId: string): Promise<Record<string, number[]>> {
+    const parType: Record<string, number[]> = {};
+    for (const t of this.taches.filter((x) => x.marqueId === marqueId)) {
+      const lignes = (this.tentatives.get(t.id) ?? []).filter((l) => l.issue === 'terminee' && l.fin !== undefined);
+      for (const l of lignes) (parType[t.type] ??= []).push((l.fin!.getTime() - l.debut.getTime()) / 1000);
+    }
+    for (const k of Object.keys(parType)) parType[k] = parType[k]!.reverse().slice(0, 50);
+    return parType;
+  }
+}

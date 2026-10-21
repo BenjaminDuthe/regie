@@ -76,6 +76,11 @@ export interface File {
   geler(marqueId: string, utilisateurId: string, id: string): Promise<boolean>;
   degeler(marqueId: string, utilisateurId: string, id: string): Promise<boolean>;
   relancer(marqueId: string, utilisateurId: string, id: string): Promise<boolean>;
+  // Suivi (histoire 2.5) : la file de la marque, en attente et en cours, et les durées réelles des dernières tentatives.
+  /** Tâches prêtes ou en cours de la marque, toutes personnes confondues : sert à situer les tâches de chacun dans la file. */
+  instantane(marqueId: string): Promise<Tache[]>;
+  /** Durées (en secondes) des 50 dernières tentatives réussies de chaque type, la plus récente d'abord. */
+  durees(marqueId: string): Promise<Record<string, number[]>>;
 }
 
 type Ligne = {
@@ -245,6 +250,29 @@ export class FilePg implements File {
 
   relancer(marqueId: string, utilisateurId: string, id: string): Promise<boolean> {
     return this.#duProprietaire(marqueId, utilisateurId, id, 'SELECT file_relancer($1) AS ok');
+  }
+
+  async instantane(marqueId: string): Promise<Tache[]> {
+    return dansTransactionMarque(this.#pool, marqueId, async (client) => {
+      const { rows } = await client.query<Ligne>("SELECT * FROM taches WHERE etat IN ('prete', 'en_cours') ORDER BY cree_le, id");
+      return rows.map(versTache);
+    });
+  }
+
+  async durees(marqueId: string): Promise<Record<string, number[]>> {
+    return dansTransactionMarque(this.#pool, marqueId, async (client) => {
+      const { rows } = await client.query<{ type: string; s: number }>(
+        `SELECT type, s FROM (
+           SELECT k.type, extract(epoch FROM (t.fin - t.debut))::float8 AS s,
+                  row_number() OVER (PARTITION BY k.type ORDER BY t.fin DESC) AS rang
+             FROM tentatives_taches t JOIN taches k ON k.id = t.tache_id
+            WHERE t.issue = 'terminee' AND t.fin IS NOT NULL
+         ) x WHERE rang <= 50 ORDER BY type, rang`,
+      );
+      const parType: Record<string, number[]> = {};
+      for (const r of rows) (parType[r.type] ??= []).push(r.s);
+      return parType;
+    });
   }
 
   async #booleen(marqueId: string, sql: string, valeurs: unknown[]): Promise<boolean> {

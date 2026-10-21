@@ -25,6 +25,7 @@ import { enregistrerRoutesAuth } from './auth/routes.ts';
 import { enregistrerRoutesApi } from './api/routes.ts';
 import { enregistrerRoutesOauth } from './oauth/routes.ts';
 import { enregistrerRoutesMcp } from './mcp/routes.ts';
+import { enregistrerRoutesFlux, type OptionsFlux } from './flux/routes.ts';
 import type { Services } from './auth/services.ts';
 import { EXECUTANTS } from './services/executants.ts';
 import { Travailleur } from './services/travailleur.ts';
@@ -107,6 +108,8 @@ function servicesSansBase(): Services {
       geler: async () => false,
       degeler: async () => false,
       relancer: async () => false,
+      instantane: async () => [],
+      durees: async () => ({}),
     },
     maintenant: Date.now,
   };
@@ -115,10 +118,10 @@ function servicesSansBase(): Services {
 /**
  * `journal` : destination des journaux (tests) ; `services` : remplace ceux de production (tests) ;
  * `surRoute` : appelée pour chaque route fastify déclarée (test des routes publiques) ;
- * `proxysDeConfiance` : remplace REGIE_PROXYS_DE_CONFIANCE (tests).
+ * `proxysDeConfiance` : remplace REGIE_PROXYS_DE_CONFIANCE (tests) ; `flux` : rythme du suivi en direct (tests).
  */
 export async function construireServeur(
-  options: { journal?: DestinationStream; contexte?: Contexte; services?: Services; surRoute?: (route: { method: string | string[]; url: string }) => void; proxysDeConfiance?: readonly string[] } = {},
+  options: { journal?: DestinationStream; contexte?: Contexte; services?: Services; surRoute?: (route: { method: string | string[]; url: string }) => void; proxysDeConfiance?: readonly string[]; flux?: OptionsFlux } = {},
 ) {
   // Le handler d'Astro n'existe qu'après `astro build` : on le charge à l'exécution.
   const { handler } = (await import(ENTREE_SERVEUR)) as { handler: HandlerAstro };
@@ -150,6 +153,7 @@ export async function construireServeur(
   enregistrerRoutesApi(app as unknown as FastifyInstance, services);
   enregistrerRoutesOauth(app as unknown as FastifyInstance, services);
   enregistrerRoutesMcp(app as unknown as FastifyInstance, services);
+  enregistrerRoutesFlux(app as unknown as FastifyInstance, services, options.flux);
   await app.register(fastifyStatic, { root: RACINE_CLIENT });
   await app.register(middie);
   // Les services passent au middleware d'Astro (la garde de session) par `locals`.

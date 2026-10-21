@@ -18,7 +18,8 @@
     "espaceActif": "Espace actif",
     "jetons": "Jetons",
     "connexions": "Connexions de Claude",
-    "journal": "Journal"
+    "journal": "Journal",
+    "taches": "Tâches"
   },
   "connexion": {
     "titre": "Connexion",
@@ -164,7 +165,9 @@
     "ADMIN_REQUIS": "Seul l’administrateur de regie peut faire ça.",
     "CONNEXION_INTROUVABLE": "Cette connexion n’existe pas, ou elle est déjà révoquée.",
     "MCP_ORIGINE_REFUSEE": "Cette demande vient d’une origine que regie n’accepte pas.",
-    "MCP_METHODE_REFUSEE": "Le point d’entrée MCP n’accepte que des requêtes POST."
+    "MCP_METHODE_REFUSEE": "Le point d’entrée MCP n’accepte que des requêtes POST.",
+    "TACHE_INTROUVABLE": "Cette tâche n’existe pas, ou elle n’est pas à toi.",
+    "TACHE_NON_RELANCABLE": "Cette tâche ne peut pas être relancée : seule une tâche échouée se relance."
   },
   "jetons": {
     "titre": "Jetons d’API",
@@ -273,5 +276,62 @@
       "origine": "Origine"
     },
     "periode_invalide": "Une date n’est pas valide : le filtre de période est ignoré."
+  },
+  "horaires": {
+    "heure": "vers {h} h {m}",
+    "heurePile": "vers {h} h",
+    "demain": "demain {heure}",
+    "date": "le {jour}/{mois} {heure}"
+  },
+  "taches": {
+    "titre": "Tâches en cours",
+    "intro": "Ce que regie prépare pour toi : captures, rendus, montages. La page se met à jour toute seule ; les heures de fin sont des estimations, pas des promesses.",
+    "vide": "Aucune tâche pour le moment.",
+    "chargement": "Chargement des tâches…",
+    "fluxCoupe": "Le suivi en direct est coupé. Recharge la page pour reprendre.",
+    "fluxRepris": "Suivi en direct actif.",
+    "sections": {
+      "actives": "En cours et en attente",
+      "recentes": "Terminées récemment"
+    },
+    "etats": {
+      "prete": "En attente",
+      "en_cours": "En cours",
+      "terminee": "Terminée",
+      "echouee": "Échouée",
+      "annulee": "Annulée",
+      "gelee": "En pause"
+    },
+    "types": {
+      "essai": "Essai",
+      "controle": "Contrôle",
+      "transcription": "Transcription",
+      "montage": "Montage",
+      "rendu": "Rendu de la vidéo",
+      "capture": "Capture",
+      "voix": "Voix",
+      "reseau": "Publication"
+    },
+    "position": {
+      "enCours": "En cours maintenant",
+      "prochaine": "Prochaine",
+      "rang": "{n}e dans la file"
+    },
+    "fin": "Fin estimée : {heure}",
+    "finie": "Terminée {heure}",
+    "tentative": "Tentative {n} sur {max}",
+    "causes": {
+      "RESULTAT_INCONNU": "Le service s’est arrêté pendant la tâche : on ne sait pas si elle est allée au bout.",
+      "DELAI_DEPASSE": "La tâche a pris trop de temps et a été arrêtée.",
+      "TYPE_SANS_EXECUTANT": "Aucun service ne sait encore faire cette tâche.",
+      "ECHEC": "La tâche a échoué.",
+      "CHAINE_ROMPUE": "Le journal d’audit ne se vérifie plus.",
+      "defaut": "La tâche a échoué."
+    },
+    "actions": {
+      "relancer": "Tu peux la relancer.",
+      "verifier": "Vérifie d’abord le résultat à l’extérieur, puis relance si besoin.",
+      "defaut": "Tu peux la relancer."
+    }
   }
 }

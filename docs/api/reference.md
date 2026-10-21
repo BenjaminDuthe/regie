@@ -170,3 +170,48 @@ Corps de la demande (schéma JSON) :
   "additionalProperties": false
 }
 ```
+
+## `tache.lister`
+
+Liste tes dernières tâches : état, étape, position dans la file, heure de fin estimée, cause et action en cas d’échec.
+
+- API : `POST /api/v1/tache/lister` · outil MCP : `tache_lister`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+## `tache.lire`
+
+Lit une de tes tâches avec l’historique de ses tentatives.
+
+- API : `POST /api/v1/tache/lire` · outil MCP : `tache_lire`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "additionalProperties": false
+}
+```

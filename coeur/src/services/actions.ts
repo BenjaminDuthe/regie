@@ -8,6 +8,7 @@ import type { ConnexionClaude } from '../infra/oauth.ts';
 import { DUREE_MAX_JETON_JOURS, PORTEES, type JetonApi } from '../infra/jetons.ts';
 import { ErreurMetier } from './erreurs.ts';
 import { Registre, definirAction } from './registre.ts';
+import { suivreTaches, suivreUneTache } from './suivi.ts';
 
 const identifiant = z.uuid();
 
@@ -122,5 +123,29 @@ export const connexionRevoquer = definirAction({
   objet: (entree) => `connexion:${entree.id}`,
 });
 
-export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer, connexionLister, connexionRevoquer]);
+export const tacheLister = definirAction({
+  domaine: 'tache',
+  verbe: 'lister',
+  description: 'Liste tes dernières tâches : état, étape, position dans la file, heure de fin estimée, cause et action en cas d’échec.',
+  portee: 'lecture',
+  entree: z.object({}).strict(),
+  executer: async (ctx) => ({ taches: await suivreTaches(ctx.services, ctx.marqueId, ctx.utilisateurId) }),
+  objet: () => 'tache',
+});
+
+export const tacheLire = definirAction({
+  domaine: 'tache',
+  verbe: 'lire',
+  description: 'Lit une de tes tâches avec l’historique de ses tentatives.',
+  portee: 'lecture',
+  entree: z.object({ id: identifiant }).strict(),
+  executer: async (ctx, entree) => {
+    const tache = await suivreUneTache(ctx.services, ctx.marqueId, ctx.utilisateurId, entree.id);
+    if (tache === undefined) throw new ErreurMetier('TACHE_INTROUVABLE', 404, { id: entree.id });
+    return { tache };
+  },
+  objet: (entree) => `tache:${entree.id}`,
+});
+
+export const ACTIONS = Object.freeze([espaceLister, jetonLister, jetonRevoquer, jetonCreer, connexionLister, connexionRevoquer, tacheLister, tacheLire]);
 export const REGISTRE = new Registre(ACTIONS);

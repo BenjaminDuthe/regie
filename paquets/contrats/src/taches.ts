@@ -20,21 +20,23 @@ export type DefinitionTache = Readonly<{
   delaiGardeS: number;
   /** Nombre maximal de tentatives (la première comprise) avant l'échec définitif. */
   tentativesMax: number;
+  /** Durée habituelle d'une tentative, en secondes : sert d'estimation tant que l'historique est vide (histoire 2.5). */
+  dureeTypiqueS: number;
 }>;
 
 const def = (d: DefinitionTache): DefinitionTache => Object.freeze(d);
 
 export const TACHES: Readonly<Record<string, DefinitionTache>> = Object.freeze({
-  essai: def({ type: 'essai', classe: 'lot', gpu: false, reprise: 'permise', delaiGardeS: 300, tentativesMax: 3 }),
-  controle: def({ type: 'controle', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 300, tentativesMax: 3 }),
+  essai: def({ type: 'essai', classe: 'lot', gpu: false, reprise: 'permise', delaiGardeS: 300, tentativesMax: 3, dureeTypiqueS: 5 }),
+  controle: def({ type: 'controle', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 300, tentativesMax: 3, dureeTypiqueS: 20 }),
   // 3 × la durée du média, 10 minutes au moins : l'appelant relève le délai de la tâche selon la durée.
-  transcription: def({ type: 'transcription', classe: 'lot', gpu: true, reprise: 'permise', delaiGardeS: 600, tentativesMax: 3 }),
-  montage: def({ type: 'montage', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 1800, tentativesMax: 3 }),
-  rendu: def({ type: 'rendu', classe: 'interactive', gpu: true, reprise: 'permise', delaiGardeS: 900, tentativesMax: 3 }),
-  capture: def({ type: 'capture', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 900, tentativesMax: 3 }),
-  voix: def({ type: 'voix', classe: 'lot', gpu: true, reprise: 'permise', delaiGardeS: 600, tentativesMax: 3 }),
+  transcription: def({ type: 'transcription', classe: 'lot', gpu: true, reprise: 'permise', delaiGardeS: 600, tentativesMax: 3, dureeTypiqueS: 180 }),
+  montage: def({ type: 'montage', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 1800, tentativesMax: 3, dureeTypiqueS: 300 }),
+  rendu: def({ type: 'rendu', classe: 'interactive', gpu: true, reprise: 'permise', delaiGardeS: 900, tentativesMax: 3, dureeTypiqueS: 240 }),
+  capture: def({ type: 'capture', classe: 'interactive', gpu: false, reprise: 'permise', delaiGardeS: 900, tentativesMax: 3, dureeTypiqueS: 60 }),
+  voix: def({ type: 'voix', classe: 'lot', gpu: true, reprise: 'permise', delaiGardeS: 600, tentativesMax: 3, dureeTypiqueS: 90 }),
   // Un appel vers un réseau social a un effet extérieur : jamais rejoué sans décision.
-  reseau: def({ type: 'reseau', classe: 'lot', gpu: false, reprise: 'interdite', delaiGardeS: 600, tentativesMax: 1 }),
+  reseau: def({ type: 'reseau', classe: 'lot', gpu: false, reprise: 'interdite', delaiGardeS: 600, tentativesMax: 1, dureeTypiqueS: 15 }),
 });
 
 export const ETATS_TACHE = ['prete', 'en_cours', 'terminee', 'echouee', 'annulee', 'gelee'] as const;

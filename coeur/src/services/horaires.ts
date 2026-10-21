@@ -1,6 +1,7 @@
 // regie — heures de Paris (histoire 2.2, NFR-25). Les instants sont toujours stockés en UTC ; ce fichier convertit
 // « tous les jours à HH:MM, heure de Paris » en instant UTC, en tenant compte des changements d'heure.
 
+import chaines from '../chaines.json' with { type: 'json' };
 import { decalageParis } from './journal.ts';
 
 const FORME_HEURE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -32,4 +33,23 @@ export function prochainHoraireParis(apres: Date, heureParis: string): { instant
     if (instant.getTime() > apres.getTime()) return { instant, jour: mur.toISOString().slice(0, 10) };
   }
   throw new Error('prochain horaire introuvable');
+}
+
+
+/**
+ * « vers 18 h 40 » (heure de Paris, arrondie à 5 minutes) ; « demain vers 9 h 05 » ou « le 24/10 vers 9 h 05 » si ce n'est pas
+ * aujourd'hui. Une estimation n'est jamais présentée comme une promesse (UX-DR25).
+ */
+export function heureEnClair(instant: Date, maintenant: Date): string {
+  const arrondi = new Date(Math.round(instant.getTime() / 300_000) * 300_000);
+  const parties = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(arrondi);
+  const heure = Number(parties.find((p) => p.type === 'hour')?.value);
+  const minute = Number(parties.find((p) => p.type === 'minute')?.value);
+  const horloge = (minute === 0 ? chaines.horaires.heurePile : chaines.horaires.heure).replace('{h}', String(heure)).replace('{m}', String(minute).padStart(2, '0'));
+  const [a, m, j] = jourParis(arrondi);
+  const [a0, m0, j0] = jourParis(maintenant);
+  const ecart = Math.round((Date.UTC(a, m - 1, j) - Date.UTC(a0, m0 - 1, j0)) / 86_400_000);
+  if (ecart <= 0) return horloge;
+  if (ecart === 1) return chaines.horaires.demain.replace('{heure}', horloge);
+  return chaines.horaires.date.replace('{jour}', String(j).padStart(2, '0')).replace('{mois}', String(m).padStart(2, '0')).replace('{heure}', horloge);
 }

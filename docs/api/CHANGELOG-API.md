@@ -16,3 +16,9 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `connexion.revoquer` (écriture) : révoque une connexion, son prochain appel est refusé.
 - Le serveur MCP répond sur `/mcp` (HTTP streamable, JSON-RPC 2.0, sans état). Jeton Bearer : jeton d’API (1.11) ou jeton OAuth.
 - Métadonnées OAuth sur `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server` ; `POST /oauth/register` et `POST /oauth/token`.
+
+## 2026-10-21 — histoire 2.5
+
+- Ajout de `tache.lister` (lecture) : tes dernières tâches avec état, étape, position dans la file, heure de fin estimée (une estimation, pas une promesse), cause et action en cas d’échec.
+- Ajout de `tache.lire` (lecture) : une de tes tâches avec l’historique de ses tentatives.
+- Le suivi en direct de l’interface passe par `GET /flux/taches` (session seulement, flux d’événements) : il n’est pas offert à l’API, qui lit `tache.lister`.

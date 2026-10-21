@@ -1,0 +1,121 @@
+---
+// Suivi des tâches (histoire 2.5, FR-61) : ce qui est en attente ou en cours, avec l'étape, la position dans la file et
+// une fin estimée, puis les tâches récentes, échouées comprises avec leur cause et l'action conseillée. Premier rendu
+// côté serveur ; le script ci-dessous le tient à jour par le flux /flux/taches (même origine, aucun service tiers).
+// Sans script, la page se recharge d'elle-même toutes les 30 secondes.
+import chaines from '../chaines.json' with { type: 'json' };
+import { decrire, estActive } from '../composants/vue-taches.ts';
+import Base from '../mises-en-page/Base.astro';
+import { contexteInterface } from '../services/contextes.ts';
+import { suivreTaches } from '../services/suivi.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.taches;
+const ctx = contexteInterface(services, session);
+// L'affichage n'est pas une action (rien n'est écrit au journal) : la vue est lue directement.
+const vues = await suivreTaches(services, ctx.marqueId, ctx.utilisateurId);
+const actives = vues.filter(estActive).map((v) => decrire(v, t));
+const recentes = vues.filter((v) => !estActive(v)).slice(0, 20).map((v) => decrire(v, t));
+---
+
+<Base titre={t.titre}>
+  <noscript slot="tete"><meta http-equiv="refresh" content="30" /></noscript>
+  <h1>{t.titre}</h1>
+  <p class="intro">{t.intro}</p>
+  <p id="etat-flux" class="doux" role="status" aria-live="polite"></p>
+
+  <div id="suivi" data-flux="/flux/taches" data-libelles={JSON.stringify(t)}>
+    <h2>{t.sections.actives}</h2>
+    <p id="vide-actives" class="doux" hidden={actives.length > 0}>{t.vide}</p>
+    <ul id="liste-actives" class="liste" aria-live="polite">
+      {actives.map((d) => (
+        <li data-id={d.id}>
+          <strong class="titre">{d.titre}</strong>
+          <span class="etat" data-etat={d.codeEtat}>{d.etat}</span>
+          <span class="doux detail">{[d.position, d.fin, d.tentative].filter((x) => x !== undefined).join(' · ')}</span>
+        </li>
+      ))}
+    </ul>
+
+    <h2>{t.sections.recentes}</h2>
+    <p id="vide-recentes" class="doux" hidden={recentes.length > 0}>{t.vide}</p>
+    <ul id="liste-recentes" class="liste" aria-live="polite">
+      {recentes.map((d) => (
+        <li data-id={d.id}>
+          <strong class="titre">{d.titre}</strong>
+          <span class="etat" data-etat={d.codeEtat}>{d.etat}</span>
+          <span class="doux detail">{[d.tentative].filter((x) => x !== undefined).join(' · ')}</span>
+          {d.probleme !== undefined && <p class="probleme" role="alert">{d.probleme}</p>}
+        </li>
+      ))}
+    </ul>
+  </div>
+</Base>
+
+<script>
+  import { decrire, estActive, type LibellesTaches } from '../composants/vue-taches.ts';
+  import type { VueTache } from '../services/suivi.ts';
+
+  const racine = document.getElementById('suivi');
+  const statut = document.getElementById('etat-flux');
+  if (racine !== null && statut !== null && 'EventSource' in window) {
+    const libelles = JSON.parse(racine.dataset['libelles'] ?? '{}') as LibellesTaches & { fluxCoupe: string; fluxRepris: string };
+    const dessiner = (idListe: string, idVide: string, vues: VueTache[]): void => {
+      const liste = document.getElementById(idListe)!;
+      document.getElementById(idVide)!.hidden = vues.length > 0;
+      // Tout est écrit par textContent : un texte venu du serveur n'est jamais interprété comme du HTML.
+      liste.replaceChildren(
+        ...vues.map((v) => {
+          const d = decrire(v, libelles);
+          const li = document.createElement('li');
+          li.dataset['id'] = d.id;
+          const titre = Object.assign(document.createElement('strong'), { className: 'titre', textContent: d.titre });
+          const etat = Object.assign(document.createElement('span'), { className: 'etat', textContent: d.etat });
+          etat.dataset['etat'] = d.codeEtat;
+          const detail = Object.assign(document.createElement('span'), {
+            className: 'doux detail',
+            textContent: (estActive(v) ? [d.position, d.fin, d.tentative] : [d.tentative]).filter((x) => x !== undefined).join(' · '),
+          });
+          li.append(titre, etat, detail);
+          if (d.probleme !== undefined) {
+            const p = Object.assign(document.createElement('p'), { className: 'probleme', textContent: d.probleme });
+            p.setAttribute('role', 'alert');
+            li.append(p);
+          }
+          return li;
+        }),
+      );
+    };
+    const source = new EventSource(racine.dataset['flux'] ?? '/flux/taches');
+    source.addEventListener('taches', (e) => {
+      const { taches } = JSON.parse((e as MessageEvent<string>).data) as { taches: VueTache[] };
+      dessiner('liste-actives', 'vide-actives', taches.filter(estActive));
+      dessiner('liste-recentes', 'vide-recentes', taches.filter((v) => !estActive(v)).slice(0, 20));
+      statut.textContent = '';
+    });
+    source.addEventListener('open', () => {
+      statut.textContent = '';
+    });
+    // Un refus (session finie) arrête le navigateur ; une coupure passagère, il la reprend seul.
+    source.addEventListener('error', () => {
+      statut.textContent = source.readyState === EventSource.CLOSED ? libelles.fluxCoupe : '';
+    });
+  }
+</script>
+
+<style>
+  h1 { font-size: clamp(24px, 6vw, 32px); line-height: 1.15; margin: 8px 0 12px; }
+  h2 { font-size: 18px; margin: 28px 0 10px; }
+  .intro, .doux { color: var(--doux); }
+  .intro { max-width: 60ch; margin: 0; }
+  .liste { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .liste li { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--trait); padding-bottom: 10px; }
+  .etat { font-size: 13px; border: 1px solid var(--trait); border-radius: 999px; padding: 2px 10px; }
+  .etat[data-etat='en_cours'] { border-color: var(--accent); }
+  .etat[data-etat='echouee'] { color: var(--jeter); border-color: var(--jeter); }
+  .detail { font-size: 14px; }
+  .probleme { flex-basis: 100%; margin: 0; color: var(--jeter); background: var(--jeter-fond); border-radius: var(--rayon); padding: 8px 12px; }
+</style>
