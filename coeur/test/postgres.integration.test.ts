@@ -16,6 +16,7 @@ import { Masqueur } from '../src/infra/masquage.ts';
 import { calculerSante } from '../src/infra/sante.ts';
 import { AuditPg, verifierChaine } from '../src/infra/audit.ts';
 import { EspacesPg, idUtilisateur } from '../src/infra/espaces.ts';
+import { ApplicationsPg, NomApplicationPris } from '../src/infra/applications.ts';
 import { GabaritsPg } from '../src/infra/gabarits.ts';
 import { GABARIT_DE_DEPART } from '../src/domaine/gabarit.ts';
 import { JetonsApiPg, hacherJeton } from '../src/infra/jetons.ts';
@@ -660,6 +661,47 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       expect(brut.rows[0].n).toBe(0);
       await expect(contexte.pool.query('DELETE FROM gabarits')).rejects.toThrow(/permission denied/);
       await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE gabarits SET marque_id = marque_id'))).rejects.toThrow(/permission denied/);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('applications : hôtes en liste stricte, cloisonnées par marque et par personne, nom unique par espace, version qui monte, RLS forcée', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const applications = new ApplicationsPg(contexte.pool);
+      const marqueA = await marques.creer(`Applis A ${suffixe}`);
+      const marqueB = await marques.creer(`Applis B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-aa', undefined, 'Établia');
+      const a2 = await espaces.assurer(marqueA, 'sub-aa2', undefined, 'Autre');
+      const b = await espaces.assurer(marqueB, 'sub-ab', undefined, 'Autre');
+      const espace = a.espaces[0]!.id;
+      const champs = { nom: 'Démo', accueil: 'https://demo.etablia.fr/', hotes: ['cdn.etablia.fr', 'demo.etablia.fr'] };
+
+      const cree = await applications.creer({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espace, ...champs });
+      expect(cree).toMatchObject({ espaceId: espace, nom: 'Démo', version: 1, hotes: champs.hotes });
+      await expect(applications.creer({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espace, ...champs })).rejects.toBeInstanceOf(NomApplicationPris);
+      const apres = await applications.remplacer(marqueA, a.utilisateurId, cree!.id, { ...champs, hotes: ['demo.etablia.fr'] });
+      expect(apres).toMatchObject({ version: 2, hotes: ['demo.etablia.fr'] });
+      expect(await applications.lister(marqueA, a.utilisateurId)).toHaveLength(1);
+
+      // Cloisonnement : une autre personne, une autre marque, ni lecture, ni écriture, ni création.
+      expect(await applications.lire(marqueA, a2.utilisateurId, cree!.id)).toBeUndefined();
+      expect(await applications.lire(marqueB, b.utilisateurId, cree!.id)).toBeUndefined();
+      expect(await applications.lire(marqueB, a.utilisateurId, cree!.id)).toBeUndefined();
+      expect(await applications.remplacer(marqueA, a2.utilisateurId, cree!.id, champs)).toBeUndefined();
+      expect(await applications.creer({ marqueId: marqueA, utilisateurId: a2.utilisateurId, espaceId: espace, ...champs, nom: 'Intrus' })).toBeUndefined();
+      expect(await applications.creer({ marqueId: marqueB, utilisateurId: b.utilisateurId, espaceId: espace, ...champs, nom: 'Intrus' })).toBeUndefined();
+      expect(await applications.lister(marqueB, b.utilisateurId)).toHaveLength(0);
+
+      // Sans marque posée, aucune ligne ; jamais de DELETE ; la liste d'hôtes ne peut pas être vide.
+      const brut = await contexte.pool.query('SELECT count(*)::int AS n FROM applications');
+      expect(brut.rows[0].n).toBe(0);
+      await expect(contexte.pool.query('DELETE FROM applications')).rejects.toThrow(/permission denied/);
+      await expect(dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('UPDATE applications SET marque_id = marque_id'))).rejects.toThrow(/permission denied/);
+      await expect(applications.creer({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espace, ...champs, nom: 'Vide', hotes: [] })).rejects.toThrow(/check/i);
     } finally {
       await contexte.fermer();
     }

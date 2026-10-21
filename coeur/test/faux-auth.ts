@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import type { Services } from '../src/auth/services.ts';
 import { chainer, type Audit, type EntreeAudit, type LigneAudit } from '../src/infra/audit.ts';
 import { GABARIT_DE_DEPART, NOM_GABARIT_DE_DEPART, type DefinitionGabarit } from '../src/domaine/gabarit.ts';
+import { NomApplicationPris, type Application, type Applications, type ChampsApplication } from '../src/infra/applications.ts';
 import type { Gabarit, Gabarits } from '../src/infra/gabarits.ts';
 import { idUtilisateur, trierEspaces, type Espace, type Espaces } from '../src/infra/espaces.ts';
 import { DUREE_MAX_JETON_JOURS, composerJeton, hacherJeton, marqueDuJeton, type JetonApi, type JetonsApi, type NouveauJeton, type Principal } from '../src/infra/jetons.ts';
@@ -367,7 +368,45 @@ export class AuditMemoire implements Audit {
   }
 }
 
-export type BancDeTest = { services: Services; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
+/** Applications en mémoire : même contrat que ApplicationsPg (cloisonnement par espace de la personne, nom unique par espace). */
+export class ApplicationsMemoire implements Applications {
+  readonly lignes: (Application & { marqueId: string })[] = [];
+  maintenant = () => Date.now();
+  readonly #espaces: EspacesMemoire;
+  constructor(espaces: EspacesMemoire) {
+    this.#espaces = espaces;
+  }
+  #visibles(marqueId: string, utilisateurId: string): string[] {
+    return this.#espaces.tous.filter((e) => e.marqueId === marqueId && e.proprietaireId === utilisateurId).map((e) => e.id);
+  }
+  async lister(marqueId: string, utilisateurId: string, espaceId?: string) {
+    const ids = this.#visibles(marqueId, utilisateurId);
+    return this.lignes.filter((l) => l.marqueId === marqueId && ids.includes(l.espaceId) && (espaceId === undefined || l.espaceId === espaceId));
+  }
+  async lire(marqueId: string, utilisateurId: string, id: string) {
+    const ids = this.#visibles(marqueId, utilisateurId);
+    return this.lignes.find((l) => l.id === id && l.marqueId === marqueId && ids.includes(l.espaceId));
+  }
+  async creer(n: { marqueId: string; utilisateurId: string; espaceId: string } & ChampsApplication) {
+    if (!this.#visibles(n.marqueId, n.utilisateurId).includes(n.espaceId)) return undefined;
+    if (this.lignes.some((l) => l.espaceId === n.espaceId && l.nom === n.nom)) throw new NomApplicationPris();
+    const t = new Date(this.maintenant());
+    const a = { id: crypto.randomUUID(), marqueId: n.marqueId, espaceId: n.espaceId, nom: n.nom, accueil: n.accueil, hotes: [...n.hotes], version: 1, creeLe: t, modifieLe: t };
+    this.lignes.push(a);
+    return a;
+  }
+  async remplacer(marqueId: string, utilisateurId: string, id: string, c: ChampsApplication) {
+    const i = this.lignes.findIndex((l) => l.id === id && l.marqueId === marqueId && this.#visibles(marqueId, utilisateurId).includes(l.espaceId));
+    if (i < 0) return undefined;
+    const avant = this.lignes[i]!;
+    if (this.lignes.some((l) => l.id !== id && l.espaceId === avant.espaceId && l.nom === c.nom)) throw new NomApplicationPris();
+    const apres = { ...avant, nom: c.nom, accueil: c.accueil, hotes: [...c.hotes], version: avant.version + 1, modifieLe: new Date(this.maintenant()) };
+    this.lignes[i] = apres;
+    return apres;
+  }
+}
+
+export type BancDeTest = { services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
 
 export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
@@ -384,6 +423,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
   file.maintenant = () => horloge.t;
   const gabarits = new GabaritsMemoire(espaces);
   gabarits.maintenant = () => horloge.t;
+  const applications = new ApplicationsMemoire(espaces);
+  applications.maintenant = () => horloge.t;
   const notifications = new NotificationsMemoire();
   notifications.maintenant = () => horloge.t;
   file.surEchec = notifications.surEchec;
@@ -402,7 +443,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     file,
     notifications,
     gabarits,
+    applications,
     maintenant: () => horloge.t,
   };
-  return { services, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
+  return { services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
 }

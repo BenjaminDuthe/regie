@@ -1,6 +1,7 @@
 // regie — services de la connexion, injectés (histoire 1.14) : en production ils viennent de la base et d'Authentik,
 // dans les tests de fausses implémentations en mémoire.
 
+import type { Applications } from '../infra/applications.ts';
 import type { Audit } from '../infra/audit.ts';
 import type { Coffre } from '../infra/coffre.ts';
 import type { Espaces } from '../infra/espaces.ts';
@@ -38,5 +39,7 @@ export type Services = Readonly<{
   notifications: Notifications;
   /** Gabarits des espaces (histoires 2.7 et 2.8). */
   gabarits: Gabarits;
+  /** Applications à filmer et leurs hôtes autorisés (histoire 4.1). */
+  applications: Applications;
   maintenant: () => number;
 }>;

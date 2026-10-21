@@ -20,7 +20,8 @@
     "connexions": "Connexions de Claude",
     "journal": "Journal",
     "taches": "Tâches",
-    "gabarit": "Gabarit"
+    "gabarit": "Gabarit",
+    "demos": "Démos d’app"
   },
   "connexion": {
     "titre": "Connexion",
@@ -171,7 +172,12 @@
     "TACHE_NON_RELANCABLE": "Cette tâche ne peut pas être relancée : seule une tâche échouée se relance.",
     "NOTIFICATION_INTROUVABLE": "Cette notification n’existe pas, ou elle n’est pas à toi.",
     "GABARIT_INTROUVABLE": "Ce gabarit n’existe pas, ou tu n’y as pas accès.",
-    "GARDE_NON_RESPECTEE": "Ce gabarit ne peut pas être enregistré : {detail}"
+    "GARDE_NON_RESPECTEE": "Ce gabarit ne peut pas être enregistré : {detail}",
+    "APPLICATION_INTROUVABLE": "Cette application n’existe pas, ou tu n’y as pas accès.",
+    "APPLICATION_NOM_PRIS": "Une application s’appelle déjà « {nom} » dans cet espace : choisis un autre nom.",
+    "ACCUEIL_REFUSE": "L’adresse d’accueil n’est pas acceptée : elle doit commencer par https:// et viser un nom de domaine public, sans identifiants ni port.",
+    "HOTE_REFUSE": "L’hôte « {hote} » est refusé : {cause}",
+    "HOTES_TROP_NOMBREUX": "Une application ne peut pas déclarer plus de {max} hôtes."
   },
   "jetons": {
     "titre": "Jetons d’API",
@@ -421,6 +427,36 @@
     "aide": {
       "couleurs": "Les couleurs vont par rôle : principale, texte, fond et accent.",
       "nom": "Un nom pour retrouver ce gabarit."
+    }
+  },
+  "demos": {
+    "titre": "Démos d’app",
+    "intro": "Déclare l’application que Claude pourra filmer et la liste stricte des hôtes qu’elle a le droit de joindre. Toute autre adresse est refusée, pendant l’essai comme pendant le tournage.",
+    "sansPreuve": "Pour l’instant, regie ne vérifie pas que tu contrôles le domaine : déclare seulement ton propre site de démonstration.",
+    "vide": "Aucune application déclarée dans cet espace. Ajoute la première ci-dessous.",
+    "enregistree": "Application enregistrée.",
+    "hotes": "Hôtes autorisés",
+    "hotesAucun": "Aucun hôte.",
+    "accueil": "Adresse d’accueil",
+    "version": "version {version}",
+    "formulaire": {
+      "ajouter": "Déclarer une application",
+      "modifier": "Modifier",
+      "espace": "Espace",
+      "nom": "Nom de l’application",
+      "accueil": "Adresse d’accueil (https://…)",
+      "hotes": "Hôtes autorisés, un par ligne",
+      "aideHotes": "Noms de domaine complets, sans joker ni port ni adresse IP. L’hôte de l’adresse d’accueil est ajouté s’il manque.",
+      "enregistrer": "Enregistrer",
+      "ajouterBouton": "Déclarer l’application"
+    },
+    "causes": {
+      "VIDE": "le nom est vide.",
+      "TROP_LONG": "le nom est trop long.",
+      "JOKER": "les jokers (*) ne sont pas permis : déclare chaque hôte.",
+      "FORME": "ce n’est pas un nom de domaine (ni port, ni chemin, ni identifiants).",
+      "ADRESSE_IP": "les adresses IP ne sont pas permises : déclare un nom de domaine.",
+      "LOCAL": "ce nom désigne un réseau privé ou local, jamais un site public."
     }
   }
 }

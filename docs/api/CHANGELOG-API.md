@@ -41,3 +41,9 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `gabarit.apercu` (lecture) : dessine l’aperçu SVG d’une définition sur un brouillon d’exemple et liste les gardes qu’elle enfreindrait ; rien n’est enregistré.
 - `gabarit.creer` et `gabarit.definir` refusent en `GARDE_NON_RESPECTEE` (422) une définition qui enfreint une garde, comme `gabarit.personnaliser`.
 
+
+## 2026-10-21 — histoire 4.1
+
+- Ajout de `application.lister` (lecture) : tes applications à filmer, avec leur adresse d’accueil et la liste stricte de leurs hôtes autorisés.
+- Ajout de `application.declarer` (écriture) : déclare une application (nom, adresse d’accueil https, hôtes). Aucun joker, aucune adresse IP, aucun nom local ; `HOTE_REFUSE` (422) nomme l’hôte fautif. Pas de preuve de contrôle du domaine en V1.
+- Ajout de `application.modifier` (écriture) : remplace nom, adresse d’accueil et hôtes ; la version monte.

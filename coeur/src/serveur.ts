@@ -15,6 +15,7 @@ import { masqueurProcessus } from './infra/masquage.ts';
 import { calculerSante } from './infra/sante.ts';
 import { AuditPg } from './infra/audit.ts';
 import { EspacesPg } from './infra/espaces.ts';
+import { ApplicationsPg } from './infra/applications.ts';
 import { GabaritsPg } from './infra/gabarits.ts';
 import { JetonsApiPg } from './infra/jetons.ts';
 import { NotificationsPg } from './infra/notifications.ts';
@@ -65,6 +66,7 @@ export function construireServices(contexte: Contexte): Services {
     file: new FilePg(contexte.pool),
     notifications: new NotificationsPg(contexte.pool),
     gabarits: new GabaritsPg(contexte.pool),
+    applications: new ApplicationsPg(contexte.pool),
     maintenant: Date.now,
   };
 }
@@ -117,6 +119,7 @@ function servicesSansBase(): Services {
     },
     notifications: { creer: refus, lister: async () => [], acquitter: async () => false },
     gabarits: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus },
+    applications: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus },
     maintenant: Date.now,
   };
 }

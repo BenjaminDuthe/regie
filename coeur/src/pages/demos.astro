@@ -1,0 +1,119 @@
+---
+// Démos d'app (histoire 4.1, FR-13, FR-17) : la personne déclare l'application que Claude pourra filmer et la liste stricte
+// des hôtes qu'elle a le droit de joindre. Pas de preuve de contrôle du domaine en V1 (cible : le tenant de démo d'Établia).
+// Les enregistrements passent par les mêmes actions que l'API et le MCP (`application.declarer`, `application.modifier`).
+// Grille : 1 colonne à 360 px, 2 à 900 px, 3 à 1240 px ; l'en-tête collant est celui de la mise en page commune.
+import chaines from '../chaines.json' with { type: 'json' };
+import Base from '../mises-en-page/Base.astro';
+import { applicationDeclarer, applicationLister, applicationModifier } from '../services/actions-application.ts';
+import { contexteInterface } from '../services/contextes.ts';
+import { ErreurMetier } from '../services/erreurs.ts';
+import { executerAction } from '../services/registre.ts';
+
+const services = Astro.locals.regie;
+const session = Astro.locals.session;
+if (services === undefined || session === undefined) return new Response(null, { status: 401 });
+
+const t = chaines.demos;
+const f = t.formulaire;
+const ctx = contexteInterface(services, session);
+let erreur: string | undefined;
+let brouillon: { id: string; nom: string; accueil: string; hotes: string; espaceId: string } | undefined;
+
+type Vue = { id: string; espaceId: string; nom: string; accueil: string; hotes: string[]; version: number };
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const champ = (nom: string): string => (typeof form.get(nom) === 'string' ? (form.get(nom) as string) : '');
+  const hotes = champ('hotes').split(/[\s,;]+/).filter((h) => h !== '');
+  brouillon = { id: champ('id'), nom: champ('nom'), accueil: champ('accueil'), hotes: champ('hotes'), espaceId: champ('espaceId') };
+  try {
+    if (champ('geste') === 'modifier') await executerAction(ctx, applicationModifier, { id: brouillon.id, nom: brouillon.nom, accueil: brouillon.accueil, hotes });
+    else await executerAction(ctx, applicationDeclarer, { espaceId: brouillon.espaceId, nom: brouillon.nom, accueil: brouillon.accueil, hotes });
+    return Astro.redirect('/demos?ok=1', 303);
+  } catch (e) {
+    if (!(e instanceof ErreurMetier)) throw e;
+    erreur = e.message;
+  }
+}
+
+// L'affichage n'est pas une action (rien n'est écrit au journal) : la liste est lue directement.
+const { applications } = (await applicationLister.executer(ctx, {})) as { applications: Vue[] };
+const espaces = Astro.locals.espaces ?? [];
+const actif = Astro.locals.espaceActif;
+const libelle = (e: { genre: string; nom: string }): string => (e.genre === 'personnel' ? chaines.espaces.personnel : chaines.espaces.marque.replace('{nom}', e.nom));
+const enregistree = Astro.url.searchParams.get('ok') === '1';
+---
+
+<Base titre={t.titre}>
+  <h1>{t.titre}</h1>
+  <p class="intro">{t.intro}</p>
+  <p class="doux">{t.sansPreuve}</p>
+  {enregistree && <p class="succes" role="status">{t.enregistree}</p>}
+  {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
+
+  {applications.length === 0 && <p class="doux">{t.vide}</p>}
+  <ul class="grille-demos">
+    {
+      applications.map((a) => (
+        <li class="carte-demo">
+          <h2>{a.nom}</h2>
+          <p class="doux">{t.accueil} : <span class="adresse">{a.accueil}</span></p>
+          <h3>{t.hotes}</h3>
+          <ul class="hotes">{a.hotes.length === 0 ? <li>{t.hotesAucun}</li> : a.hotes.map((h) => <li><code>{h}</code></li>)}</ul>
+          <details>
+            <summary>{f.modifier}</summary>
+            <form method="post" action="/demos" class="choix">
+              <input type="hidden" name="geste" value="modifier" />
+              <input type="hidden" name="id" value={a.id} />
+              <label>{f.nom}<input type="text" name="nom" value={brouillon?.id === a.id ? brouillon.nom : a.nom} maxlength="80" required /></label>
+              <label>{f.accueil}<input type="url" name="accueil" value={brouillon?.id === a.id ? brouillon.accueil : a.accueil} required /></label>
+              <label>{f.hotes}<textarea name="hotes" rows="4">{brouillon?.id === a.id ? brouillon.hotes : a.hotes.join('\n')}</textarea></label>
+              <p class="doux">{f.aideHotes}</p>
+              <button type="submit" class="bouton">{f.enregistrer}</button>
+            </form>
+          </details>
+          <p class="doux">{t.version.replace('{version}', String(a.version))}</p>
+        </li>
+      ))
+    }
+  </ul>
+
+  <section aria-labelledby="titre-ajout">
+    <h2 id="titre-ajout">{f.ajouter}</h2>
+    <form method="post" action="/demos" class="choix">
+      <input type="hidden" name="geste" value="declarer" />
+      {
+        espaces.length > 1 ? (
+          <label>
+            {f.espace}
+            <select name="espaceId">{espaces.map((e) => <option value={e.id} selected={e.id === (brouillon?.espaceId || actif?.id)}>{libelle(e)}</option>)}</select>
+          </label>
+        ) : (
+          <input type="hidden" name="espaceId" value={actif?.id ?? espaces[0]?.id ?? ''} />
+        )
+      }
+      <label>{f.nom}<input type="text" name="nom" value={brouillon?.id === '' ? brouillon.nom : ''} maxlength="80" required /></label>
+      <label>{f.accueil}<input type="url" name="accueil" value={brouillon?.id === '' ? brouillon.accueil : ''} placeholder="https://" required /></label>
+      <label>{f.hotes}<textarea name="hotes" rows="4">{brouillon?.id === '' ? brouillon.hotes : ''}</textarea></label>
+      <p class="doux">{f.aideHotes}</p>
+      <button type="submit" class="bouton">{f.ajouterBouton}</button>
+    </form>
+  </section>
+</Base>
+
+<style is:global>
+  .grille-demos { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .grille-demos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1240px) { .grille-demos { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .carte-demo { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 16px; min-width: 0; }
+  .carte-demo h2, .carte-demo h3 { margin: 0 0 8px; }
+  .carte-demo .adresse { overflow-wrap: anywhere; }
+  .hotes { padding-left: 20px; margin: 0 0 12px; overflow-wrap: anywhere; }
+  .carte-demo summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+  .choix { display: grid; gap: 12px; max-width: 520px; }
+  .choix label { display: grid; gap: 6px; }
+  .choix select, .choix input[type='text'], .choix input[type='url'], .choix textarea { font: inherit; padding: 6px; border-radius: var(--rayon); border: 1px solid var(--trait); background: none; color: inherit; min-height: 44px; }
+  .bouton { padding: 8px 16px; border-radius: var(--rayon); border: 1px solid var(--trait); background: none; color: inherit; font: inherit; cursor: pointer; min-height: 44px; justify-self: start; }
+  .succes { color: var(--accent); }
+</style>

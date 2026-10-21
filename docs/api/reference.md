@@ -691,3 +691,123 @@ Corps de la demande (schéma JSON) :
   "additionalProperties": false
 }
 ```
+
+## `application.lister`
+
+Liste les applications que Claude peut filmer dans tes espaces, avec leur adresse d’accueil et la liste stricte de leurs hôtes autorisés.
+
+- API : `POST /api/v1/application/lister` · outil MCP : `application_lister`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "espaceId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+## `application.declarer`
+
+Déclare une application à filmer : son nom, son adresse d’accueil (https) et la liste stricte des hôtes qu’elle peut joindre. Aucun joker, aucune adresse IP ; l’hôte d’accueil est ajouté s’il manque.
+
+- API : `POST /api/v1/application/declarer` · outil MCP : `application_declarer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "espaceId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "nom": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "accueil": {
+      "type": "string",
+      "minLength": 9,
+      "maxLength": 2000
+    },
+    "hotes": {
+      "maxItems": 40,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    }
+  },
+  "required": [
+    "espaceId",
+    "nom",
+    "accueil",
+    "hotes"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `application.modifier`
+
+Remplace le nom, l’adresse d’accueil et la liste d’hôtes autorisés d’une application. Les scripts existants qui visent un hôte retiré seront refusés au prochain essai.
+
+- API : `POST /api/v1/application/modifier` · outil MCP : `application_modifier`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "nom": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "accueil": {
+      "type": "string",
+      "minLength": 9,
+      "maxLength": 2000
+    },
+    "hotes": {
+      "maxItems": 40,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    }
+  },
+  "required": [
+    "id",
+    "nom",
+    "accueil",
+    "hotes"
+  ],
+  "additionalProperties": false
+}
+```
