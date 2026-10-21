@@ -36,7 +36,7 @@ if (Astro.request.method === 'POST') {
       // du formulaire : après la réauthentification, la personne ressaisit.
       const aRefaire = exigerAuthRecente(session, '/demos');
       if (aRefaire !== undefined) return Astro.redirect(aRefaire, 303);
-      if (champ('identifiant').trim() === '' || champ('motDePasse') === '') throw new ErreurMetier('ENTREE_INVALIDE', 400, { champs: t.compte.champsRequis });
+      if (champ('identifiant').trim() === '' || champ('motDePasse').length < 8) throw new ErreurMetier('ENTREE_INVALIDE', 400, { champs: t.compte.champsRequis });
       await executerAction(ctx, compteDeposer, { applicationId: champ('id'), identifiant: champ('identifiant'), motDePasse: champ('motDePasse') });
       return Astro.redirect('/demos?compte=1', 303);
     }
@@ -108,7 +108,7 @@ const enregistree = Astro.url.searchParams.get('ok') === '1';
                 <input type="hidden" name="geste" value="compte" />
                 <input type="hidden" name="id" value={a.id} />
                 <label>{t.compte.identifiant}<input type="text" name="identifiant" autocomplete="off" maxlength="200" required /></label>
-                <label>{t.compte.motDePasse}<input type="password" name="motDePasse" autocomplete="new-password" maxlength="500" required /></label>
+                <label>{t.compte.motDePasse}<input type="password" name="motDePasse" autocomplete="new-password" minlength="8" maxlength="500" required /></label>
                 <p class="doux">{t.compte.aide}</p>
                 <button type="submit" class="bouton">{comptes.get(a.id)?.depose === true ? t.compte.remplacer : t.compte.deposer}</button>
               </form>

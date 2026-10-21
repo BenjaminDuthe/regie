@@ -773,13 +773,14 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       const application = randomUUID();
       expect(await comptes.etat(marqueA, application)).toEqual({ depose: false, modifieLe: undefined });
       const mdp = randomBytes(12).toString('hex');
-      await comptes.remplacer(marqueA, application, { identifiant: 'demo@exemple.fr', motDePasse: mdp });
+      const cible = { accueil: 'https://demo.exemple.fr/', hotes: ['demo.exemple.fr'] };
+      await comptes.remplacer(marqueA, application, { identifiant: 'demo@exemple.fr', motDePasse: mdp }, cible);
       const lecteur = lecteurCoffre(contexte.pool, contexte.coffre);
       const nom = nomSecretCompteDemo(application);
-      expect(JSON.parse((await lecteur(marqueA, TYPE_SECRET_COMPTE_DEMO, nom))!)).toEqual({ identifiant: 'demo@exemple.fr', motDePasse: mdp });
+      expect(JSON.parse((await lecteur(marqueA, TYPE_SECRET_COMPTE_DEMO, nom))!)).toEqual({ identifiant: 'demo@exemple.fr', motDePasse: mdp, accueil: cible.accueil, hotes: cible.hotes });
       // Remplacer garde le même secret (l'id est dans les données authentifiées) et reste lisible.
       const avant = await dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('SELECT id FROM secrets WHERE nom = $1', [nom]));
-      await comptes.remplacer(marqueA, application, { identifiant: 'autre@exemple.fr', motDePasse: 'nouveau-mdp' });
+      await comptes.remplacer(marqueA, application, { identifiant: 'autre@exemple.fr', motDePasse: 'nouveau-mdp' }, cible);
       const apres = await dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('SELECT id FROM secrets WHERE nom = $1', [nom]));
       expect(apres.rows).toEqual(avant.rows);
       expect(JSON.parse((await lecteur(marqueA, TYPE_SECRET_COMPTE_DEMO, nom))!).identifiant).toBe('autre@exemple.fr');
@@ -787,8 +788,11 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       // La marque B ne voit ni l'état ni le contenu.
       expect((await comptes.etat(marqueB, application)).depose).toBe(false);
       expect(await lecteur(marqueB, TYPE_SECRET_COMPTE_DEMO, nom)).toBeUndefined();
-      // La suite compte les secrets de la base (rotation) : on ne laisse rien derrière.
-      await dansTransactionMarque(contexte.pool, marqueA, (c) => c.query('DELETE FROM secrets WHERE nom = $1', [nom]));
+      // Supprimer retire le secret de la marque A, et de A seule.
+      expect(await comptes.supprimer(marqueB, application)).toBe(false);
+      expect(await comptes.supprimer(marqueA, application)).toBe(true);
+      expect(await comptes.supprimer(marqueA, application)).toBe(false);
+      expect((await comptes.etat(marqueA, application)).depose).toBe(false);
     } finally {
       await contexte.fermer();
     }

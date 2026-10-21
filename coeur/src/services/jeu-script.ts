@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { EtapesScript, premierHoteRefuse, signerLaissezPasser, type DernierJeu } from '@regie/contrats';
 import chaines from '../chaines.json' with { type: 'json' };
 import type { Applications } from '../infra/applications.ts';
-import { TYPE_SECRET_COMPTE_DEMO, lireCompteSerialise, nomSecretCompteDemo } from '../infra/comptes-demo.ts';
+import { TYPE_SECRET_COMPTE_DEMO, compteLieA, lireCompteSerialise, nomSecretCompteDemo, sortieCiteMotDePasse } from '../infra/comptes-demo.ts';
 import type { Scripts } from '../infra/scripts.ts';
 import { DUREE_LAISSEZ_PASSER_S, VIEWPORT, hoteDeAccueil, type LanceurCapture } from './capture.ts';
 import { EntreeJournalJeu, type JournauxJeu } from './journaux-jeu.ts';
@@ -96,6 +96,7 @@ export function creerExecutantJeuScript(o: OptionsExecutantJeuScript): Executant
         }
         const lu = clair === undefined ? undefined : lireCompteSerialise(clair);
         if (lu === undefined) throw new ErreurTache('COMPTE_ABSENT', 'verifier', false);
+        if (!compteLieA(lu, application.accueil, application.hotes)) throw new ErreurTache('COMPTE_A_REDEPOSER', 'verifier', false);
         compte = { identifiant: lu.identifiant, motDePasse: lu.motDePasse };
       }
       const secret = compte?.motDePasse;
@@ -119,7 +120,7 @@ export function creerExecutantJeuScript(o: OptionsExecutantJeuScript): Executant
           signal: aide.signal,
           surLigne: (ligne) => {
             // Ceinture et bretelles : une ligne qui citerait le mot de passe n'est ni gardée ni diffusée.
-            if (secret !== undefined && secret.length >= 4 && ligne.includes(secret)) return;
+            if (secret !== undefined && sortieCiteMotDePasse(ligne, secret)) return;
             let brut: unknown;
             try {
               brut = JSON.parse(ligne);
@@ -135,7 +136,7 @@ export function creerExecutantJeuScript(o: OptionsExecutantJeuScript): Executant
         if (aide.signal.aborted) throw erreur;
         throw new ErreurTache('CAPTURE_ECHEC', 'relancer', true);
       }
-      if (secret !== undefined && secret.length >= 4 && sortie.includes(secret)) throw new ErreurTache('CAPTURE_ECHEC', 'verifier', false);
+      if (secret !== undefined && sortieCiteMotDePasse(sortie, secret)) throw new ErreurTache('CAPTURE_ECHEC', 'verifier', false);
 
       // Le résultat est la dernière ligne qui n'est pas une ligne de journal.
       const derniere = sortie.trim().split('\n').filter((l) => !l.startsWith('{"journal"')).at(-1) ?? '';

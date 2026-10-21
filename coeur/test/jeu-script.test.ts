@@ -88,7 +88,7 @@ describe('exécutant du jeu de script', () => {
       },
     };
     const journaux = new JournauxJeu();
-    const clair = options.clair === undefined ? serialiserCompte({ identifiant: 'demo@exemple.fr', motDePasse: MOT_DE_PASSE }) : options.clair;
+    const clair = options.clair === undefined ? serialiserCompte({ identifiant: 'demo@exemple.fr', motDePasse: MOT_DE_PASSE }, { accueil: 'https://demo.exemple.fr/', hotes: ['demo.exemple.fr'] }) : options.clair;
     const executant = creerExecutantJeuScript({
       applications: applications(options.app === null ? undefined : (options.app ?? application)),
       scripts,

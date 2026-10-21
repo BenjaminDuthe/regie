@@ -13,7 +13,7 @@ export type ReglagesProxy = Readonly<{
 export function argumentsChromium(): string[] {
   return [
     '--disable-quic',
-    '--disable-features=DnsOverHttps,AsyncDns,WebRtcHideLocalIpsWithMdns,NetworkServiceSandbox',
+    '--disable-features=DnsOverHttps,AsyncDns',
     '--dns-over-https-mode=off',
     '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
     '--webrtc-ip-handling-policy=disable_non_proxied_udp',
@@ -33,6 +33,10 @@ export function argumentsChromium(): string[] {
 export function exigerBacASableActif(args: readonly string[]): void {
   const interdit = args.find((a) => /^--(no-sandbox|disable-setuid-sandbox|disable-gpu-sandbox|disable-seccomp-filter-sandbox|disable-namespace-sandbox)\b/.test(a));
   if (interdit !== undefined) throw new Error(`bac à sable de Chromium désactivé par ${interdit}`);
+  // Une fonctionnalité de bac à sable ne se désactive pas non plus (--disable-features=NetworkServiceSandbox, etc.).
+  const fonction = args.find((a) => /^--disable-features=/i.test(a) && /sandbox/i.test(a));
+  if (fonction !== undefined) throw new Error(`bac à sable de Chromium désactivé par ${fonction}`);
+  if (args.some((a) => /^--no-sandbox/i.test(a))) throw new Error('bac à sable de Chromium désactivé par --no-sandbox');
 }
 
 /** Options de lancement Playwright : bac à sable demandé explicitement (Playwright ajoute sinon --no-sandbox). */

@@ -21,23 +21,22 @@ const PLAGES_V4: readonly [string, number][] = [
   ['240.0.0.0', 4],
 ];
 
-const PLAGES_V6: readonly [string, number][] = [
-  ['::', 128],
-  ['::1', 128],
-  ['64:ff9b::', 96],
-  ['100::', 64],
-  ['2001::', 32],
-  ['2001:db8::', 32],
-  ['2002::', 16],
-  ['fc00::', 7],
-  ['fe80::', 10],
-  ['fec0::', 10],
-  ['ff00::', 8],
+// IPv6 en LISTE BLANCHE : seul l'unicast global 2000::/3 est permis, moins les plages spéciales qu'il contient.
+// Tout le reste (::, ::1, 64:ff9b::/96 et 64:ff9b:1::/48, 100::/64, fc00::/7, fe80::/10, ff00::/8, …) est refusé par défaut.
+const PERMIS_V6: readonly [string, number][] = [['2000::', 3]];
+const EXCLUES_V6: readonly [string, number][] = [
+  ['2001::', 23], // protocoles IETF (Teredo, ORCHID…) : refusé en entier, on ne gère pas les sous-plages routables
+  ['2001:db8::', 32], // documentation
+  ['2002::', 16], // 6to4 : porte une IPv4 arbitraire
+  ['3fff::', 20], // documentation
 ];
 
 const bloc = new BlockList();
 for (const [base, bits] of PLAGES_V4) bloc.addSubnet(base, bits, 'ipv4');
-for (const [base, bits] of PLAGES_V6) bloc.addSubnet(base, bits, 'ipv6');
+const permisV6 = new BlockList();
+for (const [base, bits] of PERMIS_V6) permisV6.addSubnet(base, bits, 'ipv6');
+const exclusV6 = new BlockList();
+for (const [base, bits] of EXCLUES_V6) exclusV6.addSubnet(base, bits, 'ipv6');
 
 /** Si `ip` est une IPv4 portée par une IPv6 (::ffff:a.b.c.d ou ::ffff:xxxx:xxxx, ::a.b.c.d), rend cette IPv4. */
 function ipv4Portee(ip: string): string | undefined {
@@ -64,9 +63,12 @@ export function causeAdresseRefusee(ip: string, foyer: readonly string[] = []): 
   const portee = famille === 6 ? ipv4Portee(ip) : undefined;
   const reelle = portee ?? ip;
   const reelleFamille = portee !== undefined ? 4 : famille;
-  if (bloc.check(reelle, reelleFamille === 4 ? 'ipv4' : 'ipv6')) return 'PRIVEE';
-  // Toute IPv6 mappée ou compatible non reconnue plus haut reste refusée par prudence.
-  if (famille === 6 && /^::(?:ffff:)?/i.test(ip) && portee === undefined) return 'PRIVEE';
+  if (reelleFamille === 4) {
+    if (bloc.check(reelle, 'ipv4')) return 'PRIVEE';
+  } else if (!permisV6.check(reelle, 'ipv6') || exclusV6.check(reelle, 'ipv6')) {
+    // Liste blanche : une IPv6 hors 2000::/3 (dont les formes mappées ou compatibles non reconnues) est refusée.
+    return 'PRIVEE';
+  }
   if (foyer.some((f) => f === reelle || f === ip)) return 'FOYER';
   return undefined;
 }

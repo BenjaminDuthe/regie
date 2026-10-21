@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { signerLaissezPasser } from '@regie/contrats';
 import type { Applications } from '../infra/applications.ts';
-import { TYPE_SECRET_COMPTE_DEMO, lireCompteSerialise, nomSecretCompteDemo } from '../infra/comptes-demo.ts';
+import { TYPE_SECRET_COMPTE_DEMO, compteLieA, lireCompteSerialise, nomSecretCompteDemo, sortieCiteMotDePasse } from '../infra/comptes-demo.ts';
 import { DELAI_CAPTURE_MS, DUREE_LAISSEZ_PASSER_S, VIEWPORT, hoteDeAccueil, type LanceurCapture, type ResultatMiniCapture } from './capture.ts';
 import { SecretRefuse, type PasserelleSecrets } from './passerelle-secrets.ts';
 import { ErreurTache, type Executant } from './travailleur.ts';
@@ -51,6 +51,8 @@ export function creerExecutantTestConnexion(o: OptionsExecutantTestConnexion): E
       }
       const compte = clair === undefined ? undefined : lireCompteSerialise(clair);
       if (compte === undefined) throw new ErreurTache('COMPTE_ABSENT', 'verifier', false);
+      // Le compte n'est livré qu'à la cible pour laquelle il a été déposé : sinon, aucun identifiant ne part.
+      if (!compteLieA(compte, application.accueil, application.hotes)) throw new ErreurTache('COMPTE_A_REDEPOSER', 'verifier', false);
 
       const laissezPasser = signerLaissezPasser(o.cle, tache.id, application.hotes, DUREE_LAISSEZ_PASSER_S, o.maintenant?.());
       let sortie: string;
@@ -73,8 +75,9 @@ export function creerExecutantTestConnexion(o: OptionsExecutantTestConnexion): E
         if (aide.signal.aborted) throw erreur;
         throw new ErreurTache('CAPTURE_ECHEC', 'relancer', true);
       }
-      // Ceinture et bretelles : si la sortie du conteneur citait le mot de passe, on ne la garde ni ne la rend.
-      if (sortie.includes(compte.motDePasse) && compte.motDePasse.length >= 4) throw new ErreurTache('CAPTURE_ECHEC', 'verifier', false);
+      // Ceinture et bretelles : si la sortie du conteneur citait le mot de passe (tel quel, normalisé, JSON-échappé ou
+      // en base64, sans exemption de longueur), on ne la garde ni ne la rend.
+      if (sortieCiteMotDePasse(sortie, compte.motDePasse)) throw new ErreurTache('CAPTURE_ECHEC', 'verifier', false);
       let brut: unknown;
       try {
         brut = JSON.parse(sortie.trim().split('\n').at(-1) ?? '');
@@ -88,9 +91,11 @@ export function creerExecutantTestConnexion(o: OptionsExecutantTestConnexion): E
         if (cause === 'CONNEXION_ECHEC') throw new ErreurTache(etape === undefined ? 'CONNEXION_ECHEC' : causeEtape(etape), 'verifier', false);
         throw new ErreurTache(cause, cause === 'CAPTURE_ECHEC' || cause === 'PAGE_INJOIGNABLE' ? 'relancer' : 'verifier', false);
       }
-      const { hote: vu, titre, miniature } = resultat.data;
+      const { hote: vu, miniature } = resultat.data;
       if (!application.hotes.includes(vu)) throw new ErreurTache('HOTE_REFUSE', 'verifier', false);
-      return { hote: vu, titre, miniature } satisfies ResultatMiniCapture;
+      // Le titre de la page est un texte contrôlé par la page d'une session connectée : il ne sort jamais.
+      // On rend à la place le nom de l'application, que la personne a écrit elle-même.
+      return { hote: vu, titre: application.nom, miniature } satisfies ResultatMiniCapture;
     },
   };
 }

@@ -180,6 +180,7 @@
     "HOTE_REFUSE": "L’hôte « {hote} » est refusé : {cause}",
     "HOTES_TROP_NOMBREUX": "Une application ne peut pas déclarer plus de {max} hôtes.",
     "COMPTE_ABSENT": "Aucun compte de démonstration n’est déposé pour cette application : dépose-le d’abord dans Démos d’app.",
+    "COMPTE_A_REDEPOSER": "L’adresse d’accueil ou les hôtes de cette application ont changé depuis le dépôt du compte : redépose le compte dans Démos d’app.",
     "SCRIPT_INTROUVABLE": "Ce script n’existe pas, ou tu n’y as pas accès.",
     "SCRIPT_NOM_PRIS": "Un script s’appelle déjà « {nom} » pour cette application : choisis un autre nom.",
     "SCRIPT_VERSION_PERIMEE": "Ce script a changé depuis que tu l’as lu (version {actuelle}, tu as lu la {lue}) : relis-le puis recommence.",
@@ -356,6 +357,7 @@
       "CAPTURE_ECHEC": "Le navigateur de capture n’a pas pu terminer.",
       "SECRET_REFUSE": "Le coffre a refusé de livrer le compte à cette tâche.",
       "COMPTE_ABSENT": "Aucun compte de démonstration n’est déposé pour cette application.",
+      "COMPTE_A_REDEPOSER": "L’adresse d’accueil ou les hôtes ont changé depuis le dépôt du compte : redépose le compte.",
       "CONNEXION_ECHEC": "La connexion à l’application a échoué.",
       "CONNEXION_ETAPE_OUVRIR": "Connexion échouée à l’étape « ouvrir la page » : la page d’accueil ne s’ouvre pas.",
       "CONNEXION_ETAPE_TROUVER": "Connexion échouée à l’étape « trouver le formulaire » : la page n’a pas de champ identifiant et mot de passe.",
@@ -498,7 +500,7 @@
       "testReussi": "Connexion réussie sur {hote} : « {titre} ».",
       "testEchoue": "Test de connexion échoué.",
       "testApercu": "Mini capture de l’accueil après connexion",
-      "champsRequis": "L’identifiant et le mot de passe sont tous deux nécessaires."
+      "champsRequis": "L’identifiant et le mot de passe (8 caractères au moins) sont tous deux nécessaires."
     }
   },
   "scripts": {

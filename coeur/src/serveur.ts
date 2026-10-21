@@ -133,7 +133,7 @@ function servicesSansBase(): Services {
     applications: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus },
     scripts: { lister: async () => [], lire: async () => undefined, creer: refus, remplacer: refus, enregistrerJeu: refus },
     journauxJeu: new JournauxJeu(),
-    comptesDemo: { remplacer: refus, etat: async () => ({ depose: false, modifieLe: undefined }) },
+    comptesDemo: { remplacer: refus, supprimer: async () => false, etat: async () => ({ depose: false, modifieLe: undefined }) },
     maintenant: Date.now,
   };
 }

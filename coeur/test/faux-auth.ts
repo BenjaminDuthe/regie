@@ -10,7 +10,7 @@ import { GABARIT_DE_DEPART, NOM_GABARIT_DE_DEPART, type DefinitionGabarit } from
 import { NomScriptPris, type ChampsScript, type ResultatRemplacement, type Script, type Scripts } from '../src/infra/scripts.ts';
 import type { DernierJeu, OrigineScript } from '@regie/contrats';
 import { NomApplicationPris, type Application, type Applications, type ChampsApplication } from '../src/infra/applications.ts';
-import type { ComptesDemo, CompteDemo, EtatCompteDemo } from '../src/infra/comptes-demo.ts';
+import type { CibleCompte, ComptesDemo, CompteDemo, EtatCompteDemo } from '../src/infra/comptes-demo.ts';
 import { JournauxJeu } from '../src/services/journaux-jeu.ts';
 import type { Gabarit, Gabarits } from '../src/infra/gabarits.ts';
 import { idUtilisateur, trierEspaces, type Espace, type Espaces } from '../src/infra/espaces.ts';
@@ -465,8 +465,14 @@ export class ScriptsMemoire implements Scripts {
 export class ComptesDemoMemoire implements ComptesDemo {
   readonly #comptes = new Map<string, { compte: CompteDemo; modifieLe: Date }>();
   maintenant = () => Date.now();
-  async remplacer(marqueId: string, applicationId: string, compte: CompteDemo) {
+  readonly cibles = new Map<string, CibleCompte>();
+  async remplacer(marqueId: string, applicationId: string, compte: CompteDemo, cible: CibleCompte) {
     this.#comptes.set(`${marqueId}/${applicationId}`, { compte: { ...compte }, modifieLe: new Date(this.maintenant()) });
+    this.cibles.set(`${marqueId}/${applicationId}`, { accueil: cible.accueil, hotes: [...cible.hotes] });
+  }
+  async supprimer(marqueId: string, applicationId: string) {
+    this.cibles.delete(`${marqueId}/${applicationId}`);
+    return this.#comptes.delete(`${marqueId}/${applicationId}`);
   }
   async etat(marqueId: string, applicationId: string): Promise<EtatCompteDemo> {
     const c = this.#comptes.get(`${marqueId}/${applicationId}`);

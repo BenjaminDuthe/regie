@@ -30,6 +30,7 @@ let echo: Server;
 let banc: Banc;
 let foyer: string[];
 let traceurEnPanne: boolean;
+let echo2: Server | undefined;
 
 async function ecouter(s: Server | ServeurHttp): Promise<number> {
   await new Promise<void>((ok) => s.listen(0, '127.0.0.1', ok));
@@ -81,6 +82,8 @@ beforeEach(async () => {
 afterEach(async () => {
   proxy.closeAllConnections();
   await Promise.all([new Promise((ok) => proxy.close(ok)), new Promise((ok) => echo.close(ok))]);
+  if (echo2 !== undefined) await new Promise((ok) => echo2!.close(ok));
+  echo2 = undefined;
 });
 
 /** Envoie un CONNECT brut et rend la première ligne de la réponse (et la socket si le tunnel est ouvert). */
@@ -271,7 +274,76 @@ describe('traces', () => {
   });
 });
 
+describe('plafond de connexions', () => {
+  it('réserve la place AVANT la résolution : N demandes simultanées n’ouvrent jamais plus que le plafond', async () => {
+    const portEcho = await ecouter((echo2 = createServer((s) => s.on('data', (d) => s.write(d)))));
+    let liberer!: () => void;
+    const porte = new Promise<void>((ok) => (liberer = ok));
+    const ouvertes: string[] = [];
+    const p = creerProxy({
+      cle: CLE,
+      maintenant: () => MAINTENANT,
+      connexionsMax: 2,
+      traceur: () => undefined,
+      resoudre: async () => (await porte, ['93.184.216.34']),
+      connecter: (ip) => (ouvertes.push(ip), connect({ host: '127.0.0.1', port: portEcho })),
+    });
+    const port = await ecouter(p);
+    const demande = () =>
+      new Promise<{ ligne: string; socket: Socket }>((ok) => {
+        const socket = connect({ host: '127.0.0.1', port });
+        socket.write(`CONNECT demo.exemple.fr:443 HTTP/1.1\r\nProxy-Authorization: Basic ${Buffer.from(`capture:${banc.jeton(['demo.exemple.fr'])}`).toString('base64')}\r\n\r\n`);
+        socket.once('data', (d) => ok({ ligne: d.toString().split('\r\n')[0]!, socket }));
+        socket.once('close', () => ok({ ligne: '', socket }));
+      });
+    const reponses = Array.from({ length: 6 }, demande);
+    // Laisse les six demandes atteindre la résolution (bloquée), puis la débloque.
+    await new Promise((ok) => setTimeout(ok, 150));
+    liberer();
+    const lues = await Promise.all(reponses);
+    expect(lues.filter((r) => r.ligne.includes('200')).length).toBe(2);
+    expect(lues.filter((r) => r.ligne.includes('503')).length).toBe(4);
+    expect(ouvertes.length).toBe(2);
+    // Un refus rend sa place : après fermeture des deux tunnels, une nouvelle demande passe.
+    for (const r of lues) r.socket.destroy();
+    await new Promise((ok) => setTimeout(ok, 100));
+    const encore = await demande();
+    expect(encore.ligne).toContain('200');
+    encore.socket.destroy();
+    p.closeAllConnections();
+    await new Promise((ok) => p.close(ok));
+  });
+  it('un refus après réservation (adresse privée) rend la place', async () => {
+    const p = creerProxy({ cle: CLE, maintenant: () => MAINTENANT, connexionsMax: 1, traceur: () => undefined, resoudre: async () => ['10.0.0.5'], connecter: () => { throw new Error('jamais'); } });
+    const port = await ecouter(p);
+    for (let i = 0; i < 3; i++) {
+      const socket = connect({ host: '127.0.0.1', port });
+      socket.write(`CONNECT demo.exemple.fr:443 HTTP/1.1\r\nProxy-Authorization: Basic ${Buffer.from(`capture:${banc.jeton(['demo.exemple.fr'])}`).toString('base64')}\r\n\r\n`);
+      const ligne = await new Promise<string>((ok) => socket.once('data', (d) => ok(d.toString().split('\r\n')[0]!)));
+      expect(ligne).toContain('403');
+      socket.destroy();
+    }
+    p.closeAllConnections();
+    await new Promise((ok) => p.close(ok));
+  });
+});
+
 describe('causeAdresseRefusee', () => {
+  it('IPv6 en liste blanche : seul 2000::/3 hors plages spéciales passe', () => {
+    for (const ip of ['64:ff9b::808:808', '64:ff9b:1::1', '2001::1', '2001:1::1', '2001:db8::1', '2002:5db8:d822::1', '3fff::1', '3fff:fff::1', '100::1', '5f00::1', '4000::1', 'fec0::1', 'ff02::1', '::ffff:0:10.0.0.1', '1::1']) {
+      expect(causeAdresseRefusee(ip), ip).toBe('PRIVEE');
+    }
+    for (const ip of ['2606:2800:220:1:248:1893:25c8:1946', '2a00:1450:4007:80f::200e', '2001:4860:4860::8888', '2400:cb00::1']) expect(causeAdresseRefusee(ip), ip).toBeUndefined();
+  });
+  it('les IPv4 mappées suivent les règles IPv4 ; toutes les plages IPv4 spéciales sont refusées', () => {
+    expect(causeAdresseRefusee('::ffff:93.184.216.34')).toBeUndefined();
+    expect(causeAdresseRefusee('::ffff:10.0.0.1')).toBe('PRIVEE');
+    expect(causeAdresseRefusee('::ffff:a9fe:a9fe')).toBe('PRIVEE');
+    for (const ip of ['0.1.2.3', '10.255.0.1', '100.64.0.1', '100.127.0.1', '127.9.9.9', '169.254.1.1', '172.16.5.5', '172.31.0.1', '192.0.0.8', '192.168.7.7', '198.18.0.1', '198.19.255.255', '224.0.0.5', '239.1.1.1', '240.0.0.1', '255.255.255.254']) {
+      expect(causeAdresseRefusee(ip), ip).toBe('PRIVEE');
+      expect(causeAdresseRefusee(`::ffff:${ip}`), `::ffff:${ip}`).toBe('PRIVEE');
+    }
+  });
   it('refuse les plages privées sous toutes leurs formes', () => {
     for (const ip of ['0.0.0.0', '10.1.2.3', '100.64.0.1', '100.127.255.254', '127.0.0.1', '169.254.169.254', '172.16.0.1', '172.31.255.255', '192.168.0.1', '224.0.0.1', '255.255.255.255', '::', '::1', 'fe80::1', 'fc00::1', 'fd00::1', '::ffff:127.0.0.1', '::ffff:7f00:1', '::ffff:192.168.1.1', '2002:c0a8:0101::1', '2001:0:4136:e378:8000:63bf:3fff:fdd2']) {
       expect(causeAdresseRefusee(ip), ip).toBe('PRIVEE');

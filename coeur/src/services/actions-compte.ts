@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { ErreurMetier } from './erreurs.ts';
 import { applicationAccessible } from './actions-application.ts';
+import { MOT_DE_PASSE_MIN } from '../infra/comptes-demo.ts';
 import { definirAction } from './registre.ts';
 
 const identifiant = z.uuid();
@@ -19,11 +20,17 @@ export const compteDeposer = definirAction({
     applicationId: identifiant,
     identifiant: z.string().trim().min(1).max(200),
     // Pas de trim : un mot de passe peut commencer ou finir par une espace.
-    motDePasse: z.string().min(1).max(500),
+    motDePasse: z.string().min(MOT_DE_PASSE_MIN).max(500).refine((m) => m.trim() !== '', 'mot de passe blanc'),
   }),
   executer: async (ctx, entree) => {
-    await applicationAccessible(ctx, entree.applicationId);
-    await ctx.services.comptesDemo.remplacer(ctx.marqueId, entree.applicationId, { identifiant: entree.identifiant, motDePasse: entree.motDePasse });
+    const application = await applicationAccessible(ctx, entree.applicationId);
+    // Le compte est lié à la cible : si l'accueil ou les hôtes changent ensuite, il ne sera plus livré à personne.
+    await ctx.services.comptesDemo.remplacer(
+      ctx.marqueId,
+      entree.applicationId,
+      { identifiant: entree.identifiant, motDePasse: entree.motDePasse },
+      { accueil: application.accueil, hotes: application.hotes },
+    );
     const etat = await ctx.services.comptesDemo.etat(ctx.marqueId, entree.applicationId);
     return { applicationId: entree.applicationId, depose: etat.depose, modifieLe: etat.modifieLe?.toISOString() ?? null };
   },

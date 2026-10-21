@@ -151,6 +151,14 @@ export async function lireSecretParNom(pool: PoolType, coffre: Coffre, marqueId:
   });
 }
 
+/** Supprime le secret `(type, nom)` de la marque ; rend vrai s'il existait. */
+export async function supprimerSecret(pool: PoolType, marqueId: string, type: string, nom: string): Promise<boolean> {
+  return dansTransactionMarque(pool, marqueId, async (client) => {
+    const r = await client.query('DELETE FROM secrets WHERE type = $1 AND nom = $2', [type, nom]);
+    return (r.rowCount ?? 0) > 0;
+  });
+}
+
 /** Date du dernier dépôt d'un secret, sans jamais le déchiffrer. */
 export async function dateSecret(pool: PoolType, marqueId: string, type: string, nom: string): Promise<Date | undefined> {
   return dansTransactionMarque(pool, marqueId, async (client) => {

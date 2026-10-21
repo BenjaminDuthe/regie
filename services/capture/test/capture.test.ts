@@ -87,6 +87,15 @@ describe('réglages de Chromium', () => {
     expect(optionsLancement(demande.proxy).chromiumSandbox).toBe(true);
     for (const mauvais of ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu-sandbox']) expect(() => exigerBacASableActif([mauvais])).toThrow(/bac à sable/);
   });
+  it('ne désactive aucune fonctionnalité de bac à sable, et garde la protection WebRTC mDNS', () => {
+    const fonctions = argumentsChromium().filter((a) => a.startsWith('--disable-features='));
+    expect(fonctions.join(',')).not.toMatch(/sandbox/i);
+    expect(fonctions.join(',')).not.toContain('WebRtcHideLocalIpsWithMdns');
+    for (const mauvais of ['--disable-features=NetworkServiceSandbox', '--disable-features=DnsOverHttps,RendererCodeIntegritySandbox', '--no-sandbox=1']) {
+      expect(() => exigerBacASableActif([mauvais]), mauvais).toThrow(/bac à sable/);
+    }
+    expect(() => exigerBacASableActif(argumentsChromium())).not.toThrow();
+  });
   it('passe le laissez-passer au proxy par l’authentification, pas par l’adresse', () => {
     const o = optionsLancement(demande.proxy);
     expect(o.proxy).toEqual({ server: 'http://10.89.77.2:3128', username: 'capture', password: 'v1.x.y' });

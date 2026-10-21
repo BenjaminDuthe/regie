@@ -127,31 +127,53 @@ export function creerProxy(options: OptionsProxy): Server {
       if (!nom.ok) return refus('403 Forbidden', `HOTE_${nom.cause}`, tache);
       if (!hoteAutorise(nom.hote, laissez.contenu.hotes)) return refus('403 Forbidden', 'HOTE_NON_DECLARE', tache);
       if (actives >= connexionsMax) return refus('503 Service Unavailable', 'TROP_DE_CONNEXIONS', tache);
+      // La place est réservée ICI, de façon synchrone, avant tout await : sinon N connexions passent la vérification
+      // pendant la résolution DNS. `liberer` ne libère qu'une fois, quel que soit le chemin (refus, erreur, fin).
+      actives += 1;
+      let libere = false;
+      const liberer = () => {
+        if (libere) return;
+        libere = true;
+        actives -= 1;
+      };
+      // Le client qui raccroche pendant la résolution rend sa place.
+      socket.once('close', liberer);
 
       let adresses: readonly string[];
       try {
         adresses = await resoudre(nom.hote);
       } catch {
+        liberer();
         return refus('502 Bad Gateway', 'RESOLUTION_ECHOUEE', tache);
       }
-      if (adresses.length === 0) return refus('502 Bad Gateway', 'RESOLUTION_VIDE', tache);
+      if (adresses.length === 0) {
+        liberer();
+        return refus('502 Bad Gateway', 'RESOLUTION_VIDE', tache);
+      }
       // UNE seule adresse refusée suffit à tout refuser : un nom qui mêle publique et privée est une attaque.
       for (const ip of adresses) {
         const cause = causeAdresseRefusee(ip, foyer);
-        if (cause !== undefined) return refus('403 Forbidden', `ADRESSE_${cause}`, tache, ip);
+        if (cause !== undefined) {
+          liberer();
+          return refus('403 Forbidden', `ADRESSE_${cause}`, tache, ip);
+        }
       }
+      if (socket.destroyed) return liberer();
       const ip = adresses[0]!;
       // La trace précède le tunnel : sans trace, pas de connexion.
       if (!tracer({ date: date(), tache, hote: nom.hote, port: PORT_PERMIS, ip, decision: 'autorisee' })) {
+        liberer();
         return repondre(socket, '503 Service Unavailable');
       }
-      actives += 1;
-      const amont = ouvrir(ip, PORT_PERMIS);
-      let fini = false;
+      let amont: Socket;
+      try {
+        amont = ouvrir(ip, PORT_PERMIS);
+      } catch {
+        liberer();
+        return repondre(socket, '502 Bad Gateway');
+      }
       const fin = () => {
-        if (fini) return;
-        fini = true;
-        actives -= 1;
+        liberer();
         amont.destroy();
         socket.destroy();
       };

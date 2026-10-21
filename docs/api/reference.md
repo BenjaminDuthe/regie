@@ -838,7 +838,7 @@ Corps de la demande (schéma JSON) :
     },
     "motDePasse": {
       "type": "string",
-      "minLength": 1,
+      "minLength": 8,
       "maxLength": 500
     }
   },

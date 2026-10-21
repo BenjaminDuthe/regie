@@ -66,7 +66,7 @@ export const applicationModifier = definirAction({
   portee: 'ecriture',
   entree: z.object({ id: identifiant, nom, accueil, hotes }).strict(),
   executer: async (ctx, entree) => {
-    await applicationAccessible(ctx, entree.id);
+    const avant = await applicationAccessible(ctx, entree.id);
     const c = champs(entree);
     let a: Application | undefined;
     try {
@@ -76,6 +76,18 @@ export const applicationModifier = definirAction({
       throw e;
     }
     if (a === undefined) throw new ErreurMetier('APPLICATION_INTROUVABLE', 404, { id: entree.id });
+    // Une autre cible n'hérite jamais d'un compte déposé pour l'ancienne : le secret est supprimé, la trace est écrite.
+    const memesHotes = avant.hotes.length === a.hotes.length && [...avant.hotes].sort().every((h, i) => h === [...a.hotes].sort()[i]);
+    if (avant.accueil !== a.accueil || !memesHotes) {
+      if (await ctx.services.comptesDemo.supprimer(ctx.marqueId, a.id)) {
+        await ctx.services.audit.ajouter(ctx.marqueId, {
+          acteur: ctx.sub,
+          action: 'compte_invalide',
+          objet: `application:${a.id}`,
+          details: { origine: ctx.origine, cause: 'cible_modifiee' },
+        });
+      }
+    }
     return { application: applicationVisible(a) };
   },
   objet: (entree) => `application:${entree.id}`,
