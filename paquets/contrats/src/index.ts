@@ -11,3 +11,4 @@ export * from './scripts.ts';
 export * from './timeline.ts';
 export * from './sous-titres.ts';
 export * from './rendu.ts';
+export * from './edition.ts';

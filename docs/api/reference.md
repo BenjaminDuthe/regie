@@ -2262,6 +2262,188 @@ Corps de la demande (schéma JSON) :
 }
 ```
 
+## `montage.editer`
+
+Modifie un montage par une liste d’opérations appliquées dans l’ordre : `texte` (accroche, texteEcran, voix d’une scène), `duree` (dureeMs d’une scène), `deplacer` (monter ou descendre), `dupliquer`, `retirer`, `carte_fin` (titre, sousTitre, dureeMs, ou retirer). Crée une NOUVELLE version du montage (l’ancienne ne change pas, les publications déjà parties restent liées à elle) à partir de la version donnée, sans lancer de rendu. Rend les violations des gardes de la nouvelle version, scène par scène : un texte hors zone sûre ou illisible n’empêche pas l’enregistrement, mais la vidéo ne passera pas « prête » tant qu’il n’est pas corrigé. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).
+
+- API : `POST /api/v1/montage/editer` · outil MCP : `montage_editer`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "operations": {
+      "minItems": 1,
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "texte"
+              },
+              "sceneId": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,32}$"
+              },
+              "accroche": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "texteEcran": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "voix": {
+                "type": "string",
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "op",
+              "sceneId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "duree"
+              },
+              "sceneId": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,32}$"
+              },
+              "dureeMs": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3600000
+              }
+            },
+            "required": [
+              "op",
+              "sceneId",
+              "dureeMs"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "deplacer"
+              },
+              "sceneId": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,32}$"
+              },
+              "sens": {
+                "type": "string",
+                "enum": [
+                  "monter",
+                  "descendre"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "sceneId",
+              "sens"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "dupliquer"
+              },
+              "sceneId": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,32}$"
+              }
+            },
+            "required": [
+              "op",
+              "sceneId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "retirer"
+              },
+              "sceneId": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]{1,32}$"
+              }
+            },
+            "required": [
+              "op",
+              "sceneId"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "carte_fin"
+              },
+              "titre": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "sousTitre": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "dureeMs": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3600000
+              },
+              "retirer": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "op"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "id",
+    "operations"
+  ],
+  "additionalProperties": false
+}
+```
+
 ## `rendu.lire`
 
 Lit un rendu : son état, la progression de sa tâche, la cause d’un échec, et, pour un rendu bloqué, chaque violation des gardes (scène, élément, mesure, seuil).

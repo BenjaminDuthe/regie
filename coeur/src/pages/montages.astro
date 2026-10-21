@@ -119,6 +119,7 @@ const titrePage = detail === undefined ? t.titre : `${t.titre} — ${t.version.r
           )
         }
 
+        <p><a class="bouton" href={`/montages/editer?id=${detail.montage.id}`}>{t.modifier}</a></p>
         <h2>{t.scenes}</h2>
         <ol class="scenes">
           {detail.montage.timeline.scenes.map((s, i) => (

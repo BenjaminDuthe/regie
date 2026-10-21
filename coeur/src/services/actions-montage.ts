@@ -3,8 +3,9 @@
 // immuable : on le lit, on ne le modifie pas (la modification crée une version, histoire 3.10).
 
 import { z } from 'zod';
-import { IdScene, SCENES_MAX, dureeTotaleMs, sousTitres, versSrt } from '@regie/contrats';
+import { IdScene, OperationsEdition, SCENES_MAX, appliquerOperations, dureeTotaleMs, sousTitres, versSrt } from '@regie/contrats';
 import { signerAdresse } from '../auth/adresses-signees.ts';
+import { evaluerMontage } from '../domaine/montage.ts';
 import type { Violation } from '../domaine/gardes.ts';
 import type { Montage, Rendu } from '../infra/montages.ts';
 import { decrireViolation } from './actions-gabarit.ts';
@@ -32,7 +33,7 @@ export const montageVisible = (m: Montage) => ({
   creeLe: m.creeLe.toISOString(),
 });
 
-const phrases = (violations: readonly Violation[]) => violations.map((v) => ({ ...v, phrase: decrireViolation(v) }));
+export const phrases = (violations: readonly Violation[]) => violations.map((v) => ({ ...v, phrase: decrireViolation(v) }));
 
 export const renduVisible = (r: Rendu) => ({
   id: r.id,
@@ -161,4 +162,25 @@ export const montageDefinirVoix = definirAction({
   objet: (entree) => `montage:${entree.id}`,
 });
 
-export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, renduLire, renduAdresse] as const;
+export const montageEditer = definirAction({
+  domaine: 'montage',
+  verbe: 'editer',
+  description: 'Modifie un montage par une liste d’opérations appliquées dans l’ordre : `texte` (accroche, texteEcran, voix d’une scène), `duree` (dureeMs d’une scène), `deplacer` (monter ou descendre), `dupliquer`, `retirer`, `carte_fin` (titre, sousTitre, dureeMs, ou retirer). Crée une NOUVELLE version du montage (l’ancienne ne change pas, les publications déjà parties restent liées à elle) à partir de la version donnée, sans lancer de rendu. Rend les violations des gardes de la nouvelle version, scène par scène : un texte hors zone sûre ou illisible n’empêche pas l’enregistrement, mais la vidéo ne passera pas « prête » tant qu’il n’est pas corrigé. Une version qui n’est plus la dernière est refusée (MONTAGE_VERSION_PERIMEE).',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant, operations: OperationsEdition }),
+  executer: async (ctx, entree) => {
+    const base = await montageAccessible(ctx, entree.id);
+    const resultat = appliquerOperations(base.timeline, entree.operations);
+    if (!resultat.ok) {
+      const statut = resultat.code === 'SCENE_INTROUVABLE' ? 404 : resultat.code === 'DERNIERE_SCENE' ? 409 : 422;
+      throw new ErreurMetier(resultat.code, statut, { sceneId: resultat.sceneId ?? '', detail: resultat.detail ?? '' });
+    }
+    const r = await ctx.services.montages.creerVersion({ marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId, parentId: base.id, origine: 'edition', timeline: resultat.timeline });
+    if (r.etat === 'introuvable') throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
+    if (r.etat === 'perimee') throw new ErreurMetier('MONTAGE_VERSION_PERIMEE', 409, { derniere: r.derniere });
+    return { montage: montageVisible(r.montage), violations: phrases(evaluerMontage(r.montage.timeline, r.montage.gabarit.definition)) };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, renduLire, renduAdresse] as const;

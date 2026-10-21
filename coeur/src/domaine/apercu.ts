@@ -6,10 +6,10 @@ import { BORNES, type Bornes } from './bornes.ts';
 import { POLICES } from './polices.ts';
 import { preparerExemple, roles, type DefinitionGabarit, type ElementPrepare } from './gabarit.ts';
 
-const echapper = (t: string): string => t.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+export const echapper = (t: string): string => t.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const PILE = 'system-ui, sans-serif';
 
-function dessinerElement(e: ElementPrepare, d: DefinitionGabarit): string {
+export function dessinerElement(e: ElementPrepare, d: DefinitionGabarit): string {
   const b = e.disposition.boite;
   if (e.genre === 'logo') {
     return `<rect x="${b.x}" y="${b.y}" width="${b.largeur}" height="${b.hauteur}" rx="24" fill="${e.fondCouleur}"/><text x="${b.x + b.largeur / 2}" y="${b.y + b.hauteur / 2 + 30}" text-anchor="middle" font-size="90" fill="#FFFFFF" font-family="${PILE}">É</text>`;

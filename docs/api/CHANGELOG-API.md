@@ -81,3 +81,7 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `montage.definirvoix` (écriture) : change le texte de voix de scènes, crée une nouvelle version du montage et met en file la voix locale puis le rendu. `MONTAGE_VERSION_PERIMEE` (409), `SCENE_INTROUVABLE` (404).
 - Ajout de `rendu.lire` (lecture) : un rendu, sa progression et, s’il est bloqué, ses violations. `RENDU_INTROUVABLE` (404).
 - Ajout de `rendu.adresse` (lecture) : l’adresse signée (moins d’une heure) de la vidéo d’un rendu, servie sous `/v/session/…`. Un rendu bloqué reste lisible, marqué `bloque`. `RENDU_PAS_PRET` (409) pour un rendu en file, en cours ou en échec.
+
+## 2026-10-21 — histoire 3.10
+
+- Ajout de `montage.editer` (écriture) : applique à un montage une liste d’opérations (texte, durée, déplacer, dupliquer, retirer une scène, carte de fin) et crée une nouvelle version immuable ; rend aussi les violations des gardes, scène par scène. Ne lance pas de rendu. `MONTAGE_INTROUVABLE` (404), `MONTAGE_VERSION_PERIMEE` (409), `SCENE_INTROUVABLE` (404), `DERNIERE_SCENE` (409), `TROP_DE_SCENES` (422), `TIMELINE_INVALIDE` (422).

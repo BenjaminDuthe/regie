@@ -5,7 +5,7 @@
 import { sousTitres, situerScenes, dureeTotaleMs, type ParametresTexte, type Timeline } from '@regie/contrats';
 import { z } from 'zod';
 import { BORNES, type Bornes } from './bornes.ts';
-import { definitionGabarit, roles, STYLES, type DefinitionGabarit } from './gabarit.ts';
+import { definitionGabarit, roles, STYLES, type DefinitionGabarit, type ElementPrepare, type ScenePreparee } from './gabarit.ts';
 import { contraste, evaluerGardes, type Mesures, type Montage as MontageGardes, type Violation } from './gardes.ts';
 import { disposer } from './mise-en-page.ts';
 import { POLICES } from './polices.ts';
@@ -41,18 +41,21 @@ export function parametresTexte(d: DefinitionGabarit, bornes: Bornes = BORNES): 
 }
 
 /** Les éléments de texte d'une timeline mis en page, au format que lisent les gardes. */
-export function montageEtMesuresTimeline(t: Timeline, d: DefinitionGabarit, bornes: Bornes = BORNES): { montage: MontageGardes; mesures: Mesures } {
+export function montageEtMesuresTimeline(t: Timeline, d: DefinitionGabarit, bornes: Bornes = BORNES): { montage: MontageGardes; mesures: Mesures; scenes: ScenePreparee[] } {
   const r = roles(d);
   const style = STYLES[d.styleSousTitres];
   const zone = bornes.zoneSure;
   const mesures: Record<string, Mesures[string]> = {};
   const segments: { id: string; debutMs: number; elements: { id: string; genre: 'titre' | 'sous_titre' | 'carte_fin' }[] }[] = [];
+  // Les mêmes éléments, mis en page, pour dessiner l'aperçu d'une scène (histoire 3.10).
+  const dessin = new Map<string, ElementPrepare>();
 
   const mesurer = (id: string, texte: string, genre: 'titre' | 'sous_titre' | 'carte_fin', police: keyof typeof POLICES, taille: number, capitales: boolean, ancre: 'haut' | 'centre' | 'bas', fond: string, accent: boolean): void => {
     const disposition = disposer({ texte, police, taille, capitales, ancre, ...(ancre === 'haut' ? { decalage: 24 } : ancre === 'bas' ? { decalage: 24 } : {}) }, zone);
     let c = contraste(r.texte, fond);
     if (accent) c = Math.min(c, contraste(r.accent, fond));
     mesures[id] = { contraste: c, textePx: (disposition.taille * bornes.hauteurReferencePx) / bornes.toile.hauteur, boite: disposition.boite };
+    dessin.set(id, { id, genre, texte, disposition, texteCouleur: r.texte, fondCouleur: fond, accentCouleur: accent ? r.accent : null });
   };
 
   const cues = sousTitres(t);
@@ -84,7 +87,8 @@ export function montageEtMesuresTimeline(t: Timeline, d: DefinitionGabarit, born
     }
     segments.push({ id: 'carte-fin', debutMs: dureeTotaleMs(t) - t.carteFin.dureeMs, elements });
   }
-  return { montage: { segments }, mesures };
+  const scenes: ScenePreparee[] = segments.map((g) => ({ id: g.id, debutMs: g.debutMs, elements: g.elements.map((e) => dessin.get(e.id)!) }));
+  return { montage: { segments }, mesures, scenes };
 }
 
 /** Violations des gardes pour une timeline et un gabarit : vide si la vidéo peut passer « prête ». */
