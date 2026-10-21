@@ -291,3 +291,12 @@ Question : quels accès réels manquent pour jouer la recette ?
 2. **Adresse publique joignable** — Meta doit pouvoir lire la vidéo à l'adresse signée ; à fournir lors de la recette (voir 7.3, point 5).
 3. **Revue d'application Meta** — hors mode développement, Meta exige une revue de l'application. Option : rester en mode développement pour le seul compte Établia. Recommandation : rester en mode développement en V1.
 4. **Vraie coupure d'un jeton** — le « jeton révoqué » est simulé par un refus du faux Meta ; la forme exacte de la réponse réelle est à confirmer pendant la recette (cas 2).
+
+## 9.4 La première vraie vidéo Établia
+
+Question : quelles décisions et quels accès réels restent pour clore la V1 ?
+
+1. **Accord de publication** — la vidéo, sa légende et l'heure sont validées par Benjamin lui-même, jamais par un script. Option : publier tout de suite ou programmer. Recommandation : programmer à une heure choisie, pour garder le temps de vérifier l'adresse publique avant le départ.
+2. **Note du MANDAT** — le lot 17 ne peut être noté « fait » qu'après la publication réelle ; non modifié ici. Recommandation : Benjamin l'ajoute après avoir signé le compte rendu de `docs/planning/premiere-video-etablia.md`.
+3. **Compte Établia et application Meta** — accès réels que seul Benjamin possède (voir 7.1, 7.6 et 9.3). Recommandation : rester en mode développement de l'application, le compte Établia étant testeur.
+4. **Ordre des garde-fous** — la publication réelle ne doit avoir lieu qu'après la recette 9.3 et la répétition de restauration 9.2 (cases à cocher du document). Recommandation : ne pas assouplir cet ordre.
