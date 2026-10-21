@@ -12,6 +12,7 @@ import { lireEnvironnement } from '../src/env.ts';
 import { dansTransactionMarque, dansTransactionUtilisateur, deposerSecret, lireSecret, pivoterCleMaitresse } from '../src/infra/base.ts';
 import { Coffre } from '../src/infra/coffre.ts';
 import { ComptesDemoPg } from '../src/infra/comptes-demo.ts';
+import { ComptesReseauPg } from '../src/infra/comptes-reseau.ts';
 import { lecteurCoffre } from '../src/services/passerelle-secrets.ts';
 import { nomSecretCompteDemo, TYPE_SECRET_COMPTE_DEMO } from '../src/infra/comptes-demo.ts';
 import { DOSSIER_MIGRATIONS, ErreurDemarrage, FICHIERS_SECRETS, demarrerBase } from '../src/infra/demarrage.ts';
@@ -945,6 +946,57 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       expect((await contexte.pool.query('SELECT count(*)::int AS n FROM legendes')).rows[0].n).toBe(0);
       expect((await contexte.pool.query('DELETE FROM legendes')).rowCount).toBe(0);
       await expect(montages.enregistrerLegende({ marqueId: marqueA, utilisateurId: a.utilisateurId, serieId: m.serieId, reseau: 'snapchat', legende: 'x', hashtags: [] })).rejects.toThrow(/check/i);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('comptes de réseau : jeton au coffre, rappels inscrits, cloisonnés par personne et par marque, RLS forcée (histoire 7.6)', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const comptes = new ComptesReseauPg(contexte.pool, contexte.coffre);
+      const marqueA = await marques.creer(`Réseaux A ${suffixe}`);
+      const marqueB = await marques.creer(`Réseaux B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-ra', undefined, 'Établia');
+      const a2 = await espaces.assurer(marqueA, 'sub-ra2', undefined, 'Autre');
+      const b = await espaces.assurer(marqueB, 'sub-rb', undefined, 'Autre');
+      const espaceA = a.espaces[0]!.id;
+      const maintenant = new Date();
+      const expireLe = new Date(maintenant.getTime() + 60 * 86_400_000);
+      const jeton = randomBytes(20).toString('hex');
+      const nouveau = { marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: espaceA, reseau: 'instagram' as const, compteExterne: '17841400000000001', nom: 'compte_demo', jeton, expireLe };
+      const c = (await comptes.connecter(nouveau, maintenant))!;
+      expect(c).toMatchObject({ etat: 'connecte', espaceId: espaceA, reseau: 'instagram' });
+      // Le jeton vit au coffre, chiffré : jamais dans la table des comptes.
+      expect(await comptes.lireJeton(marqueA, c.id)).toBe(jeton);
+      expect(await comptes.lireJeton(marqueB, c.id)).toBeUndefined();
+      expect(JSON.stringify((await contexte.pool.query('SELECT * FROM comptes_reseau')).rows)).not.toContain(jeton);
+      const chiffre = await dansTransactionMarque(contexte.pool, marqueA, (cl) => cl.query("SELECT 1 FROM secrets WHERE type = 'jeton_reseau' AND nom = $1", [`compte:${c.id}`]));
+      expect(chiffre.rowCount).toBe(1);
+      // Deux rappels (J-7 et la veille) sont inscrits ; reconnecter le même compte ne duplique ni le compte ni les rappels.
+      const rappels = () => dansTransactionMarque(contexte.pool, marqueA, (cl) => cl.query("SELECT objet FROM echeances WHERE type = 'rappel_connexion'"));
+      expect((await rappels()).rowCount).toBe(2);
+      const encore = (await comptes.connecter({ ...nouveau, jeton: 'jeton-renouvele-xx' }, maintenant))!;
+      expect(encore.id).toBe(c.id);
+      expect(await comptes.lireJeton(marqueA, c.id)).toBe('jeton-renouvele-xx');
+      expect((await rappels()).rowCount).toBe(2);
+      // Cloisonnement : un espace d'une autre personne ou d'une autre marque ne se relie pas, un compte ne se lit pas.
+      expect(await comptes.connecter({ ...nouveau, utilisateurId: a2.utilisateurId }, maintenant)).toBeUndefined();
+      expect(await comptes.connecter({ ...nouveau, marqueId: marqueB, utilisateurId: b.utilisateurId }, maintenant)).toBeUndefined();
+      expect(await comptes.lire(marqueA, a2.utilisateurId, c.id)).toBeUndefined();
+      expect(await comptes.lire(marqueB, b.utilisateurId, c.id)).toBeUndefined();
+      expect(await comptes.lister(marqueA, a2.utilisateurId)).toEqual([]);
+      expect(await comptes.deconnecter(marqueA, a2.utilisateurId, c.id)).toBeUndefined();
+      expect(await comptes.lireJeton(marqueA, c.id)).toBe('jeton-renouvele-xx');
+      // RLS forcée : sans marque rien ; jamais de DELETE ; le réseau hors liste est refusé par la base.
+      expect((await contexte.pool.query('SELECT count(*)::int AS n FROM comptes_reseau')).rows[0].n).toBe(0);
+      await expect(dansTransactionMarque(contexte.pool, marqueA, (cl) => cl.query('DELETE FROM comptes_reseau'))).rejects.toThrow(/permission denied/);
+      await expect(comptes.connecter({ ...nouveau, reseau: 'snapchat' as never, compteExterne: 'x' }, maintenant)).rejects.toThrow(/check/i);
+      // Déconnecter retire le jeton du coffre.
+      expect(await comptes.deconnecter(marqueA, a.utilisateurId, c.id)).toMatchObject({ etat: 'deconnecte' });
+      expect(await comptes.lireJeton(marqueA, c.id)).toBeUndefined();
     } finally {
       await contexte.fermer();
     }

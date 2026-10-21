@@ -8,6 +8,7 @@ export const EXCEPTIONS_PARITE: readonly ExceptionParite[] = Object.freeze([
   { action: 'jeton.creer', raison: 'un jeton ne se crée pas avec un jeton : la création exige ta connexion récente à Authentik (AD-15)' },
   { action: 'compte.deposer', raison: 'un identifiant et un mot de passe ne se saisissent que dans l’interface, après une connexion récente à Authentik : aucun outil ni point d’API ne peut les déposer ni les lire (AD-9)' },
   { action: 'reseau.deposer', raison: 'la clé d’application d’un réseau ne se saisit que dans l’interface, après une connexion récente à Authentik : aucun outil ni point d’API ne peut la déposer ni la lire (AD-9)' },
+  { action: 'reseau.connecter', raison: 'un compte ne se relie que par le parcours OAuth du navigateur (state lié à la session, retour vérifié) : aucun jeton de réseau ne se passe par l’API ni par le MCP (AD-9, AR-22)' },
   { action: 'rejeu.activer', raison: 'la valeur du jeton de rejeu se montre une seule fois à une personne connectée récemment : un jeton ne crée pas de jeton (AD-15, AR-13)' },
   {
     action: 'script.proposer',

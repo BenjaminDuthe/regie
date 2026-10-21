@@ -15,6 +15,7 @@ import type { Notifications } from '../infra/notifications.ts';
 import type { Oauth } from '../infra/oauth.ts';
 import type { Marques } from '../infra/marques.ts';
 import type { Reseaux } from '../infra/reseaux.ts';
+import type { ComptesReseau } from '../infra/comptes-reseau.ts';
 import type { Connecteurs } from '../publication/connecteur.ts';
 import type { Montages } from '../infra/montages.ts';
 import type { Stockage } from '../infra/stockage.ts';
@@ -62,6 +63,8 @@ export type Services = Readonly<{
   voixLocale?: boolean | undefined;
   /** Clés d'application des réseaux de publication, au coffre (histoire 7.1). */
   reseaux: Reseaux;
+  /** Comptes reliés aux réseaux ; leurs jetons sont au coffre (histoire 7.6). */
+  comptesReseau: ComptesReseau;
   /** Un connecteur par réseau ouvert : seul passage vers les réseaux (histoire 7.1). */
   connecteurs: Connecteurs;
   maintenant: () => number;

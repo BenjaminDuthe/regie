@@ -7,6 +7,8 @@ import { verifierChaine } from '../infra/audit.ts';
 import { idUtilisateur } from '../infra/espaces.ts';
 import type { Notifications } from '../infra/notifications.ts';
 import { purgerClientsOauth, purgerSessions } from '../infra/entretien.ts';
+import type { ComptesReseau } from '../infra/comptes-reseau.ts';
+import { lireObjetRappel } from '../infra/comptes-reseau.ts';
 import { ErreurTravail, cleGestionnaire, type Gestionnaires } from './planificateur.ts';
 import type { Journal } from './travailleur.ts';
 
@@ -50,6 +52,29 @@ export function gestionnairesDuSocle(options: Readonly<{ pool: Pool; audit: Audi
     [cleGestionnaire('purge', 'clients_oauth')]: async (t) => {
       const n = await purgerClientsOauth(pool, t.marqueId);
       journal.info({ marque: t.marqueId, supprimes: n }, 'clients OAuth inutilisés purgés');
+    },
+  };
+}
+
+/**
+ * Rappel d'échéance d'une connexion de réseau (histoire 7.6) : J-7 puis la veille, dans l'interface seule (courriel en V1.1).
+ * Le rappel ne parle que si le compte est encore connecté ET si l'échéance inscrite est toujours celle du compte : une
+ * reconnexion (nouvelle échéance) ou une déconnexion rend les anciens rappels muets. Rejouable : la notification est
+ * dédupliquée par sa clé.
+ */
+export function gestionnaireRappelConnexion(options: Readonly<{ comptes: ComptesReseau; notifications: Notifications }>): Gestionnaires {
+  return {
+    rappel_connexion: async (t) => {
+      const rappel = lireObjetRappel(t.objet);
+      if (rappel === undefined) throw new ErreurTravail('RAPPEL_ILLISIBLE');
+      const compte = await options.comptes.lire(t.marqueId, rappel.utilisateurId, rappel.compteId);
+      if (compte === undefined || compte.etat !== 'connecte' || Math.floor(compte.expireLe.getTime() / 1000) !== rappel.expireEpoch) return;
+      await options.notifications.creer(t.marqueId, {
+        utilisateurId: rappel.utilisateurId,
+        genre: rappel.suffixe === 'j7' ? 'connexion_expire_bientot' : 'connexion_expire_demain',
+        etape: compte.reseau,
+        cle: `rappel_connexion:${compte.id}:${rappel.expireEpoch}:${rappel.suffixe}`,
+      });
     },
   };
 }

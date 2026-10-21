@@ -5,6 +5,9 @@ export const COOKIE_SESSION = '__Host-regie_session';
 /** Contexte de la connexion en cours (state, nonce, vérificateur PKCE), scellé par le coffre, valable 10 minutes. */
 export const COOKIE_FLUX = '__Host-regie_flux';
 
+/** Contexte du raccordement d'un compte réseau en cours (state lié à la session), scellé par le coffre, valable 10 minutes (histoire 7.6). */
+export const COOKIE_FLUX_RESEAU = '__Host-regie_flux_reseau';
+
 export const DUREE_FLUX_S = 600;
 
 /** Valeur de l'en-tête Set-Cookie : HttpOnly, Secure, SameSite=Lax, Path=/, sans Domain. */

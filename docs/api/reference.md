@@ -3211,3 +3211,113 @@ Corps de la demande (schéma JSON) :
   "additionalProperties": false
 }
 ```
+
+## `reseau.connecter`
+
+Enregistre un compte de réseau relié par OAuth : le jeton long part au coffre et les rappels d’échéance sont inscrits. Réservé à l’interface (appelé au retour du réseau).
+
+- Réservée à l'interface : un compte ne se relie que par le parcours OAuth du navigateur (state lié à la session, retour vérifié) : aucun jeton de réseau ne se passe par l’API ni par le MCP (AD-9, AR-22)
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "reseau": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "facebook",
+        "tiktok"
+      ]
+    },
+    "espaceId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "compteExterne": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]{1,100}$"
+    },
+    "nom": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "jeton": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 4096
+    },
+    "expireLe": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+    }
+  },
+  "required": [
+    "reseau",
+    "espaceId",
+    "compteExterne",
+    "nom",
+    "jeton",
+    "expireLe"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `reseau.comptes`
+
+Liste les comptes de réseau reliés (nom, état, échéance de la connexion), éventuellement d’un seul espace. Ne rend jamais le jeton.
+
+- API : `POST /api/v1/reseau/comptes` · outil MCP : `reseau_comptes`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "espaceId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+## `reseau.deconnecter`
+
+Déconnecte un compte de réseau : son jeton est retiré du coffre. Les publications programmées sur ce compte ne partiront plus.
+
+- API : `POST /api/v1/reseau/deconnecter` · outil MCP : `reseau_deconnecter`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "compteId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "compteId"
+  ],
+  "additionalProperties": false
+}
+```

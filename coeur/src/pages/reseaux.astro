@@ -5,7 +5,7 @@
 import chaines from '../chaines.json' with { type: 'json' };
 import { exigerAuthRecente } from '../auth/auth-recente.ts';
 import Base from '../mises-en-page/Base.astro';
-import { reseauDeposer, reseauEtat, reseauTester } from '../services/actions-reseau.ts';
+import { reseauComptes, reseauDeconnecter, reseauDeposer, reseauEtat, reseauTester, type VueCompte } from '../services/actions-reseau.ts';
 import { contexteInterface } from '../services/contextes.ts';
 import { ErreurMetier } from '../services/erreurs.ts';
 import { executerAction } from '../services/registre.ts';
@@ -17,6 +17,11 @@ if (services === undefined || session === undefined) return new Response(null, {
 const t = chaines.reseaux;
 const ctx = contexteInterface(services, session);
 let erreur: string | undefined;
+let message: string | undefined;
+// Issue du parcours OAuth : une clé d'une liste fermée, jamais un texte venu de la requête.
+const issue = Astro.url.searchParams.get('connexion');
+const issues = t.connexion as Record<string, string>;
+if (issue !== null && Object.hasOwn(issues, issue)) (issue === 'ok' ? (message = issues[issue]) : (erreur = issues[issue]));
 let test: { reseau: string; valide: boolean; cause: string | null } | undefined;
 
 if (Astro.request.method === 'POST') {
@@ -32,6 +37,10 @@ if (Astro.request.method === 'POST') {
       await executerAction(ctx, reseauDeposer, { reseau: champ('reseau'), idApplication: champ('idApplication'), secret: champ('secret') });
       return Astro.redirect('/reseaux?cle=1', 303);
     }
+    if (geste === 'deconnecter') {
+      await executerAction(ctx, reseauDeconnecter, { compteId: champ('compteId') });
+      message = t.comptes.deconnecteOk;
+    }
     if (geste === 'tester') {
       test = (await executerAction(ctx, reseauTester, { reseau: champ('reseau') })) as { reseau: string; valide: boolean; cause: string | null };
     }
@@ -43,6 +52,7 @@ if (Astro.request.method === 'POST') {
 
 // L'affichage n'est pas une action : la lecture passe directement par l'exécutant.
 const { reseaux } = (await reseauEtat.executer(ctx, {})) as { reseaux: { reseau: string; nom: string; portees: string[]; cleDeposee: boolean; cleModifieeLe: string | null; connecteur: boolean }[] };
+const { comptes } = (await reseauComptes.executer(ctx, {})) as { comptes: VueCompte[] };
 const formatDate = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' });
 const cause = (c: string | null): string => (c === null ? '' : ((t.causes as Record<string, string>)[c] ?? t.causes.RESEAU_REFUSE));
 ---
@@ -51,6 +61,7 @@ const cause = (c: string | null): string => (c === null ? '' : ((t.causes as Rec
   <h1>{t.titre}</h1>
   <p class="intro">{t.intro}</p>
   {Astro.url.searchParams.get('cle') === '1' && <p class="succes" role="status">{t.cle.enregistree}</p>}
+  {message !== undefined && <p class="succes" role="status">{message}</p>}
   {erreur !== undefined && <p class="probleme" role="alert">{erreur}</p>}
   {reseaux.length === 0 && <p class="doux">{t.vide}</p>}
   <ul class="grille-reseaux">
@@ -80,6 +91,24 @@ const cause = (c: string | null): string => (c === null ? '' : ((t.causes as Rec
               </form>
             )
           }
+          <h3>{t.comptes.titre}</h3>
+          {comptes.filter((c) => c.reseau === r.reseau).length === 0 && <p class="doux">{t.comptes.aucun}</p>}
+          {
+            comptes.filter((c) => c.reseau === r.reseau).map((c) => (
+              <div class="compte-reseau">
+                <p><strong>{c.nom}</strong> · {(t.comptes.etats as Record<string, string>)[c.etat] ?? c.etat}</p>
+                {c.etat === 'connecte' && <p class="doux">{t.comptes.expire.replace('{date}', formatDate.format(new Date(c.expireLe)))}{c.expireDansJ !== null && c.expireDansJ < 7 ? ` ${t.comptes.expireDansJ.replace('{jours}', String(Math.max(c.expireDansJ, 0)))}` : ''}</p>}
+                {c.etat === 'connecte' && (
+                  <form method="post" action="/reseaux" class="choix">
+                    <input type="hidden" name="geste" value="deconnecter" />
+                    <input type="hidden" name="compteId" value={c.id} />
+                    <button type="submit" class="bouton">{t.comptes.deconnecter}</button>
+                  </form>
+                )}
+              </div>
+            ))
+          }
+          {r.cleDeposee && r.connecteur && <a class="bouton" href={`/reseaux/${r.reseau}/depart`}>{comptes.some((c) => c.reseau === r.reseau) ? t.comptes.reconnecter : t.comptes.connecter}</a>}
           {!r.connecteur && <p class="doux">{t.sansConnecteur}</p>}
           {
             test?.reseau === r.reseau && (

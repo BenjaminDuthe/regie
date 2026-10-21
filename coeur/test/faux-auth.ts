@@ -14,6 +14,7 @@ import type { DernierJeu, OrigineScript } from '@regie/contrats';
 import { NomApplicationPris, type Application, type Applications, type ChampsApplication } from '../src/infra/applications.ts';
 import type { CibleCompte, ComptesDemo, CompteDemo, EtatCompteDemo } from '../src/infra/comptes-demo.ts';
 import type { EtatCle, Reseaux } from '../src/infra/reseaux.ts';
+import { rappelsDu, type ComptesReseau, type CompteReseau, type NouveauCompte } from '../src/infra/comptes-reseau.ts';
 import type { CleApplication } from '../src/publication/connecteur.ts';
 import type { Reseau } from '../src/domaine/bornes.ts';
 import { JournauxJeu } from '../src/services/journaux-jeu.ts';
@@ -509,7 +510,55 @@ export class ReseauxMemoire implements Reseaux {
   }
 }
 
-export type BancDeTest = { reseaux: ReseauxMemoire; montages: MontagesMemoire; stockage: StockageMemoire; journauxJeu: JournauxJeu; scripts: ScriptsMemoire; comptesDemo: ComptesDemoMemoire; services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
+/** Comptes reliés aux réseaux en mémoire : même contrat que ComptesReseauPg. Les rappels inscrits sont gardés pour les tests. */
+export class ComptesReseauMemoire implements ComptesReseau {
+  readonly lignes: (CompteReseau & { marqueId: string })[] = [];
+  readonly jetons = new Map<string, string>();
+  readonly echeances: { marqueId: string; type: string; objet: string; instant: Date; cle: string }[] = [];
+  maintenant = () => Date.now();
+  readonly #espaces: EspacesMemoire;
+  constructor(espaces: EspacesMemoire) {
+    this.#espaces = espaces;
+  }
+  #visibles(marqueId: string, utilisateurId: string): string[] {
+    return this.#espaces.tous.filter((e) => e.marqueId === marqueId && e.proprietaireId === utilisateurId).map((e) => e.id);
+  }
+  async connecter(n: NouveauCompte, maintenant: Date) {
+    if (!this.#visibles(n.marqueId, n.utilisateurId).includes(n.espaceId)) return undefined;
+    const t = new Date(this.maintenant());
+    const i = this.lignes.findIndex((l) => l.marqueId === n.marqueId && l.espaceId === n.espaceId && l.reseau === n.reseau && l.compteExterne === n.compteExterne);
+    const base = i >= 0 ? this.lignes[i]! : { id: crypto.randomUUID(), marqueId: n.marqueId, espaceId: n.espaceId, reseau: n.reseau, compteExterne: n.compteExterne, creeLe: t };
+    const compte = { ...base, utilisateurId: n.utilisateurId, nom: n.nom, etat: 'connecte' as const, expireLe: n.expireLe, modifieLe: t };
+    if (i >= 0) this.lignes[i] = compte;
+    else this.lignes.push(compte);
+    this.jetons.set(`${n.marqueId}/${compte.id}`, n.jeton);
+    for (const r of rappelsDu(compte.id, n.utilisateurId, n.expireLe, maintenant)) {
+      if (!this.echeances.some((e) => e.marqueId === n.marqueId && e.type === r.type && e.cle === r.cle)) this.echeances.push({ marqueId: n.marqueId, ...r });
+    }
+    return compte;
+  }
+  async lister(marqueId: string, utilisateurId: string, espaceId?: string) {
+    const ids = this.#visibles(marqueId, utilisateurId);
+    return this.lignes.filter((l) => l.marqueId === marqueId && ids.includes(l.espaceId) && (espaceId === undefined || l.espaceId === espaceId));
+  }
+  async lire(marqueId: string, utilisateurId: string, id: string) {
+    const ids = this.#visibles(marqueId, utilisateurId);
+    return this.lignes.find((l) => l.id === id && l.marqueId === marqueId && ids.includes(l.espaceId));
+  }
+  async lireJeton(marqueId: string, compteId: string) {
+    return this.jetons.get(`${marqueId}/${compteId}`);
+  }
+  async deconnecter(marqueId: string, utilisateurId: string, id: string) {
+    const i = this.lignes.findIndex((l) => l.id === id && l.marqueId === marqueId && this.#visibles(marqueId, utilisateurId).includes(l.espaceId));
+    if (i < 0) return undefined;
+    const compte = { ...this.lignes[i]!, etat: 'deconnecte' as const, modifieLe: new Date(this.maintenant()) };
+    this.lignes[i] = compte;
+    this.jetons.delete(`${marqueId}/${id}`);
+    return compte;
+  }
+}
+
+export type BancDeTest = { comptesReseau: ComptesReseauMemoire; reseaux: ReseauxMemoire; montages: MontagesMemoire; stockage: StockageMemoire; journauxJeu: JournauxJeu; scripts: ScriptsMemoire; comptesDemo: ComptesDemoMemoire; services: Services; applications: ApplicationsMemoire; gabarits: GabaritsMemoire; file: FileMemoire; sessions: SessionsMemoire; marques: MarquesMemoire; espaces: EspacesMemoire; audit: AuditMemoire; jetons: JetonsMemoire; oauth: OauthMemoire; notifications: NotificationsMemoire; horloge: { t: number } };
 
 export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pick<Services, 'admin' | 'urlPublique' | 'voixLocale' | 'connecteurs'>> = {}): BancDeTest {
   const horloge = { t: Date.now() };
@@ -532,6 +581,8 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
   scripts.maintenant = () => horloge.t;
   const comptesDemo = new ComptesDemoMemoire();
   comptesDemo.maintenant = () => horloge.t;
+  const comptesReseau = new ComptesReseauMemoire(espaces);
+  comptesReseau.maintenant = () => horloge.t;
   const reseaux = new ReseauxMemoire();
   reseaux.maintenant = () => horloge.t;
   const montages = new MontagesMemoire();
@@ -559,6 +610,7 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     scripts,
     comptesDemo,
     reseaux,
+    comptesReseau,
     connecteurs: options.connecteurs ?? {},
     montages,
     stockage,
@@ -566,5 +618,5 @@ export function creerServicesDeTest(oidc: Services['oidc'], options: Partial<Pic
     voixLocale: options.voixLocale,
     maintenant: () => horloge.t,
   };
-  return { reseaux, montages, stockage, journauxJeu: services.journauxJeu, scripts, comptesDemo, services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
+  return { comptesReseau, reseaux, montages, stockage, journauxJeu: services.journauxJeu, scripts, comptesDemo, services, applications, gabarits, file, notifications, sessions, marques, espaces, audit, jetons, oauth, horloge };
 }

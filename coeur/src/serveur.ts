@@ -20,6 +20,7 @@ import { ApplicationsPg } from './infra/applications.ts';
 import { ScriptsPg } from './infra/scripts.ts';
 import { ComptesDemoPg } from './infra/comptes-demo.ts';
 import { ReseauxPg } from './infra/reseaux.ts';
+import { ComptesReseauPg } from './infra/comptes-reseau.ts';
 import { ConnecteurInstagram } from './publication/connecteur-instagram.ts';
 import { creerExecutantJeuScript } from './services/jeu-script.ts';
 import { JournauxJeu } from './services/journaux-jeu.ts';
@@ -34,6 +35,7 @@ import { MagasinSessionsPg } from './infra/sessions.ts';
 import { enregistrerRoutesAuth } from './auth/routes.ts';
 import { enregistrerRoutesApi } from './api/routes.ts';
 import { enregistrerRoutesOauth } from './oauth/routes.ts';
+import { enregistrerRoutesReseau } from './publication/routes-reseau.ts';
 import { creerExecutantExploration } from './services/exploration.ts';
 import { enregistrerRoutesMcp } from './mcp/routes.ts';
 import { enregistrerRoutesFlux, type OptionsFlux } from './flux/routes.ts';
@@ -49,7 +51,7 @@ import { PasserelleSecretsCoffre, lecteurCoffre } from './services/passerelle-se
 import { Travailleur } from './services/travailleur.ts';
 import { EcheancesPg } from './infra/echeances.ts';
 import { Planificateur } from './services/planificateur.ts';
-import { gestionnairesDuSocle } from './services/gestionnaires.ts';
+import { gestionnairesDuSocle, gestionnaireRappelConnexion } from './services/gestionnaires.ts';
 
 type HandlerAstro = (
   requete: import('node:http').IncomingMessage,
@@ -90,6 +92,7 @@ export function construireServices(contexte: Contexte): Services {
     stockage: new StockageDisque(env.REGIE_DONNEES),
     comptesDemo: new ComptesDemoPg(contexte.pool, contexte.coffre),
     reseaux: new ReseauxPg(contexte.pool, contexte.coffre),
+    comptesReseau: new ComptesReseauPg(contexte.pool, contexte.coffre),
     connecteurs: { instagram: new ConnecteurInstagram() },
     journauxJeu: new JournauxJeu(),
     voixLocale: voixBranchee(),
@@ -159,6 +162,7 @@ function servicesSansBase(): Services {
     journauxJeu: new JournauxJeu(),
     comptesDemo: { remplacer: refus, supprimer: async () => false, etat: async () => ({ depose: false, modifieLe: undefined }) },
     reseaux: { remplacerCle: refus, lireCle: async () => undefined, etatCle: async () => ({ deposee: false, modifieLe: undefined }) },
+    comptesReseau: { connecter: refus, lister: async () => [], lire: async () => undefined, lireJeton: async () => undefined, deconnecter: refus },
     connecteurs: {},
     maintenant: Date.now,
   };
@@ -201,6 +205,7 @@ export async function construireServeur(
   enregistrerRoutesAuth(app as unknown as FastifyInstance, services);
   enregistrerRoutesApi(app as unknown as FastifyInstance, services);
   enregistrerRoutesOauth(app as unknown as FastifyInstance, services);
+  enregistrerRoutesReseau(app as unknown as FastifyInstance, services);
   enregistrerRoutesMcp(app as unknown as FastifyInstance, services);
   enregistrerRoutesFlux(app as unknown as FastifyInstance, services, options.flux);
   await app.register(fastifyStatic, { root: RACINE_CLIENT });
@@ -287,7 +292,10 @@ if (import.meta.main) {
   const planificateur = new Planificateur({
     echeances: new EcheancesPg(contexte.pool),
     marques: () => services.marques.lister(),
-    gestionnaires: gestionnairesDuSocle({ pool: contexte.pool, audit: services.audit, journal: app.log, alerte: { notifications: services.notifications, adminSub: services.admin.sub } }),
+    gestionnaires: {
+      ...gestionnairesDuSocle({ pool: contexte.pool, audit: services.audit, journal: app.log, alerte: { notifications: services.notifications, adminSub: services.admin.sub } }),
+      ...gestionnaireRappelConnexion({ comptes: services.comptesReseau, notifications: services.notifications }),
+    },
     journal: app.log,
   });
   let arreterEcoute: () => void = () => undefined;

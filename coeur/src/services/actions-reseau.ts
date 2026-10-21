@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { RESEAUX_ACTIFS, RESEAUX_DECLARES, estReseauActif } from '../domaine/reseaux.ts';
 import { RESEAUX, type Reseau } from '../domaine/bornes.ts';
 import { estErreurReseau } from '../publication/connecteur.ts';
+import type { CompteReseau } from '../infra/comptes-reseau.ts';
 import { ErreurMetier } from './erreurs.ts';
 import { definirAction, type ContexteAction } from './registre.ts';
 
@@ -68,4 +69,74 @@ export const reseauTester = definirAction({
   objet: (entree) => `reseau:${entree.reseau}`,
 });
 
-export const ACTIONS_RESEAU = [reseauEtat, reseauDeposer, reseauTester] as const;
+export type VueCompte = Readonly<{
+  id: string; espaceId: string; reseau: Reseau; nom: string; etat: string; expireLe: string; expireDansJ: number | null;
+}>;
+
+/** Jamais le jeton, ni l'identifiant externe : seulement ce que la personne a besoin de voir. */
+export function vueCompte(c: CompteReseau, maintenant: number): VueCompte {
+  return {
+    id: c.id, espaceId: c.espaceId, reseau: c.reseau, nom: c.nom, etat: c.etat, expireLe: c.expireLe.toISOString(),
+    expireDansJ: c.etat === 'connecte' ? Math.floor((c.expireLe.getTime() - maintenant) / 86_400_000) : null,
+  };
+}
+
+const espaceVisible = (ctx: ContexteAction, espaceId: string): boolean => ctx.espaceIds === undefined || ctx.espaceIds.includes(espaceId);
+
+export const reseauConnecter = definirAction({
+  domaine: 'reseau',
+  verbe: 'connecter',
+  description: 'Enregistre un compte de réseau relié par OAuth : le jeton long part au coffre et les rappels d’échéance sont inscrits. Réservé à l’interface (appelé au retour du réseau).',
+  portee: 'ecriture',
+  entree: z.strictObject({
+    reseau: reseauActif,
+    espaceId: z.uuid(),
+    compteExterne: z.string().trim().regex(/^[A-Za-z0-9_.-]{1,100}$/),
+    nom: z.string().trim().min(1).max(200),
+    jeton: z.string().min(8).max(4096),
+    expireLe: z.iso.datetime(),
+  }),
+  executer: async (ctx, entree) => {
+    if (!espaceVisible(ctx, entree.espaceId)) throw new ErreurMetier('ESPACE_INTROUVABLE', 404);
+    const compte = await ctx.services.comptesReseau.connecter(
+      { marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId, espaceId: entree.espaceId, reseau: entree.reseau, compteExterne: entree.compteExterne, nom: entree.nom, jeton: entree.jeton, expireLe: new Date(entree.expireLe) },
+      new Date(ctx.services.maintenant()),
+    );
+    if (compte === undefined) throw new ErreurMetier('ESPACE_INTROUVABLE', 404);
+    return { compte: vueCompte(compte, ctx.services.maintenant()) };
+  },
+  objet: (entree) => `reseau:${entree.reseau}`,
+});
+
+export const reseauComptes = definirAction({
+  domaine: 'reseau',
+  verbe: 'comptes',
+  description: 'Liste les comptes de réseau reliés (nom, état, échéance de la connexion), éventuellement d’un seul espace. Ne rend jamais le jeton.',
+  portee: 'lecture',
+  entree: z.strictObject({ espaceId: z.uuid().optional() }),
+  executer: async (ctx, entree) => {
+    if (entree.espaceId !== undefined && !espaceVisible(ctx, entree.espaceId)) throw new ErreurMetier('ESPACE_INTROUVABLE', 404);
+    const tous = await ctx.services.comptesReseau.lister(ctx.marqueId, ctx.utilisateurId, entree.espaceId);
+    const maintenant = ctx.services.maintenant();
+    return { comptes: tous.filter((c) => espaceVisible(ctx, c.espaceId)).map((c) => vueCompte(c, maintenant)) };
+  },
+  objet: () => 'reseau',
+});
+
+export const reseauDeconnecter = definirAction({
+  domaine: 'reseau',
+  verbe: 'deconnecter',
+  description: 'Déconnecte un compte de réseau : son jeton est retiré du coffre. Les publications programmées sur ce compte ne partiront plus.',
+  portee: 'ecriture',
+  entree: z.strictObject({ compteId: z.uuid() }),
+  executer: async (ctx, entree) => {
+    const existant = await ctx.services.comptesReseau.lire(ctx.marqueId, ctx.utilisateurId, entree.compteId);
+    if (existant === undefined || !espaceVisible(ctx, existant.espaceId)) throw new ErreurMetier('COMPTE_RESEAU_INTROUVABLE', 404);
+    const compte = await ctx.services.comptesReseau.deconnecter(ctx.marqueId, ctx.utilisateurId, entree.compteId);
+    if (compte === undefined) throw new ErreurMetier('COMPTE_RESEAU_INTROUVABLE', 404);
+    return { compte: vueCompte(compte, ctx.services.maintenant()) };
+  },
+  objet: (entree) => `compte_reseau:${entree.compteId}`,
+});
+
+export const ACTIONS_RESEAU = [reseauEtat, reseauDeposer, reseauTester, reseauConnecter, reseauComptes, reseauDeconnecter] as const;

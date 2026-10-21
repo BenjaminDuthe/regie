@@ -223,3 +223,14 @@ Question : quelles décisions et quelles preuves manquent avant de publier réel
 3. **Portées** — liste de départ, à confirmer à la revue d'application de Meta.
 4. **Droit de publication par espace** — écarté en V1 (ajustement du 2026-10-18) : toute personne de la marque peut publier. Recommandation : le rouvrir si deux équipes partagent une marque.
 5. **Limite de débit** — la limite par IP de l'inscription OAuth est factorisée (`auth/limite-debit.ts`), en mémoire et par processus. Recommandation : au proxy pour une limite globale.
+
+## 7.6 Se connecter à Instagram
+
+Question : quelles décisions et quelles preuves manquent pour relier un vrai compte Instagram ?
+
+1. **Parcours OAuth non éprouvé** — l'échange du code, du jeton court puis du jeton long n'a été joué que contre le faux Meta local : aucun jeton réel n'existe. **Recommandation** : après l'inscription de l'application (voir 7.1), rejouer le parcours avec un compte professionnel de test, corriger les écarts (adresse de retour déclarée chez Meta = `<url publique>/reseaux/instagram/retour`, champs, versions).
+2. **Durée et renouvellement du jeton long** — Meta donne environ 60 jours et permet de le rafraîchir ; regie n'automatise pas ce renouvellement (la personne reconnecte, ce qui remet les rappels J-7 et la veille). Options : rafraîchir automatiquement chaque mois, ou garder la reconnexion manuelle. **Recommandation** : reconnexion manuelle en V1, rafraîchissement automatique en V1.1 une fois le comportement réel connu.
+3. **Rappels dans l'interface seule** — le courriel est repoussé en V1.1 (ajustement du 2026-10-18). Les rappels sont des notifications d'interface avec un bouton « Reconnecter » ; une personne qui ne se connecte pas ne les voit pas.
+4. **Bornes de la vidéo publiée** (`publication.instagram` dans `deploiement/bornes.json` : 3 s à 15 min, 1 Gio) — valeurs de départ à confirmer contre la documentation de Meta en vigueur à l'inscription. **Recommandation** : les confirmer à la revue d'application, puis les durcir si besoin (le test de bornes nomme la borne dépassée).
+5. **PKCE** — non utilisé : Instagram Login n'expose pas PKCE pour les applications serveur confidentielles ; la protection repose sur le `state` lié à la session et le secret d'application. À revoir si Meta l'ajoute.
+6. **Un compte par espace** — un compte est relié à l'espace actif de la session et la personne qui le relie reçoit les rappels. Recommandation : rouvrir si deux personnes d'un même espace doivent être prévenues.

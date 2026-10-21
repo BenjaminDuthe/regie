@@ -11,6 +11,10 @@ export type Reseau = (typeof RESEAUX)[number];
 const bornesLegende = z.object({ hashtagsMax: z.number().int().positive(), legendeMaxCaracteres: z.number().int().positive() }).strict();
 export type BornesLegende = Readonly<z.infer<typeof bornesLegende>>;
 
+/** Ce que le réseau accepte d'une vidéo : durée (secondes) et poids (octets) (histoire 7.6). */
+const bornesVideo = z.object({ dureeMinS: z.number().positive(), dureeMaxS: z.number().positive(), tailleMaxOctets: z.number().int().positive() }).strict();
+export type BornesVideo = Readonly<z.infer<typeof bornesVideo>>;
+
 const rectangle = z.object({ x: z.number(), y: z.number(), largeur: z.number().positive(), hauteur: z.number().positive() }).strict();
 
 export const schemaBornes = z
@@ -27,6 +31,8 @@ export const schemaBornes = z
     defauts: bornesLegende,
     /** Bornes de la légende et des hashtags, réseau par réseau (histoire 3.7). */
     reseaux: z.object({ instagram: bornesLegende, facebook: bornesLegende, tiktok: bornesLegende }).strict(),
+    /** Bornes de la vidéo, par réseau ouvert à la publication (histoire 7.6). */
+    publication: z.object({ instagram: bornesVideo }).strict(),
   })
   .strict();
 
@@ -40,7 +46,26 @@ export function lireBornes(brut: unknown): Bornes {
   if (z.x < 0 || z.y < 0 || z.x + z.largeur > bornes.toile.largeur || z.y + z.hauteur > bornes.toile.hauteur) {
     throw new Error('bornes : la zone sûre sort de la toile');
   }
+  for (const [reseau, v] of Object.entries(bornes.publication)) {
+    if (v.dureeMinS > v.dureeMaxS) throw new Error(`bornes : la durée minimale de ${reseau} dépasse sa durée maximale`);
+  }
   return Object.freeze(bornes);
 }
 
 export const BORNES: Bornes = lireBornes(fichier);
+
+/** Une borne dépassée : son nom (clé de `bornes.json`), ce que la vidéo vaut et la limite. */
+export type BorneDepassee = Readonly<{ borne: 'dureeMinS' | 'dureeMaxS' | 'tailleMaxOctets'; valeur: number; limite: number }>;
+
+/**
+ * Les bornes du réseau que la vidéo dépasse, dans l'ordre : durée trop courte, durée trop longue, poids. Vide si elle
+ * convient. La publication est refusée AVANT l'envoi à la première borne dépassée, en la nommant (histoire 7.6, FR-42).
+ */
+export function bornesVideoDepassees(reseau: keyof Bornes['publication'], video: Readonly<{ dureeS: number; tailleOctets: number }>, bornes: Bornes = BORNES): BorneDepassee[] {
+  const b = bornes.publication[reseau];
+  const depassees: BorneDepassee[] = [];
+  if (video.dureeS < b.dureeMinS) depassees.push({ borne: 'dureeMinS', valeur: video.dureeS, limite: b.dureeMinS });
+  if (video.dureeS > b.dureeMaxS) depassees.push({ borne: 'dureeMaxS', valeur: video.dureeS, limite: b.dureeMaxS });
+  if (video.tailleOctets > b.tailleMaxOctets) depassees.push({ borne: 'tailleMaxOctets', valeur: video.tailleOctets, limite: b.tailleMaxOctets });
+  return depassees;
+}

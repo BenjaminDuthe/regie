@@ -1,5 +1,5 @@
 {
-  "$commentaire": "Bornes et seuils des gardes (FR-28, AR-18, NFR-27) : fichier versionné, lu par coeur/src/domaine/bornes.ts et testé. Aucune garde ne se force : changer un seuil, c'est changer ce fichier en revue de code. Bornes de légende et de hashtags par réseau (histoire 3.7, FR-38) à confirmer contre les règles en vigueur de chaque réseau. Zone sûre de référence : 880×1220 en (0, 220) sur 1080×1920 (à confirmer avec le gabarit d'Établia).",
+  "$commentaire": "Bornes et seuils des gardes (FR-28, AR-18, NFR-27) : fichier versionné, lu par coeur/src/domaine/bornes.ts et testé. Aucune garde ne se force : changer un seuil, c'est changer ce fichier en revue de code. Bornes de légende et de hashtags par réseau (histoire 3.7, FR-38) à confirmer contre les règles en vigueur de chaque réseau. Bornes de la vidéo envoyée à Instagram (Reels : 3 s à 15 min, 1 Gio ; histoire 7.6, FR-42) à confirmer contre la documentation de Meta en vigueur à l’inscription de l’application. Zone sûre de référence : 880×1220 en (0, 220) sur 1080×1920 (à confirmer avec le gabarit d'Établia).",
   "version": 1,
   "toile": { "largeur": 1080, "hauteur": 1920 },
   "contrasteMin": 4.5,
@@ -11,5 +11,8 @@
     "instagram": { "hashtagsMax": 5, "legendeMaxCaracteres": 2200 },
     "facebook": { "hashtagsMax": 5, "legendeMaxCaracteres": 2200 },
     "tiktok": { "hashtagsMax": 5, "legendeMaxCaracteres": 2200 }
+  },
+  "publication": {
+    "instagram": { "dureeMinS": 3, "dureeMaxS": 900, "tailleMaxOctets": 1073741824 }
   }
 }

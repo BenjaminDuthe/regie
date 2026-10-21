@@ -207,7 +207,8 @@
     "SCRIPT_SANS_ETAPE": "Ce script n’a aucune étape : ajoute-en une avant de le jouer.",
     "MCP_SEULEMENT": "Créer un script à partir d’une phrase n’est possible que par Claude connecté en MCP. Ici, crée le script étape par étape.",
     "RESEAU_CLE_ABSENTE": "Aucune clé d’application n’est déposée pour {reseau} : dépose-la d’abord dans Réseaux.",
-    "RESEAU_CONNECTEUR_ABSENT": "Le connecteur de {reseau} n’est pas branché sur cette installation."
+    "RESEAU_CONNECTEUR_ABSENT": "Le connecteur de {reseau} n’est pas branché sur cette installation.",
+    "COMPTE_RESEAU_INTROUVABLE": "Ce compte n’existe pas, ou tu n’y as pas accès."
   },
   "jetons": {
     "titre": "Jetons d’API",
@@ -352,6 +353,7 @@
       "capture": "Capture",
       "voix": "Voix",
       "reseau": "Publication",
+      "instagram": "Instagram",
       "test_connexion": "Test de connexion"
     },
     "position": {
@@ -408,6 +410,9 @@
     "etape_echouee": "L’étape « {etape} » a échoué.",
     "montage_remplace": "Ton script a été rejoué : un nouveau montage est prêt et remplace le précédent dans ta bibliothèque.",
     "chaine_rompue": "Le journal d’audit ne se vérifie plus : une ligne a été modifiée ou retirée. Regarde le journal.",
+    "connexion_expire_bientot": "La connexion de ton compte {etape} expire dans moins de 7 jours.",
+    "connexion_expire_demain": "La connexion de ton compte {etape} expire demain.",
+    "reconnecter": "Reconnecter",
     "defaut": "Un événement demande ton attention.",
     "voirTache": "Voir la tâche"
   },
@@ -900,6 +905,28 @@
       "RESEAU_REPONSE_INVALIDE": "la réponse du réseau est inattendue.",
       "RESEAU_REFUSE": "le réseau a refusé la demande."
     },
-    "sansConnecteur": "Le connecteur de ce réseau n’est pas branché : la clé peut être déposée mais pas testée."
+    "sansConnecteur": "Le connecteur de ce réseau n’est pas branché : la clé peut être déposée mais pas testée.",
+    "comptes": {
+      "titre": "Comptes reliés",
+      "aucun": "Aucun compte relié pour l’instant.",
+      "connecter": "Relier un compte",
+      "reconnecter": "Reconnecter",
+      "deconnecter": "Déconnecter",
+      "expire": "Connexion valable jusqu’au {date}.",
+      "expireDansJ": "Elle expire dans {jours} jours.",
+      "etats": { "connecte": "Connecté", "deconnecte": "Déconnecté" },
+      "deconnecteOk": "Le compte est déconnecté, son jeton est effacé."
+    },
+    "connexion": {
+      "ok": "Compte relié.",
+      "refusee": "Le réseau a refusé la connexion ou ne l’a pas confirmée. Rien n’a été relié.",
+      "session": "Ta session a expiré : reconnecte-toi puis recommence.",
+      "etat": "La demande de connexion n’est plus valable (trop ancienne, ou lancée depuis une autre session). Recommence depuis cette page.",
+      "echange": "Le réseau n’a pas livré l’accès : réessaie plus tard.",
+      "sans_cle": "Dépose d’abord la clé de l’application de ce réseau.",
+      "sans_connecteur": "Le connecteur de ce réseau n’est pas branché, ou l’adresse publique de regie n’est pas réglée.",
+      "espace": "Choisis d’abord un espace actif.",
+      "auth_ancienne": "Reconnecte-toi à Authentik, puis recommence."
+    }
   }
 }

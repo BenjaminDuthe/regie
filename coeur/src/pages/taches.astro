@@ -63,6 +63,7 @@ const recentes = vues.filter((v) => !estActive(v)).slice(0, 20).map((v) => decri
           {nouvelles.map((x) => (
             <li class="notification" data-genre={x.genre}>
               <span>{texteNotification(x)}</span>
+              {x.genre.startsWith('connexion_') && <a class="bouton" href="/reseaux">{n.reconnecter}</a>}
               <form method="post" action="/taches">
                 <input type="hidden" name="geste" value="acquitter" />
                 <input type="hidden" name="id" value={x.id} />

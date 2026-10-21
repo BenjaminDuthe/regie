@@ -129,3 +129,9 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `reseau.etat` (lecture) : pour chaque réseau ouvert, si la clé d’application est déposée et depuis quand ; jamais la clé.
 - Ajout de `reseau.tester` (écriture) : teste auprès du réseau la clé déposée ; rend `valide` et, sinon, la cause (`RESEAU_CLE_REFUSEE`, `RESEAU_INJOIGNABLE`...). `RESEAU_CLE_ABSENTE` (409) sans clé déposée.
 - `reseau.deposer` existe pour l’interface seulement (raison dans `coeur/src/services/exceptions-parite.ts`).
+
+## 2026-10-21 — histoire 7.6
+
+- Ajout de `reseau.comptes` (lecture) : les comptes de réseau reliés (nom, état, échéance de la connexion), éventuellement d’un seul espace ; jamais le jeton.
+- Ajout de `reseau.deconnecter` (écriture) : déconnecte un compte et retire son jeton du coffre ; `COMPTE_RESEAU_INTROUVABLE` (404) si le compte n’existe pas ou n’est pas accessible.
+- `reseau.connecter` existe pour l’interface seulement (raison dans `coeur/src/services/exceptions-parite.ts`) : un compte ne se relie que par le parcours OAuth du navigateur, aucun jeton de réseau ne passe par l’API.
