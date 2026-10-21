@@ -16,3 +16,12 @@ export const EXCEPTIONS_PARITE: readonly ExceptionParite[] = Object.freeze([
     seulement: 'mcp',
   },
 ]);
+
+/**
+ * Gestes de session (histoire 9.1) : les seuls gestes du navigateur qui n'ont pas d'action au registre, parce qu'ils lient
+ * ou délient la session elle-même et ne touchent à aucune donnée de la marque. Tout autre formulaire passe par `executerAction`
+ * (un test le vérifie page par page).
+ */
+export const GESTES_SESSION: readonly Readonly<{ page: string; raison: string }>[] = Object.freeze([
+  { page: 'oauth/autoriser.astro', raison: 'le consentement de Claude à ce compte est un geste de la personne connectée ; il émet un code, pas une donnée' },
+]);

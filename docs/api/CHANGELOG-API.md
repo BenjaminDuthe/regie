@@ -154,3 +154,7 @@ registre y figure (`coeur/test/api.test.ts`).
 
 - Ajout de `publication.rejouer` (écriture) : rejoue une publication `en_echec` (nouvelle tentative mise en file, historique dans `publication.lire`) ; un échec `MONTAGE_MODIFIE` fige d'abord la dernière version ; une publication publiée, en cours ou incertaine est refusée (`PUBLICATION_ETAT`, 409).
 - `montage.bibliotheque` accepte le filtre `reseau` (`instagram`, `facebook`, `tiktok`) : les vidéos qui ont une publication non annulée sur ce réseau.
+
+## 2026-10-21 — histoire 9.1
+
+- Aucune action ajoutée ni retirée. `docs/api/reference.md` gagne la section « Parcours de référence » (trois demandes en une phrase, les outils MCP qui y répondent, un exemple d'entrée par outil). Un test vérifie que chaque outil existe, est offert au MCP et que chaque exemple passe son schéma.

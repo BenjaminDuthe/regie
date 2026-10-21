@@ -4,9 +4,27 @@
 
 import { z } from 'zod';
 import { actionsExposees } from './parite.ts';
+import { PARCOURS, type Parcours } from './parcours.ts';
 import { nomAction, nomOutil, type Action, type ExceptionParite } from './registre.ts';
 
-export function genererReference(actions: readonly Action<any, any>[], exceptions: readonly ExceptionParite[]): string {
+function sectionParcours(parcours: readonly Parcours[]): string[] {
+  return [
+    '# Parcours de référence',
+    '',
+    'Chaque parcours part d’une demande en une phrase et donne les outils MCP qui y répondent, dans l’ordre, avec une entrée d’exemple',
+    '(identifiants fictifs). Un test vérifie que chaque outil existe et que chaque exemple passe son schéma.',
+    '',
+    ...parcours.flatMap((p) => [
+      `## Parcours : ${p.titre}`,
+      '',
+      `Demande : « ${p.demande} »`,
+      '',
+      ...p.etapes.flatMap((e, i) => [`${i + 1}. \`${e.outil}\` : ${e.but}`, '', '```json', JSON.stringify(e.exemple, null, 2), '```', '']),
+    ]),
+  ];
+}
+
+export function genererReference(actions: readonly Action<any, any>[], exceptions: readonly ExceptionParite[], parcours: readonly Parcours[] = PARCOURS): string {
   const exposees = new Set(actionsExposees(actions, exceptions).map(nomAction));
   const mcpSeul = new Set(exceptions.filter((e) => e.seulement === 'mcp').map((e) => e.action));
   const sections = actions.map((a) => {
@@ -42,5 +60,6 @@ export function genererReference(actions: readonly Action<any, any>[], exception
     'Chaque action est écrite au journal d’audit de la marque, avec son origine (`api` ou `mcp`).',
     '',
     ...sections,
+    ...sectionParcours(parcours),
   ].join('\n');
 }
