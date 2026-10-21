@@ -179,3 +179,11 @@ Question : sous quelle forme livrer la couverture, et que couvre l'histoire ?
 1. **SVG, pas PNG ni JPEG** — option A : rastériser (bibliothèque tierce ou ffmpeg dans un conteneur) ; option B : image SVG dessinée sur le serveur, échappée, servie en `<img>` sous CSP restrictive. Retenu : B (aucune dépendance nouvelle). **Recommandation** : B pour le choix ; la rastérisation PNG/JPEG se fera avec le rendu complet (3.8, téléchargement).
 2. **La couverture est dans la timeline** — le champ `couverture.variante` fait que choisir crée une version immuable (FR-37), sans rendu : la couverture est une image, pas un plan de la vidéo.
 3. **Réduit à la couverture** (ajustement du 2026-10-18) — l'accroche se règle dans l'éditeur (3.10) ; musique et prise sont reportées.
+
+## 3.7 Ma légende et mes hashtags
+
+Question : quelles bornes par réseau, et où vit la légende ?
+
+1. **Bornes à confirmer** — `deploiement/bornes.json` porte désormais les bornes réseau par réseau (Instagram, Facebook, TikTok : 2 200 caractères et 5 hashtags, valeurs de départ qui reprennent les défauts). **Recommandation** : confirmer chaque valeur contre les règles en vigueur du réseau avant la publication (épopée 7) ; changer un seuil, c'est changer ce fichier en revue de code.
+2. **La légende suit la vidéo, pas la version** — une ligne par vidéo (série) et par réseau (migration 0013, table `legendes`) : éditer ou changer de gabarit ne la perd pas, et enregistrer ne crée pas de version.
+3. **Refus, jamais de troncature** — un dépassement est refusé en nommant la borne ; les hashtags sont mis en minuscules et dédoublonnés. Le compteur est calculé par le serveur (la feuille fonctionne sans script) ; un compteur en direct pourra s'ajouter avec le script de la page.

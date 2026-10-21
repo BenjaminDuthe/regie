@@ -5,6 +5,8 @@
 import { z } from 'zod';
 import { IdScene, OperationsEdition, SCENES_MAX, VARIANTES_COUVERTURE, appliquerOperations, dureeTotaleMs, sousTitres, versSrt } from '@regie/contrats';
 import { dessinerCouverture, varianteChoisie } from '../domaine/couverture.ts';
+import { RESEAUX } from '../domaine/bornes.ts';
+import { bornesDuReseau, legendeProposee, verifierLegende } from '../domaine/legende.ts';
 import { signerAdresse } from '../auth/adresses-signees.ts';
 import { evaluerMontage, figerGabarit } from '../domaine/montage.ts';
 import type { Violation } from '../domaine/gardes.ts';
@@ -272,4 +274,36 @@ export const montageCouvrir = definirAction({
   objet: (entree) => `montage:${entree.id}`,
 });
 
-export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, montageRegenerer, montageRegenererGabarit, montageCouvertures, montageCouvrir, renduLire, renduAdresse] as const;
+export const montageLegende = definirAction({
+  domaine: 'montage',
+  verbe: 'legende',
+  description: 'Donne la légende et les hashtags d’une vidéo pour un réseau (`instagram`, `facebook` ou `tiktok`), avec les bornes du réseau (longueur de la légende, nombre de hashtags). La légende appartient à la vidéo, pas à une version. Tant que rien n’est enregistré (`enregistree` faux), une légende est proposée à partir de l’accroche de la première scène. Rien n’est écrit.',
+  portee: 'lecture',
+  entree: z.strictObject({ id: identifiant, reseau: z.enum(RESEAUX) }),
+  executer: async (ctx, entree) => {
+    const m = await montageAccessible(ctx, entree.id);
+    const lue = await ctx.services.montages.lireLegende(ctx.marqueId, ctx.utilisateurId, m.serieId, entree.reseau);
+    const valeur = lue === undefined ? legendeProposee(m.timeline, entree.reseau) : { legende: lue.legende, hashtags: lue.hashtags };
+    return { montageId: m.id, serieId: m.serieId, reseau: entree.reseau, ...valeur, enregistree: lue !== undefined, bornes: bornesDuReseau(entree.reseau), majLe: lue?.majLe.toISOString() ?? null };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+export const montageLegender = definirAction({
+  domaine: 'montage',
+  verbe: 'legender',
+  description: 'Enregistre la légende et les hashtags d’une vidéo pour un réseau (`instagram`, `facebook` ou `tiktok`) ; remplace l’enregistrement précédent. Les bornes du réseau (deploiement/bornes.json) sont appliquées sans troncature : une légende trop longue (LEGENDE_TROP_LONGUE), trop de hashtags (TROP_DE_HASHTAGS) ou un hashtag invalide (HASHTAG_INVALIDE) est refusé en nommant la borne. Les hashtags s’écrivent avec ou sans « # » ; ils sont mis en minuscules et dédoublonnés. Ne crée pas de version du montage.',
+  portee: 'ecriture',
+  entree: z.strictObject({ id: identifiant, reseau: z.enum(RESEAUX), legende: z.string().max(20000), hashtags: z.array(z.string().max(200)).max(100) }),
+  executer: async (ctx, entree) => {
+    const m = await montageAccessible(ctx, entree.id);
+    const v = verifierLegende(entree.reseau, entree.legende, entree.hashtags);
+    if (!v.ok) throw new ErreurMetier(v.refus.code, 422, v.refus.contexte);
+    const r = await ctx.services.montages.enregistrerLegende({ marqueId: ctx.marqueId, utilisateurId: ctx.utilisateurId, serieId: m.serieId, reseau: entree.reseau, legende: v.valeur.legende, hashtags: v.valeur.hashtags });
+    if (r === undefined) throw new ErreurMetier('MONTAGE_INTROUVABLE', 404, { id: entree.id });
+    return { montageId: m.id, serieId: m.serieId, reseau: entree.reseau, legende: r.legende, hashtags: r.hashtags, majLe: r.majLe.toISOString() };
+  },
+  objet: (entree) => `montage:${entree.id}`,
+});
+
+export const ACTIONS_MONTAGE = [montageLister, montageLire, montageSousTitres, montageDefinirVoix, montageEditer, montageRegenerer, montageRegenererGabarit, montageCouvertures, montageCouvrir, montageLegende, montageLegender, renduLire, renduAdresse] as const;

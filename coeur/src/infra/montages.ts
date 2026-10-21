@@ -65,6 +65,8 @@ export type Rendu = Readonly<{
 
 export type FinRendu = Readonly<{ etat: 'pret' | 'bloque' | 'echec'; fichierId?: string | undefined; violations?: readonly Violation[] | undefined; cause?: string | undefined }>;
 
+export type LegendeEnregistree = Readonly<{ serieId: string; reseau: string; legende: string; hashtags: readonly string[]; majLe: Date }>;
+
 export type ResultatVersion = Readonly<{ etat: 'ok'; montage: Montage }> | Readonly<{ etat: 'introuvable' }> | Readonly<{ etat: 'perimee'; derniere: number }>;
 
 export interface Montages {
@@ -95,6 +97,11 @@ export interface Montages {
   listerRendus(marqueId: string, utilisateurId: string, montageId: string): Promise<Rendu[]>;
   demarrerRendu(marqueId: string, utilisateurId: string, id: string): Promise<void>;
   terminerRendu(marqueId: string, utilisateurId: string, id: string, fin: FinRendu): Promise<void>;
+
+  /** La légende enregistrée d'une vidéo (sa série) pour un réseau ; `undefined` si aucune. */
+  lireLegende(marqueId: string, utilisateurId: string, serieId: string, reseau: string): Promise<LegendeEnregistree | undefined>;
+  /** Enregistre (remplace) la légende d'une vidéo pour un réseau. `undefined` si la série n'existe pas pour cette personne. */
+  enregistrerLegende(n: { marqueId: string; utilisateurId: string; serieId: string; reseau: string; legende: string; hashtags: readonly string[] }): Promise<LegendeEnregistree | undefined>;
 }
 
 type LigneFichier = { id: string; espace_id: string; genre: GenreFichier; mime: MimeFichier; octets: string | number; sha256: string; duree_ms: number | null; montage_id: string | null; scene_id: string | null; cree_le: Date; purge_le: Date | null };
@@ -115,6 +122,9 @@ const COL_RENDU = 'id, espace_id, montage_id, genre, etat, tache_id, fichier_id,
 const versRendu = (l: LigneRendu): Rendu => ({
   id: l.id, espaceId: l.espace_id, montageId: l.montage_id, genre: l.genre, etat: l.etat, tacheId: l.tache_id, fichierId: l.fichier_id, violations: l.violations, cause: l.cause, creeLe: l.cree_le, termineLe: l.termine_le,
 });
+
+type LigneLegende = { serie_id: string; reseau: string; legende: string; hashtags: string[]; maj_le: Date };
+const versLegende = (l: LigneLegende): LegendeEnregistree => ({ serieId: l.serie_id, reseau: l.reseau, legende: l.legende, hashtags: l.hashtags, majLe: l.maj_le });
 
 const estDoublon = (e: unknown): boolean => typeof e === 'object' && e !== null && (e as { code?: string }).code === '23505';
 
@@ -283,6 +293,28 @@ export class MontagesPg implements Montages {
         `UPDATE rendus SET etat = $2, fichier_id = $3, violations = $4::jsonb, cause = $5, termine_le = now() WHERE id = $1`,
         [id, fin.etat, fin.fichierId ?? null, JSON.stringify(fin.violations ?? []), fin.cause ?? null],
       );
+    });
+  }
+
+  async lireLegende(marqueId: string, utilisateurId: string, serieId: string, reseau: string): Promise<LegendeEnregistree | undefined> {
+    return dansTransactionUtilisateur(this.#pool, marqueId, utilisateurId, async (client) => {
+      const { rows } = await client.query<LigneLegende>('SELECT serie_id, reseau, legende, hashtags, maj_le FROM legendes WHERE serie_id = $1 AND reseau = $2', [serieId, reseau]);
+      return rows[0] === undefined ? undefined : versLegende(rows[0]);
+    });
+  }
+
+  async enregistrerLegende(n: { marqueId: string; utilisateurId: string; serieId: string; reseau: string; legende: string; hashtags: readonly string[] }): Promise<LegendeEnregistree | undefined> {
+    return dansTransactionUtilisateur(this.#pool, n.marqueId, n.utilisateurId, async (client) => {
+      // L'espace vient de la série elle-même : la RLS des montages cache celles qui ne sont pas visibles.
+      const serie = await client.query<{ espace_id: string }>('SELECT espace_id FROM montages WHERE serie_id = $1 LIMIT 1', [n.serieId]);
+      if (serie.rows[0] === undefined) return undefined;
+      const { rows } = await client.query<LigneLegende>(
+        `INSERT INTO legendes (marque_id, espace_id, serie_id, reseau, legende, hashtags) VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+         ON CONFLICT (marque_id, serie_id, reseau) DO UPDATE SET legende = EXCLUDED.legende, hashtags = EXCLUDED.hashtags, maj_le = now()
+         RETURNING serie_id, reseau, legende, hashtags, maj_le`,
+        [n.marqueId, serie.rows[0].espace_id, n.serieId, n.reseau, n.legende, JSON.stringify(n.hashtags)],
+      );
+      return versLegende(rows[0]!);
     });
   }
 }

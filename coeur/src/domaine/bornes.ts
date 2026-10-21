@@ -4,6 +4,13 @@
 import { z } from 'zod';
 import fichier from '../../../deploiement/bornes.json' with { type: 'json' };
 
+/** Les réseaux pour lesquels on prépare une légende (histoire 3.7) ; leurs bornes vivent dans bornes.json. */
+export const RESEAUX = ['instagram', 'facebook', 'tiktok'] as const;
+export type Reseau = (typeof RESEAUX)[number];
+
+const bornesLegende = z.object({ hashtagsMax: z.number().int().positive(), legendeMaxCaracteres: z.number().int().positive() }).strict();
+export type BornesLegende = Readonly<z.infer<typeof bornesLegende>>;
+
 const rectangle = z.object({ x: z.number(), y: z.number(), largeur: z.number().positive(), hauteur: z.number().positive() }).strict();
 
 export const schemaBornes = z
@@ -17,7 +24,9 @@ export const schemaBornes = z
     texteMinPx: z.number().positive(),
     hauteurReferencePx: z.number().positive(),
     zoneSure: rectangle,
-    defauts: z.object({ hashtagsMax: z.number().int().positive(), legendeMaxCaracteres: z.number().int().positive() }).strict(),
+    defauts: bornesLegende,
+    /** Bornes de la légende et des hashtags, réseau par réseau (histoire 3.7). */
+    reseaux: z.object({ instagram: bornesLegende, facebook: bornesLegende, tiktok: bornesLegende }).strict(),
   })
   .strict();
 

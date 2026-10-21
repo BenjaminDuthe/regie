@@ -2735,6 +2735,92 @@ Corps de la demande (schéma JSON) :
 }
 ```
 
+## `montage.legende`
+
+Donne la légende et les hashtags d’une vidéo pour un réseau (`instagram`, `facebook` ou `tiktok`), avec les bornes du réseau (longueur de la légende, nombre de hashtags). La légende appartient à la vidéo, pas à une version. Tant que rien n’est enregistré (`enregistree` faux), une légende est proposée à partir de l’accroche de la première scène. Rien n’est écrit.
+
+- API : `POST /api/v1/montage/legende` · outil MCP : `montage_legende`
+- Portée requise : `lecture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "reseau": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "facebook",
+        "tiktok"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "reseau"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `montage.legender`
+
+Enregistre la légende et les hashtags d’une vidéo pour un réseau (`instagram`, `facebook` ou `tiktok`) ; remplace l’enregistrement précédent. Les bornes du réseau (deploiement/bornes.json) sont appliquées sans troncature : une légende trop longue (LEGENDE_TROP_LONGUE), trop de hashtags (TROP_DE_HASHTAGS) ou un hashtag invalide (HASHTAG_INVALIDE) est refusé en nommant la borne. Les hashtags s’écrivent avec ou sans « # » ; ils sont mis en minuscules et dédoublonnés. Ne crée pas de version du montage.
+
+- API : `POST /api/v1/montage/legender` · outil MCP : `montage_legender`
+- Portée requise : `ecriture`
+
+Corps de la demande (schéma JSON) :
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "reseau": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "facebook",
+        "tiktok"
+      ]
+    },
+    "legende": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "hashtags": {
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 200
+      }
+    }
+  },
+  "required": [
+    "id",
+    "reseau",
+    "legende",
+    "hashtags"
+  ],
+  "additionalProperties": false
+}
+```
+
 ## `rendu.lire`
 
 Lit un rendu : son état, la progression de sa tâche, la cause d’un échec, et, pour un rendu bloqué, chaque violation des gardes (scène, élément, mesure, seuil).

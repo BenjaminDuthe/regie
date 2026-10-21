@@ -2,12 +2,13 @@
 // montage ne change plus, une nouvelle version est une nouvelle ligne, `perimee` si le parent n'est plus la dernière.
 import type { Timeline } from '@regie/contrats';
 import type { GabaritFige } from '../src/domaine/montage.ts';
-import type { Fichier, FinRendu, GenreRendu, Montage, Montages, NouveauFichier, Rendu, ResultatVersion } from '../src/infra/montages.ts';
+import type { Fichier, FinRendu, LegendeEnregistree, GenreRendu, Montage, Montages, NouveauFichier, Rendu, ResultatVersion } from '../src/infra/montages.ts';
 
 export class MontagesMemoire implements Montages {
   readonly montages: Montage[] = [];
   readonly fichiers: Fichier[] = [];
   readonly rendus: Rendu[] = [];
+  readonly legendes: LegendeEnregistree[] = [];
   /** Espaces que la personne voit : `undefined` = tous (la RLS est testée avec PostgreSQL). */
   espacesVisibles: readonly string[] | undefined;
   maintenant = (): number => Date.now();
@@ -111,5 +112,21 @@ export class MontagesMemoire implements Montages {
 
   async terminerRendu(_m: string, _u: string, id: string, fin: FinRendu): Promise<void> {
     this.#maj(id, (r) => ({ ...r, etat: fin.etat, fichierId: fin.fichierId ?? null, violations: fin.violations ?? [], cause: fin.cause ?? null, termineLe: new Date(this.maintenant()) }));
+  }
+
+  async lireLegende(_m: string, _u: string, serieId: string, reseau: string): Promise<LegendeEnregistree | undefined> {
+    const serie = this.montages.find((m) => m.serieId === serieId);
+    if (serie === undefined || !this.#visible(serie.espaceId)) return undefined;
+    return this.legendes.find((l) => l.serieId === serieId && l.reseau === reseau);
+  }
+
+  async enregistrerLegende(n: { marqueId: string; utilisateurId: string; serieId: string; reseau: string; legende: string; hashtags: readonly string[] }): Promise<LegendeEnregistree | undefined> {
+    const serie = this.montages.find((m) => m.serieId === n.serieId);
+    if (serie === undefined || !this.#visible(serie.espaceId)) return undefined;
+    const l: LegendeEnregistree = { serieId: n.serieId, reseau: n.reseau, legende: n.legende, hashtags: [...n.hashtags], majLe: new Date(this.maintenant()) };
+    const i = this.legendes.findIndex((x) => x.serieId === n.serieId && x.reseau === n.reseau);
+    if (i < 0) this.legendes.push(l);
+    else this.legendes[i] = l;
+    return l;
   }
 }

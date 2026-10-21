@@ -816,6 +816,44 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
     }
   });
 
+  it('légendes : une par vidéo et par réseau, remplacée sur place, cloisonnée par marque et par personne, RLS forcée (histoire 3.7)', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const espaces = new EspacesPg(contexte.pool);
+      const montages = new MontagesPg(contexte.pool);
+      const marqueA = await marques.creer(`Légendes A ${suffixe}`);
+      const marqueB = await marques.creer(`Légendes B ${suffixe}`);
+      const a = await espaces.assurer(marqueA, 'sub-la', undefined, 'Établia');
+      const a2 = await espaces.assurer(marqueA, 'sub-la2', undefined, 'Autre');
+      const b = await espaces.assurer(marqueB, 'sub-lb', undefined, 'Autre');
+      const timeline = depuisJournal([{ t: 0, genre: 'film_debut' }, { t: 100, genre: 'narration', cible: 'Bonjour.' }, { t: 3000, genre: 'film_fin' }], { filmDureeMs: 3000 });
+      const gabarit = figerGabarit({ id: randomUUID(), nom: 'Départ', version: 1, definition: GABARIT_DE_DEPART });
+      const film = { id: randomUUID(), genre: 'film' as const, mime: 'video/webm' as const, octets: 12, sha256: 'a'.repeat(64) };
+      const m = (await montages.creerDepuisFilm({ marqueId: marqueA, utilisateurId: a.utilisateurId, espaceId: a.espaces[0]!.id, scriptId: null, montageId: randomUUID(), film, timeline, gabarit }))!;
+
+      expect(await montages.lireLegende(marqueA, a.utilisateurId, m.serieId, 'instagram')).toBeUndefined();
+      await montages.enregistrerLegende({ marqueId: marqueA, utilisateurId: a.utilisateurId, serieId: m.serieId, reseau: 'instagram', legende: 'Première', hashtags: ['a'] });
+      const remplacee = await montages.enregistrerLegende({ marqueId: marqueA, utilisateurId: a.utilisateurId, serieId: m.serieId, reseau: 'instagram', legende: 'Seconde', hashtags: ['b', 'c'] });
+      expect(remplacee).toMatchObject({ legende: 'Seconde', hashtags: ['b', 'c'] });
+      expect(await montages.lireLegende(marqueA, a.utilisateurId, m.serieId, 'instagram')).toMatchObject({ legende: 'Seconde' });
+
+      // Cloisonnement : autre personne de la marque, autre marque ; rien n'est écrit pour eux.
+      expect(await montages.lireLegende(marqueA, a2.utilisateurId, m.serieId, 'instagram')).toBeUndefined();
+      expect(await montages.lireLegende(marqueB, b.utilisateurId, m.serieId, 'instagram')).toBeUndefined();
+      expect(await montages.enregistrerLegende({ marqueId: marqueA, utilisateurId: a2.utilisateurId, serieId: m.serieId, reseau: 'instagram', legende: 'Volée', hashtags: [] })).toBeUndefined();
+      expect(await montages.enregistrerLegende({ marqueId: marqueB, utilisateurId: b.utilisateurId, serieId: m.serieId, reseau: 'instagram', legende: 'Volée', hashtags: [] })).toBeUndefined();
+      expect(await montages.lireLegende(marqueA, a.utilisateurId, m.serieId, 'instagram')).toMatchObject({ legende: 'Seconde' });
+
+      // RLS forcée : sans marque, rien ; jamais de DELETE ; réseau hors liste refusé par la base.
+      expect((await contexte.pool.query('SELECT count(*)::int AS n FROM legendes')).rows[0].n).toBe(0);
+      await expect(contexte.pool.query('DELETE FROM legendes')).rejects.toThrow(/permission denied/);
+      await expect(montages.enregistrerLegende({ marqueId: marqueA, utilisateurId: a.utilisateurId, serieId: m.serieId, reseau: 'snapchat', legende: 'x', hashtags: [] })).rejects.toThrow(/check/i);
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
   it('compte de démo : remplacé sans changer d’id, chiffré, jamais lisible d’une autre marque (histoire 4.3)', async () => {
     const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
     try {

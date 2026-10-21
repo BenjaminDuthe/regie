@@ -1,10 +1,15 @@
 {
-  "$commentaire": "Bornes et seuils des gardes (FR-28, AR-18, NFR-27) : fichier versionné, lu par coeur/src/domaine/bornes.ts et testé. Aucune garde ne se force : changer un seuil, c'est changer ce fichier en revue de code. Zone sûre de référence : 880×1220 en (0, 220) sur 1080×1920 (à confirmer avec le gabarit d'Établia).",
+  "$commentaire": "Bornes et seuils des gardes (FR-28, AR-18, NFR-27) : fichier versionné, lu par coeur/src/domaine/bornes.ts et testé. Aucune garde ne se force : changer un seuil, c'est changer ce fichier en revue de code. Bornes de légende et de hashtags par réseau (histoire 3.7, FR-38) à confirmer contre les règles en vigueur de chaque réseau. Zone sûre de référence : 880×1220 en (0, 220) sur 1080×1920 (à confirmer avec le gabarit d'Établia).",
   "version": 1,
   "toile": { "largeur": 1080, "hauteur": 1920 },
   "contrasteMin": 4.5,
   "texteMinPx": 48,
   "hauteurReferencePx": 1920,
   "zoneSure": { "x": 0, "y": 220, "largeur": 880, "hauteur": 1220 },
-  "defauts": { "hashtagsMax": 5, "legendeMaxCaracteres": 2200 }
+  "defauts": { "hashtagsMax": 5, "legendeMaxCaracteres": 2200 },
+  "reseaux": {
+    "instagram": { "hashtagsMax": 5, "legendeMaxCaracteres": 2200 },
+    "facebook": { "hashtagsMax": 5, "legendeMaxCaracteres": 2200 },
+    "tiktok": { "hashtagsMax": 5, "legendeMaxCaracteres": 2200 }
+  }
 }

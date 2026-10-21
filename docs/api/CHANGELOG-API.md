@@ -100,3 +100,8 @@ registre y figure (`coeur/test/api.test.ts`).
 - Ajout de `montage.couvertures` (lecture) : les trois couvertures (titre, texte à l’écran, bandeau) d’une version, dessinées en SVG au style du gabarit figé, avec la variante choisie.
 - Ajout de `montage.couvrir` (écriture) : choisit une variante ; crée une nouvelle version immuable (origine « edition »), sans rendu. Refus `SEANCE_PURGEE` si les rushes sont purgés.
 - `montage.editer` accepte l’opération `couverture` (`{ op, variante }`).
+
+## 2026-10-21 — histoire 3.7
+
+- Ajout de `montage.legende` (lecture) : la légende et les hashtags d’une vidéo pour un réseau (`instagram`, `facebook`, `tiktok`), avec les bornes du réseau ; une légende est proposée tant que rien n’est enregistré.
+- Ajout de `montage.legender` (écriture) : enregistre la légende et les hashtags d’un réseau ; refus `LEGENDE_TROP_LONGUE`, `TROP_DE_HASHTAGS` ou `HASHTAG_INVALIDE` (422) qui nomme la borne dépassée.
