@@ -34,7 +34,7 @@ Visiteur → Cloudflare → tunnel `cloudflared` du CT 101 → `https://localhos
 | `nginx -t`, puis rechargement | réussis |
 | `/sante` | 503, page d'attente, en 1 s |
 | `CF-Connecting-IP: 203.0.113.9` par localhost | journalisé avec `203.0.113.9` |
-| `/auth/retour?code=…&state=…` | journal : `/auth/retour`, le code n'apparaît dans aucun journal |
+| `/auth/retour?code=…&state=…` (avant le correctif du 2026-10-21) | journal : `/auth/retour`, le code n'apparaît dans aucun journal |
 | Accès direct à `192.168.20.17:443` depuis le réseau local | 403 |
 | Écouteur temporaire sur le port 4321 du CT 140 | 200 en moins d'une milliseconde : le pare-feu laisse passer nginx → cœur |
 
