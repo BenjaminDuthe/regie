@@ -65,4 +65,28 @@ describe('env.ts', () => {
     expect(resultat.status).toBe(0);
     expect(resultat.stderr).toBe('');
   });
+
+  describe('connexion Authentik (histoire 1.14)', () => {
+    const oidc = { REGIE_URL_PUBLIQUE: 'https://regie.exemple.test', REGIE_OIDC_EMETTEUR: 'https://auth.exemple.test/application/o/regie/', REGIE_OIDC_CLIENT_ID: 'regie' };
+
+    it('est facultative : sans variable, rien n’est posé', () => {
+      expect(lireEnvironnement({}).REGIE_OIDC_EMETTEUR).toBeUndefined();
+    });
+    it('accepte la configuration complète et l’utilisateur autorisé', () => {
+      const env = lireEnvironnement({ ...oidc, REGIE_ADMIN_SUB: 'abc', REGIE_ADMIN_EMAIL: 'benjamin@exemple.test' });
+      expect(env.REGIE_OIDC_CLIENT_ID).toBe('regie');
+      expect(env.REGIE_ADMIN_SUB).toBe('abc');
+    });
+    it('exige les trois variables ensemble', () => {
+      expect(() => lireEnvironnement({ REGIE_OIDC_CLIENT_ID: 'regie' })).toThrow(/REGIE_URL_PUBLIQUE/);
+    });
+    it('refuse http hors de la machine locale, accepte http en local', () => {
+      expect(() => lireEnvironnement({ ...oidc, REGIE_OIDC_EMETTEUR: 'http://auth.exemple.test/' })).toThrow(/REGIE_OIDC_EMETTEUR/);
+      expect(() => lireEnvironnement({ ...oidc, REGIE_URL_PUBLIQUE: 'http://regie.exemple.test' })).toThrow(/REGIE_URL_PUBLIQUE/);
+      expect(lireEnvironnement({ ...oidc, REGIE_URL_PUBLIQUE: 'http://127.0.0.1:4321' }).REGIE_URL_PUBLIQUE).toBe('http://127.0.0.1:4321');
+    });
+    it('refuse un e-mail administrateur invalide', () => {
+      expect(() => lireEnvironnement({ REGIE_ADMIN_EMAIL: 'pas-un-email' })).toThrow(/REGIE_ADMIN_EMAIL/);
+    });
+  });
 });

@@ -1,0 +1,17 @@
+// regie — middleware d'Astro : la garde de session (histoire 1.14). La logique est dans garde.ts.
+
+import { defineMiddleware } from 'astro:middleware';
+import { decider } from './garde.ts';
+
+export const onRequest = defineMiddleware(async (contexte, suite) => {
+  const decision = await decider(
+    { chemin: contexte.url.pathname, recherche: contexte.url.search, cookie: contexte.request.headers.get('cookie') },
+    contexte.locals.regie?.sessions,
+  );
+  if (decision.redirection !== undefined) return contexte.redirect(decision.redirection, 302);
+  contexte.locals.session = decision.session;
+  const reponse = await suite();
+  // Une page vue par une personne connectée ne se garde ni en cache partagé ni dans l'historique des proxys.
+  if (decision.session !== undefined && !reponse.headers.has('cache-control')) reponse.headers.set('cache-control', 'private, no-store');
+  return reponse;
+});

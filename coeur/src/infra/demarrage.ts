@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import type { Pool } from 'pg';
 import type { Environnement } from '../env.ts';
 import { causeConnexion, creerPool, verifierOuCreerTemoin } from './base.ts';
-import { Coffre, ErreurCoffre, lireCleMaitresse } from './coffre.ts';
+import { Coffre, ErreurCoffre, deriverSousCle, lireCleMaitresse } from './coffre.ts';
 import { masqueurProcessus, type Masqueur } from './masquage.ts';
 import { ErreurMigration, appliquerMigrations, lireMigrations, verifierSchema } from './migrations.ts';
 
@@ -31,6 +31,8 @@ export const FICHIERS_SECRETS = Object.freeze({
   cleMaitresse: 'regie_cle_maitresse',
   baseCoeur: 'regie_base_coeur',
   baseMigrations: 'regie_base_migrations',
+  // Seulement quand la connexion Authentik est configurée (REGIE_OIDC_CLIENT_ID).
+  oidcClient: 'regie_oidc_client',
 });
 
 function lireMotDePasse(chemin: string): string {
@@ -49,7 +51,15 @@ function lireMotDePasse(chemin: string): string {
   return motDePasse;
 }
 
-export type Contexte = Readonly<{ pool: Pool; coffre: Coffre; fermer: () => Promise<void> }>;
+export type Contexte = Readonly<{
+  pool: Pool;
+  coffre: Coffre;
+  /** Sous-clé « hmac-adresses » : signature des adresses /v/*. */
+  cleAdresses: Buffer;
+  /** Secret du client OIDC d'Authentik ; absent quand la connexion n'est pas configurée. */
+  secretOidc: string | undefined;
+  fermer: () => Promise<void>;
+}>;
 
 export async function demarrerBase(
   env: Environnement,
@@ -60,8 +70,10 @@ export async function demarrerBase(
 
   // 1. Clé et coffre.
   let coffre: Coffre;
+  let cleAdresses: Buffer;
   try {
     const cle = lireCleMaitresse(dossier(FICHIERS_SECRETS.cleMaitresse));
+    cleAdresses = deriverSousCle(cle, 'hmac-adresses');
     masqueur.ajouter(cle.toString('hex'));
     coffre = new Coffre(cle);
   } catch (erreur) {
@@ -72,6 +84,8 @@ export async function demarrerBase(
   const motDePasseMigrations = lireMotDePasse(dossier(FICHIERS_SECRETS.baseMigrations));
   masqueur.ajouter(motDePasseCoeur);
   masqueur.ajouter(motDePasseMigrations);
+  const secretOidc = env.REGIE_OIDC_CLIENT_ID !== undefined ? lireMotDePasse(dossier(FICHIERS_SECRETS.oidcClient)) : undefined;
+  if (secretOidc !== undefined) masqueur.ajouter(secretOidc);
 
   // 2. Base et migrations, sous le rôle regie_migrations, fermé aussitôt après : aucun code applicatif n'y tourne.
   const base = { hote: env.BASE_HOTE, port: env.BASE_PORT, base: env.BASE_NOM };
@@ -106,5 +120,5 @@ export async function demarrerBase(
     if (erreur instanceof ErreurCoffre) throw new ErreurDemarrage('coffre', erreur.message);
     throw new ErreurDemarrage('base', `base inutilisable par ${env.BASE_UTILISATEUR} : ${causeConnexion(erreur)}`);
   }
-  return { pool, coffre, fermer: () => pool.end() };
+  return { pool, coffre, cleAdresses, secretOidc, fermer: () => pool.end() };
 }

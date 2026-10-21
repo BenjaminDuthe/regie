@@ -14,6 +14,9 @@ import { Coffre } from '../src/infra/coffre.ts';
 import { DOSSIER_MIGRATIONS, ErreurDemarrage, FICHIERS_SECRETS, demarrerBase } from '../src/infra/demarrage.ts';
 import { Masqueur } from '../src/infra/masquage.ts';
 import { calculerSante } from '../src/infra/sante.ts';
+import { AuditPg, verifierChaine } from '../src/infra/audit.ts';
+import { MarquesPg } from '../src/infra/marques.ts';
+import { MagasinSessionsPg } from '../src/infra/sessions.ts';
 
 declare module 'vitest' {
   interface ProvidedContext {
@@ -86,6 +89,91 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
     const fichiers = readdirSync(DOSSIER_MIGRATIONS).filter((nom) => nom.endsWith('.sql'));
     expect(rows.map((ligne) => ligne.nom)).toEqual(fichiers);
     expect(rows[0]?.sha256).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('sessions : seul le haché est stocké, la RLS isole les marques, révocation et expiration tiennent', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const sessions = new MagasinSessionsPg(contexte.pool);
+      const marqueA = await marques.creer(`Sessions A ${suffixe}`);
+      const marqueB = await marques.creer(`Sessions B ${suffixe}`);
+      const valeur = await sessions.creer({ marqueId: marqueA, sub: 'sub-a', email: 'a@exemple.test', authentifieLe: new Date() });
+      const identifiant = valeur.split('.')[1]!;
+
+      const verif = new Client({ host: hote, port, database: baseNom, user: 'postgres', password: new URL(adresse).password });
+      await verif.connect();
+      try {
+        const brut = await verif.query<{ hache_jeton: Buffer }>('SELECT hache_jeton FROM sessions WHERE marque_id = $1', [marqueA]);
+        expect(brut.rows).toHaveLength(1);
+        expect(brut.rows[0]!.hache_jeton).toHaveLength(32);
+        expect(brut.rows[0]!.hache_jeton.toString('latin1')).not.toContain(identifiant);
+
+        expect(await sessions.trouver(valeur)).toMatchObject({ marqueId: marqueA, sub: 'sub-a' });
+        // Le cookie d'une marque ne vaut rien sous une autre : l'identifiant ne se retrouve que sous sa RLS.
+        expect(await sessions.trouver(`${marqueB}.${identifiant}`)).toBeUndefined();
+        expect((await contexte.pool.query('SELECT 1 FROM sessions')).rowCount).toBe(0);
+
+        await verif.query("UPDATE sessions SET expire_le = now() - interval '1 minute' WHERE marque_id = $1", [marqueA]);
+        expect(await sessions.trouver(valeur)).toBeUndefined();
+        await verif.query("UPDATE sessions SET expire_le = now() + interval '1 day' WHERE marque_id = $1", [marqueA]);
+        expect(await sessions.trouver(valeur)).toBeDefined();
+        expect(await sessions.revoquer(valeur)).toBe(true);
+        expect(await sessions.trouver(valeur)).toBeUndefined();
+        expect(await sessions.revoquer(valeur)).toBe(false);
+      } finally {
+        await verif.end();
+      }
+    } finally {
+      await contexte.fermer();
+    }
+  });
+
+  it('audit : chaîne linéaire par marque, ajout seul, RLS, refus des secrets', async () => {
+    const contexte = await demarrerBase(environnement(), { masqueur: new Masqueur() });
+    try {
+      const marques = new MarquesPg(contexte.pool);
+      const audit = new AuditPg(contexte.pool);
+      const marqueA = await marques.creer(`Audit A ${suffixe}`);
+      const marqueB = await marques.creer(`Audit B ${suffixe}`);
+      // Écritures concurrentes : le verrou par marque garde la chaîne linéaire.
+      await Promise.all(
+        Array.from({ length: 6 }, (_, i) => audit.ajouter(marqueA, { acteur: 'sub-a', action: i % 2 === 0 ? 'connexion' : 'deconnexion', objet: 'session', details: { rang: i } })),
+      );
+      await audit.ajouter(marqueB, { acteur: 'sub-b', action: 'connexion', objet: 'session' });
+
+      const lignesA = await audit.lire(marqueA);
+      expect(lignesA).toHaveLength(6);
+      expect(verifierChaine(lignesA)).toBeUndefined();
+      expect(await audit.lire(marqueB)).toHaveLength(1);
+      // Sans marque, rien n'est visible.
+      expect((await contexte.pool.query('SELECT 1 FROM journal_audit')).rowCount).toBe(0);
+
+      // Ajout seul : ni modification, ni suppression, ni vidage, même pour un superutilisateur qui passe la RLS.
+      const proprio = new Client({ host: hote, port, database: baseNom, user: 'postgres', password: new URL(adresse).password });
+      await proprio.connect();
+      try {
+        await expect(proprio.query("UPDATE journal_audit SET acteur = 'x'")).rejects.toThrow(/ajout seul/);
+        await expect(proprio.query('DELETE FROM journal_audit')).rejects.toThrow(/ajout seul/);
+        await expect(proprio.query('TRUNCATE journal_audit')).rejects.toThrow(/ajout seul/);
+      } finally {
+        await proprio.end();
+      }
+      await expect(dansTransactionMarque(contexte.pool, marqueA, (client) => client.query("UPDATE journal_audit SET acteur = 'x'"))).rejects.toThrow();
+      // Écrire pour une autre marque est refusé par la RLS.
+      await expect(
+        dansTransactionMarque(contexte.pool, marqueA, (client) =>
+          client.query(
+            "INSERT INTO journal_audit (marque_id, horodatage, acteur, action, objet, hache_precedent, hache) VALUES ($1, now(), 'x', 'connexion', 'session', $2, $2)",
+            [marqueB, 'a'.repeat(64)],
+          ),
+        ),
+      ).rejects.toThrow(/row-level security/);
+      // Un secret n'entre jamais dans le journal.
+      await expect(audit.ajouter(marqueA, { acteur: 'sub-a', action: 'connexion', objet: 'session', details: { token: 'x' } })).rejects.toThrow();
+    } finally {
+      await contexte.fermer();
+    }
   });
 
   it('chiffre le secret en base, le relit, et isole les marques par la RLS', async () => {

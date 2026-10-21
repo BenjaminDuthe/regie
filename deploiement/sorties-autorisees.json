@@ -14,5 +14,5 @@
     }
   ],
   "espacesDeNoms": ["www.w3.org"],
-  "fichiersReseau": []
+  "fichiersReseau": ["coeur/src/infra/oidc.ts"]
 }

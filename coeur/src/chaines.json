@@ -8,6 +8,139 @@
   "pied": {
     "lienSource": "Code source de regie",
     "version": "version {version}",
-    "versionDeveloppement": "de développement"
+    "versionDeveloppement": "de développement",
+    "confidentialite": "Confidentialité",
+    "conditions": "Conditions"
+  },
+  "entete": {
+    "deconnexion": "Se déconnecter"
+  },
+  "connexion": {
+    "titre": "Connexion",
+    "reconnecter": "Se reconnecter avec Authentik",
+    "messages": {
+      "deconnecte": {
+        "titre": "Tu es déconnecté",
+        "texte": "Ta session est fermée. Tu peux te reconnecter quand tu veux."
+      },
+      "non_configuree": {
+        "titre": "Connexion pas encore réglée",
+        "texte": "regie ne sait pas encore joindre Authentik : l’adresse, l’identifiant ou le secret de l’application manquent côté serveur."
+      },
+      "fournisseur": {
+        "titre": "Authentik ne répond pas",
+        "texte": "La connexion n’a pas pu se faire parce qu’Authentik est injoignable ou a refusé l’échange. Réessaie dans un instant."
+      },
+      "flux": {
+        "titre": "Connexion interrompue",
+        "texte": "La demande de connexion a expiré ou ne vient pas de cette page. Recommence depuis le début."
+      },
+      "refuse": {
+        "titre": "Connexion refusée par Authentik",
+        "texte": "Authentik n’a pas validé la connexion. Recommence, ou vérifie ton compte dans Authentik."
+      },
+      "jeton": {
+        "titre": "Réponse d’Authentik refusée",
+        "texte": "La preuve d’identité reçue d’Authentik n’a pas passé les vérifications (signature, destinataire, date). Rien n’a été ouvert."
+      },
+      "auth_ancienne": {
+        "titre": "Reconnexion nécessaire",
+        "texte": "Pour cette action, Authentik doit te redemander ton mot de passe, et il ne l’a pas fait. Recommence."
+      },
+      "non_autorise": {
+        "titre": "Ce compte n’a pas accès",
+        "texte": "Ce compte Authentik n’est pas celui qui est autorisé à utiliser cette installation de regie."
+      },
+      "marque": {
+        "titre": "Installation à vérifier",
+        "texte": "Cette version de regie gère une seule marque et en trouve plusieurs. Demande à l’administrateur de corriger la base."
+      },
+      "inconnu": {
+        "titre": "Connexion impossible",
+        "texte": "Quelque chose s’est mal passé pendant la connexion. Recommence."
+      }
+    }
+  },
+  "confidentialite": {
+    "titre": "Politique de confidentialité",
+    "intro": "regie est un outil personnel, installé sur un serveur que son propriétaire contrôle. Cette page dit quelles données il traite, pourquoi, et comment les faire effacer. Elle est aussi l’adresse que Meta demande pour la publication sur Instagram.",
+    "sections": [
+      {
+        "titre": "Qui est responsable",
+        "texte": "Le responsable du traitement est le propriétaire de cette installation de regie : ⟨À CONFIRMER⟩ nom ou raison sociale, adresse postale. Contact pour toute question sur tes données : ⟨À CONFIRMER⟩ adresse e-mail de contact."
+      },
+      {
+        "titre": "Ce que regie garde",
+        "texte": "Les vidéos et photos que tu déposes (tes rushes), les brouillons qu’il en tire, les textes et titres que tu écris, les réglages de ta marque, et les jetons qui l’autorisent à publier sur tes comptes. Les jetons sont chiffrés sur le serveur ; personne ne peut les relire en clair depuis l’interface."
+      },
+      {
+        "titre": "Ta connexion",
+        "texte": "Tu te connectes par Authentik. regie garde ton identifiant Authentik et ton adresse e-mail le temps de ta session, et un cookie de session (sans pistage, sans publicité) qui expire au bout de 7 jours ou à la déconnexion. Chaque connexion, échec de connexion et déconnexion est inscrit dans un journal d’audit, sans mot de passe ni jeton."
+      },
+      {
+        "titre": "Ce qui sort du serveur",
+        "texte": "Rien ne part vers un service de mesure, de publicité ou d’analyse. Une vidéo n’est envoyée qu’au réseau social que tu as choisi, au moment où tu la publies, avec le texte que tu as validé. Pour Instagram, c’est Meta qui reçoit la vidéo, selon sa propre politique de confidentialité."
+      },
+      {
+        "titre": "Ce que regie ne garde pas",
+        "texte": "Les journaux techniques du serveur contiennent la méthode et l’adresse de la page demandée, mais ni adresse IP ni nom de machine. Aucune donnée n’est vendue ni partagée."
+      },
+      {
+        "titre": "Combien de temps",
+        "texte": "Les vidéos et brouillons restent jusqu’à ce que tu les supprimes. Le journal d’audit est conservé ⟨À CONFIRMER⟩ durée de conservation. Les sauvegardes chiffrées sont gardées ⟨À CONFIRMER⟩ durée des sauvegardes."
+      },
+      {
+        "titre": "Effacer tes données",
+        "texte": "Tu peux tout supprimer depuis regie (vidéos, comptes connectés), et retirer l’accès de regie à ton compte Instagram depuis les réglages de ton compte Meta. Pour demander l’effacement complet de tes données, y compris celles reçues de Meta, écris à ⟨À CONFIRMER⟩ adresse e-mail de contact : la demande est traitée sous 30 jours."
+      },
+      {
+        "titre": "Tes droits",
+        "texte": "Tu peux demander l’accès à tes données, leur correction, leur effacement, leur export ou t’opposer à leur traitement, en écrivant à l’adresse de contact ci-dessus. Tu peux aussi saisir la CNIL (⟨À CONFIRMER⟩ confirmer l’autorité de contrôle compétente)."
+      },
+      {
+        "titre": "Hébergement",
+        "texte": "regie tourne sur un serveur situé ⟨À CONFIRMER⟩ lieu et hébergeur. Le code source est public : le lien est en bas de chaque page."
+      }
+    ],
+    "miseAJour": "Dernière mise à jour : 21 octobre 2026."
+  },
+  "conditions": {
+    "titre": "Conditions d’utilisation",
+    "intro": "regie est un outil personnel de préparation et de publication de vidéos verticales. Ces conditions disent ce que tu peux attendre de lui et ce que tu t’engages à faire. Elles sont aussi l’adresse que Meta demande pour la publication sur Instagram.",
+    "sections": [
+      {
+        "titre": "À qui s’adresse cette installation",
+        "texte": "Cette installation de regie est réservée à son propriétaire et aux personnes qu’il autorise. L’accès se fait par un compte Authentik. Exploitant : ⟨À CONFIRMER⟩ nom ou raison sociale."
+      },
+      {
+        "titre": "Ce que tu publies reste ta responsabilité",
+        "texte": "Tu gardes tous les droits sur tes vidéos, photos, textes et musiques. Tu t’engages à n’utiliser que des contenus dont tu as le droit de te servir, et à respecter les règles de chaque réseau (Instagram, TikTok, YouTube). regie prépare et envoie ; c’est toi qui valides chaque publication."
+      },
+      {
+        "titre": "Comptes de réseaux sociaux",
+        "texte": "En connectant un compte, tu autorises regie à y publier en ton nom, seulement ce que tu as validé. Tu peux retirer cette autorisation à tout moment, dans regie ou dans les réglages du réseau."
+      },
+      {
+        "titre": "Disponibilité",
+        "texte": "regie est fourni tel quel, sans garantie de disponibilité continue ni de résultat. Une publication peut échouer si un réseau change ses règles ou tombe en panne ; regie t’indique alors ce qui n’est pas parti."
+      },
+      {
+        "titre": "Responsabilité",
+        "texte": "Dans la mesure permise par la loi, l’exploitant n’est pas responsable des pertes indirectes liées à l’usage de regie. ⟨À CONFIRMER⟩ limites de responsabilité à valider."
+      },
+      {
+        "titre": "Code source et licence",
+        "texte": "Le code de regie est libre (licence AGPL-3.0). Le lien vers la version exacte en service est en bas de chaque page."
+      },
+      {
+        "titre": "Droit applicable",
+        "texte": "Ces conditions sont régies par le droit français. ⟨À CONFIRMER⟩ tribunal compétent."
+      },
+      {
+        "titre": "Changements",
+        "texte": "Si ces conditions changent, la date de mise à jour ci-dessous change aussi."
+      }
+    ],
+    "miseAJour": "Dernière mise à jour : 21 octobre 2026."
   }
 }

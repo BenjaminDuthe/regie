@@ -12,6 +12,8 @@ const numero = version?.slice(0, 7) ?? chaines.pied.versionDeveloppement;
 <footer class="pied">
   <a href={lienSource(version)} rel="noopener">{chaines.pied.lienSource}</a>
   <span>· {chaines.pied.version.replace('{version}', numero)}</span>
+  <span>· <a href="/confidentialite">{chaines.pied.confidentialite}</a></span>
+  <span>· <a href="/conditions">{chaines.pied.conditions}</a></span>
 </footer>
 
 <style>

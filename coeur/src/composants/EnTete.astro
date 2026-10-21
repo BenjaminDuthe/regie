@@ -1,10 +1,20 @@
 ---
 // En-tête collant commun (UX-DR4) : nom regie. L'espace actif et la navigation (Relire,
 // Démos d'app) s'y ajoutent avec les pages qui les portent (histoires 1.9, 2.12 et 4.x).
+import chaines from '../chaines.json' with { type: 'json' };
+
+const connecte = Astro.locals.session !== undefined;
 ---
 
 <header class="entete">
   <a class="nom" href="/">regie</a>
+  {
+    connecte && (
+      <form method="post" action="/deconnexion">
+        <button type="submit" class="deconnexion">{chaines.entete.deconnexion}</button>
+      </form>
+    )
+  }
 </header>
 
 <style>
@@ -26,5 +36,15 @@
     font-size: 17px;
     letter-spacing: -0.01em;
     text-decoration: none;
+  }
+  .deconnexion {
+    background: none;
+    border: 1px solid var(--trait);
+    border-radius: var(--rayon);
+    color: var(--doux);
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 12px;
+    cursor: pointer;
   }
 </style>

@@ -2,27 +2,80 @@
 // fastify sert les fichiers construits d'Astro (dist/client) par @fastify/static,
 // puis confie le reste au handler d'Astro en mode middleware, par @fastify/middie.
 
+import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import Fastify from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import middie from '@fastify/middie';
 import fastifyStatic from '@fastify/static';
 import { pino, type DestinationStream } from 'pino';
 import { env } from './env.ts';
+import { Coffre } from './infra/coffre.ts';
 import { ErreurDemarrage, demarrerBase, type Contexte } from './infra/demarrage.ts';
 import { masqueurProcessus } from './infra/masquage.ts';
 import { calculerSante } from './infra/sante.ts';
+import { AuditPg } from './infra/audit.ts';
+import { MarquesPg } from './infra/marques.ts';
+import { ClientOidc } from './infra/oidc.ts';
+import { MagasinSessionsPg } from './infra/sessions.ts';
+import { enregistrerRoutesAuth } from './auth/routes.ts';
+import type { Services } from './auth/services.ts';
 
 type HandlerAstro = (
   requete: import('node:http').IncomingMessage,
   reponse: import('node:http').ServerResponse,
   suite?: (erreur?: unknown) => void,
+  locals?: object,
 ) => void;
 
 const RACINE_CLIENT = fileURLToPath(new URL('../dist/client/', import.meta.url));
 const ENTREE_SERVEUR = new URL('../dist/server/entry.mjs', import.meta.url).href;
 
-/** `journal` : destination des journaux (tests) ; sinon la sortie standard. */
-export async function construireServeur(options: { journal?: DestinationStream; contexte?: Contexte } = {}) {
+/** Services de production : base, coffre et Authentik (si configuré). */
+export function construireServices(contexte: Contexte): Services {
+  const configure = env.REGIE_OIDC_EMETTEUR !== undefined && env.REGIE_OIDC_CLIENT_ID !== undefined && env.REGIE_URL_PUBLIQUE !== undefined && contexte.secretOidc !== undefined;
+  return {
+    oidc: configure
+      ? new ClientOidc({ emetteur: env.REGIE_OIDC_EMETTEUR!, clientId: env.REGIE_OIDC_CLIENT_ID!, clientSecret: contexte.secretOidc!, urlPublique: env.REGIE_URL_PUBLIQUE! })
+      : undefined,
+    sessions: new MagasinSessionsPg(contexte.pool),
+    marques: new MarquesPg(contexte.pool),
+    audit: new AuditPg(contexte.pool),
+    coffre: contexte.coffre,
+    cleAdresses: contexte.cleAdresses,
+    admin: { sub: env.REGIE_ADMIN_SUB, email: env.REGIE_ADMIN_EMAIL },
+    urlPublique: env.REGIE_URL_PUBLIQUE,
+    // Les jetons MCP arrivent avec les histoires 1.11 et 1.12 : aucun n'existe encore, donc aucun n'est valide.
+    verifierJetonMcp: async () => false,
+    maintenant: Date.now,
+  };
+}
+
+/** Sans base (tests du serveur nu) : aucune session n'existe, personne ne peut se connecter. */
+function servicesSansBase(): Services {
+  const refus = async () => {
+    throw new Error('base indisponible');
+  };
+  return {
+    oidc: undefined,
+    sessions: { creer: refus, trouver: async () => undefined, revoquer: async () => false },
+    marques: { trouverUnique: async () => ({ etat: 'aucune' }), creer: refus },
+    audit: { ajouter: refus },
+    coffre: new Coffre(randomBytes(32)),
+    cleAdresses: randomBytes(32),
+    admin: { sub: undefined, email: undefined },
+    urlPublique: undefined,
+    verifierJetonMcp: async () => false,
+    maintenant: Date.now,
+  };
+}
+
+/**
+ * `journal` : destination des journaux (tests) ; `services` : remplace ceux de production (tests) ;
+ * `surRoute` : appelée pour chaque route fastify déclarée (test des routes publiques).
+ */
+export async function construireServeur(
+  options: { journal?: DestinationStream; contexte?: Contexte; services?: Services; surRoute?: (route: { method: string | string[]; url: string }) => void } = {},
+) {
   // Le handler d'Astro n'existe qu'après `astro build` : on le charge à l'exécution.
   const { handler } = (await import(ENTREE_SERVEUR)) as { handler: HandlerAstro };
 
@@ -35,15 +88,25 @@ export async function construireServeur(options: { journal?: DestinationStream; 
     serializers: { req: (requete: { method: string; url: string }) => ({ method: requete.method, url: requete.url }) },
   };
   const journal = options.journal !== undefined ? pino(reglages, options.journal) : pino(reglages);
+  const services = options.services ?? (options.contexte !== undefined ? construireServices(options.contexte) : servicesSansBase());
   const app = Fastify({ loggerInstance: journal });
+  if (options.surRoute !== undefined) {
+    const surRoute = options.surRoute;
+    app.addHook('onRoute', (route) => surRoute({ method: route.method, url: route.url }));
+  }
   // /sante : sans authentification, donc rien d'un utilisateur ni de détaillé (AR-24).
   app.get('/sante', async (_requete, reponse) => {
     const sante = await calculerSante(options.contexte, '/');
     return reponse.header('cache-control', 'no-store').code(sante.etat === 'ok' ? 200 : 503).send(sante);
   });
+  // Le type de l'instance dépend du journal choisi ; les routes n'en ont pas besoin.
+  enregistrerRoutesAuth(app as unknown as FastifyInstance, services);
   await app.register(fastifyStatic, { root: RACINE_CLIENT });
   await app.register(middie);
-  app.use(handler);
+  // Les services passent au middleware d'Astro (la garde de session) par `locals`.
+  app.use((requete: import('node:http').IncomingMessage, reponse: import('node:http').ServerResponse, suite: (erreur?: unknown) => void) =>
+    handler(requete, reponse, suite, { regie: services }),
+  );
   return app;
 }
 

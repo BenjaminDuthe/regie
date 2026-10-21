@@ -2,18 +2,24 @@ import { existsSync } from 'node:fs';
 import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { COOKIE_SESSION } from '../src/auth/cookies.ts';
 import { construireServeur } from '../src/serveur.ts';
+import { creerServicesDeTest } from './faux-auth.ts';
 
 const ENTREE = fileURLToPath(new URL('../dist/server/entry.mjs', import.meta.url));
 
 describe('serveur du cœur', () => {
   let app: Awaited<ReturnType<typeof construireServeur>>;
+  let cookie = '';
 
   beforeAll(async () => {
     if (!existsSync(ENTREE)) {
       throw new Error('coeur/dist absent : lance `npm run build` avant les tests.');
     }
-    app = await construireServeur();
+    const banc = creerServicesDeTest(undefined);
+    const marqueId = await banc.marques.creer();
+    cookie = `${COOKIE_SESSION}=${await banc.sessions.creer({ marqueId, sub: 'sub-test', email: undefined, authentifieLe: new Date() })}`;
+    app = await construireServeur({ services: banc.services });
     await app.ready();
   });
 
@@ -21,8 +27,8 @@ describe('serveur du cœur', () => {
     await app?.close();
   });
 
-  it('sert la page d’accueil d’Astro sur GET /', async () => {
-    const reponse = await app.inject({ method: 'GET', url: '/' });
+  it('sert la page d’accueil d’Astro sur GET / à une personne connectée', async () => {
+    const reponse = await app.inject({ method: 'GET', url: '/', headers: { cookie } });
     expect(reponse.statusCode).toBe(200);
     expect(reponse.headers['content-type']).toMatch(/^text\/html/);
     expect(reponse.body).toContain('regie — ton studio de vidéos verticales');

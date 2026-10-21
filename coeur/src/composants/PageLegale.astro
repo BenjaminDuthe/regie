@@ -1,0 +1,55 @@
+---
+// Page de texte légal (confidentialité, conditions) : titre, introduction, sections numérotées, date.
+import Base from '../mises-en-page/Base.astro';
+
+interface Props {
+  titre: string;
+  intro: string;
+  sections: { titre: string; texte: string }[];
+  miseAJour: string;
+}
+
+const { titre, intro, sections, miseAJour } = Astro.props;
+---
+
+<Base titre={titre}>
+  <article class="legal">
+    <h1>{titre}</h1>
+    <p class="intro">{intro}</p>
+    {
+      sections.map((section) => (
+        <section>
+          <h2>{section.titre}</h2>
+          <p>{section.texte}</p>
+        </section>
+      ))
+    }
+    <p class="maj">{miseAJour}</p>
+  </article>
+</Base>
+
+<style>
+  .legal {
+    max-width: 68ch;
+  }
+  h1 {
+    font-size: clamp(24px, 6vw, 32px);
+    line-height: 1.15;
+    margin: 8px 0 12px;
+  }
+  h2 {
+    font-size: 17px;
+    margin: 24px 0 4px;
+  }
+  p {
+    margin: 0 0 8px;
+  }
+  .intro {
+    color: var(--doux);
+  }
+  .maj {
+    margin-top: 28px;
+    color: var(--doux);
+    font-size: 13px;
+  }
+</style>

@@ -2,8 +2,10 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { COOKIE_SESSION } from '../src/auth/cookies.ts';
 import { construireServeur } from '../src/serveur.ts';
 import { lienSource } from '../src/source.ts';
+import { creerServicesDeTest } from './faux-auth.ts';
 
 const ENTREE = fileURLToPath(new URL('../dist/server/entry.mjs', import.meta.url));
 
@@ -15,9 +17,12 @@ describe('page d’accueil', () => {
     if (!existsSync(ENTREE)) {
       throw new Error('coeur/dist absent : lance `npm run build` avant les tests.');
     }
-    app = await construireServeur();
+    const banc = creerServicesDeTest(undefined);
+    const marqueId = await banc.marques.creer();
+    const cookie = `${COOKIE_SESSION}=${await banc.sessions.creer({ marqueId, sub: 'sub-test', email: undefined, authentifieLe: new Date() })}`;
+    app = await construireServeur({ services: banc.services });
     await app.ready();
-    const reponse = await app.inject({ method: 'GET', url: '/' });
+    const reponse = await app.inject({ method: 'GET', url: '/', headers: { cookie } });
     page = { csp: String(reponse.headers['content-security-policy'] ?? ''), html: reponse.body };
   });
 

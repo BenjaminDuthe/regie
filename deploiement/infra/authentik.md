@@ -38,7 +38,7 @@ Ces étapes passent par l'interface et manipulent des secrets. Claude ne les fai
 2. **Fournisseur.** *Applications → Providers → Create → OAuth2/OpenID Provider* :
    - nom `regie` ;
    - *Client type* : **Confidential** ;
-   - *Redirect URIs* : `https://regie.etablia.fr/auth/retour` (en mode *strict*) ;
+   - *Redirect URIs* : `https://regie.etablia.fr/connexion/retour` (en mode *strict*) ;
    - portées `openid`, `profile` et `email` ;
    - clé de signature : celle par défaut.
 3. **Application.** *Applications → Create* : nom `regie`, *slug* `regie`, fournisseur `regie`.
