@@ -88,6 +88,8 @@ if (post && analyse.etat === 'ok') {
     analyse.etat === 'ok' && retour === undefined && (
       <form method="post" action="/oauth/autoriser" class="formulaire">
         <p class="intro">{t.intro.replace('{client}', analyse.demande.client.nom)}</p>
+        <p class="alerte" role="note">{t.nonVerifiee.replace('{client}', analyse.demande.client.nom)}</p>
+        <p class="intro">{t.retourVers} <strong class="hote">{new URL(analyse.demande.redirectUri).host}</strong></p>
         {erreur !== undefined && <p class="erreur" role="alert">{erreur}</p>}
         {[...demande].map(([cle, valeur]) => <input type="hidden" name={`p_${cle}`} value={valeur} />)}
         <fieldset>
@@ -112,6 +114,8 @@ if (post && analyse.etat === 'ok') {
 <style>
   h1 { font-size: clamp(24px, 6vw, 32px); line-height: 1.15; margin: 8px 0 12px; }
   .intro, .doux { color: var(--doux); max-width: 60ch; }
+  .alerte { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 10px 14px; font-weight: 600; }
+  .hote { font-size: 1.1em; overflow-wrap: anywhere; }
   .erreur { color: var(--jeter); background: var(--jeter-fond); border-radius: var(--rayon); padding: 10px 14px; }
   .formulaire { display: grid; gap: 14px; max-width: 460px; }
   fieldset { border: 1px solid var(--trait); border-radius: var(--rayon); padding: 8px 14px 12px; display: grid; gap: 6px; }

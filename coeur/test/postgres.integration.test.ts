@@ -287,6 +287,18 @@ describe.skipIf(adresse === '')('PostgreSQL réel', () => {
       const b = await espaces.assurer(marqueB, 'sub-ob', undefined, 'Autre');
       const client = (await oauth.enregistrerClient(marqueA, { nom: 'Claude', redirectUris: ['https://claude.ai/api/mcp/auth_callback'] }))!;
       expect(await oauth.trouverClient(client.clientId)).toMatchObject({ marqueId: marqueA, nom: 'Claude' });
+      // Un client jamais utilisé (aucun code émis) expire après 10 minutes et est purgé avant le comptage du plafond.
+      const inutile = (await oauth.enregistrerClient(marqueA, { nom: 'Inutile', redirectUris: ['https://claude.ai/x'] }))!;
+      // Vieillissement fait par le superutilisateur (le rôle du cœur n'a pas le droit de modifier un client).
+      const superutilisateur = new Client({ connectionString: Object.assign(new URL(adresse), { pathname: `/${baseNom}` }).toString() });
+      await superutilisateur.connect();
+      try {
+        await superutilisateur.query("UPDATE oauth_clients SET cree_le = now() - interval '11 minutes' WHERE client_id = $1", [inutile.clientId]);
+      } finally {
+        await superutilisateur.end();
+      }
+      await oauth.enregistrerClient(marqueA, { nom: 'Déclencheur', redirectUris: ['https://claude.ai/y'] });
+      expect(await oauth.trouverClient(inutile.clientId)).toBeUndefined();
       const demande = { marqueId: marqueA, clientId: client.clientId, utilisateurId: a.utilisateurId, sub: 'sub-oa', redirectUri: 'https://claude.ai/api/mcp/auth_callback', codeChallenge: 'x'.repeat(43), portees: ['lecture' as const], espaceIds: [a.espaces[0]!.id] };
       const code = await oauth.emettreCode(demande);
       const brut = await dansTransactionMarque(contexte.pool, marqueA, (c) => c.query<{ texte: string }>('SELECT oauth_codes::text AS texte FROM oauth_codes'));

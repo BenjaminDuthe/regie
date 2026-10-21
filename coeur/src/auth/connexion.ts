@@ -36,6 +36,9 @@ export class ErreurConnexion extends Error {
   }
 }
 
+/** `max_age` d'une connexion ordinaire : la durée d'une session. */
+const MAX_AGE_SESSION_S = Math.floor(DUREE_SESSION_MS / 1000);
+
 type Flux = Readonly<{ s: string; n: string; v: string; r: string; m: number | null; e: number }>;
 
 const CONTEXTE_FLUX = Object.freeze({ secretId: 'flux-connexion', marqueId: 'connexion', type: 'flux' });
@@ -65,7 +68,8 @@ export async function demarrerConnexion(services: Services, options: { retour: s
       state: flux.s,
       nonce: flux.n,
       challenge: defiPkce(flux.v),
-      ...(flux.m !== null ? { maxAge: flux.m } : {}),
+      // Toujours demandé : Authentik renvoie alors auth_time, dont la session s'appuie.
+      maxAge: flux.m ?? MAX_AGE_SESSION_S,
     });
   } catch (erreur) {
     if (erreur instanceof ErreurOidc) throw new ErreurConnexion('fournisseur');
@@ -89,8 +93,9 @@ function ouvrirFlux(services: Services, valeur: string | undefined): Flux | unde
 
 function autorise(services: Services, sub: string, email: string | undefined, emailVerifie: boolean): boolean {
   const { sub: subAutorise, email: emailAutorise } = services.admin;
-  if (subAutorise !== undefined && egal(sub, subAutorise)) return true;
-  // L'e-mail n'engage qu'une fois vérifié par Authentik (email_verified).
+  // Si REGIE_ADMIN_SUB est défini, seul le sub compte : l'e-mail n'ouvre jamais la porte.
+  if (subAutorise !== undefined) return egal(sub, subAutorise);
+  // Repli opt-in (REGIE_ADMIN_EMAIL seul) : l'e-mail n'engage qu'une fois vérifié par Authentik (email_verified).
   return emailAutorise !== undefined && email !== undefined && emailVerifie && egal(email.toLowerCase(), emailAutorise.toLowerCase());
 }
 
@@ -134,7 +139,7 @@ export async function terminerConnexion(
   let claims;
   try {
     const idToken = await services.oidc.echangerCode(recu.code, flux.v);
-    claims = await services.oidc.verifierJeton(idToken, { nonce: flux.n, ...(flux.m !== null ? { maxAge: flux.m } : {}) });
+    claims = await services.oidc.verifierJeton(idToken, { nonce: flux.n, maxAge: flux.m ?? MAX_AGE_SESSION_S });
   } catch (erreur) {
     if (!(erreur instanceof ErreurOidc)) throw erreur;
     if (erreur.code === 'auth_trop_ancienne') return echec('auth_ancienne', erreur.code);
@@ -150,7 +155,8 @@ export async function terminerConnexion(
   const marqueId = marque.etat === 'une' ? marque.id : await services.marques.creer(NOM_MARQUE_UNIQUE);
 
   const maintenant = services.maintenant();
-  const authentifieLe = claims.authTime !== undefined && claims.authTime * 1000 <= maintenant ? new Date(claims.authTime * 1000) : new Date(maintenant);
+  // Sans auth_time exploitable, la session est tenue pour ancienne (époque) : toute action sensible exigera une réauthentification.
+  const authentifieLe = claims.authTime !== undefined && claims.authTime * 1000 <= maintenant ? new Date(claims.authTime * 1000) : new Date(0);
   // Espace personnel (dont la personne est propriétaire) et espace de la marque, créés à la première connexion.
   const { espaces, crees } = await services.espaces.assurer(marqueId, claims.sub, claims.email, NOM_MARQUE_UNIQUE);
   const espacePersonnel = espaces.find((espace) => espace.genre === 'personnel');

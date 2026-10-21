@@ -206,13 +206,16 @@
       "invalid_grant": "Ce code ou ce jeton n’est plus valable : recommence la connexion depuis Claude.",
       "unsupported_grant_type": "Ce type d’échange n’est pas pris en charge.",
       "unsupported_response_type": "Seule la réponse par code est prise en charge.",
-      "invalid_client_metadata": "Les informations du client sont refusées : adresses de retour en https (ou http en local), au plus 5, nom de 80 caractères au plus.",
+      "invalid_client_metadata": "Les informations du client sont refusées : adresses de retour en https sur claude.ai ou claude.com (ou http en local), au plus 5, nom de 80 caractères au plus.",
       "temporarily_unavailable": "regie ne peut pas enregistrer de client pour l’instant.",
+      "trop_d_inscriptions": "Trop d’inscriptions depuis cette adresse : réessaie plus tard.",
       "access_denied": "Tu as refusé la connexion."
     },
     "autoriser": {
       "titre": "Connecter Claude",
       "intro": "{client} demande à agir sur regie à ta place. Choisis ce qu’il peut faire et où.",
+      "nonVerifiee": "Application non vérifiée : le nom « {client} » est déclaré par l’application elle-même, regie ne l’a pas vérifié.",
+      "retourVers": "Après ta décision, tu seras renvoyé vers :",
       "portee": "Ce que Claude peut faire",
       "porteeLecture": "Lire seulement",
       "porteeEcriture": "Lire et écrire",

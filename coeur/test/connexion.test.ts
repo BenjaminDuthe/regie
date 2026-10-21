@@ -1,5 +1,6 @@
 // Histoire 1.14 : déroulé complet de la connexion contre le faux Authentik, avec des magasins en mémoire.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { retourSur } from '../src/routes-publiques.ts';
 import { exigerAuthRecente } from '../src/auth/auth-recente.ts';
 import { deconnecter, demarrerConnexion, terminerConnexion } from '../src/auth/connexion.ts';
 import { COOKIE_FLUX, COOKIE_SESSION, lireCookie } from '../src/auth/cookies.ts';
@@ -129,6 +130,27 @@ describe('connexion par Authentik', () => {
 
   it('un retour vers une adresse étrangère est ramené à /', async () => {
     expect(await retour(await parcours({ retour: 'https://pirate.example/' }))).toMatchObject({ ok: true, location: '/' });
+  });
+
+  it('un retour qui se normalise en //hôte est ramené à /', async () => {
+    for (const piege of ['/.//evil.com', '/a/..//evil.com', '/a/../\\evil.com', '/x/%2e%2e//evil.com']) {
+      expect(retourSur(piege)).toBe('/');
+    }
+    expect(retourSur('/a/../b?x=1')).toBe('/b?x=1');
+  });
+
+  it('demande toujours max_age, et sans auth_time la session est tenue pour ancienne', async () => {
+    const p = await parcours({ claims: { auth_time: undefined } });
+    expect(p.adresse.searchParams.get('max_age')).toBe('604800');
+    const r = await retour(p);
+    expect(r).toMatchObject({ ok: false, motif: 'auth_ancienne' });
+  });
+
+  it('avec REGIE_ADMIN_SUB défini, un e-mail correspondant n’ouvre pas l’accès', async () => {
+    const services: Services = { ...banc.services, admin: { sub: 'autre-sub', email: 'benjamin@exemple.test' } };
+    expect(await retour(await parcours(), {}, services)).toMatchObject({ ok: false, motif: 'non_autorise' });
+    const seulEmail: Services = { ...banc.services, admin: { sub: undefined, email: 'benjamin@exemple.test' } };
+    expect(await retour(await parcours(), {}, seulEmail)).toMatchObject({ ok: true });
   });
 
   it('une connexion récente exige un auth_time de moins de 10 minutes et remplace l’ancienne session', async () => {

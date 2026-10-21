@@ -51,8 +51,10 @@ export function metadonneesServeur(base: string): Record<string, unknown> {
 // --- Enregistrement dynamique (RFC 7591) -----------------------------------------------------------------------------
 
 const HOTES_BOUCLE_LOCALE = new Set(['127.0.0.1', '[::1]', 'localhost']);
+/** Seuls hôtes https admis pour le retour : ceux de Claude. */
+const HOTES_CLAUDE = new Set(['claude.ai', 'claude.com']);
 
-/** Adresse de retour acceptée : https, ou http sur la boucle locale (RFC 8252) ; ni identifiants, ni fragment. */
+/** Adresse de retour acceptée : https sur claude.ai / claude.com, ou http sur la boucle locale (RFC 8252) ; ni identifiants, ni fragment. */
 export function redirectionValide(valeur: string): boolean {
   if (valeur.length > 512) return false;
   let url: URL;
@@ -62,7 +64,7 @@ export function redirectionValide(valeur: string): boolean {
     return false;
   }
   if (url.hash !== '' || url.username !== '' || url.password !== '' || valeur.includes('#')) return false;
-  if (url.protocol === 'https:') return true;
+  if (url.protocol === 'https:') return HOTES_CLAUDE.has(url.hostname);
   return url.protocol === 'http:' && HOTES_BOUCLE_LOCALE.has(url.hostname);
 }
 

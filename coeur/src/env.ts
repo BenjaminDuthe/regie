@@ -40,7 +40,9 @@ const schema = z.object({
   REGIE_URL_PUBLIQUE: z.url({ message: 'doit être une adresse https (http seulement sur la machine locale)' }).optional(),
   REGIE_OIDC_EMETTEUR: z.url({ message: 'doit être l’émetteur OIDC d’Authentik (https)' }).optional(),
   REGIE_OIDC_CLIENT_ID: z.string().regex(/^[\w.-]{1,128}$/, 'doit être l’identifiant du client OIDC').optional(),
-  // L'utilisateur Authentik autorisé : son `sub`, ou son e-mail (vérifié par Authentik). L'un des deux suffit.
+  // L'utilisateur Authentik autorisé : son `sub` (recommandé) ; si REGIE_ADMIN_SUB est défini, seul le sub compte.
+  // REGIE_ADMIN_EMAIL est un repli opt-in, utilisé seulement sans REGIE_ADMIN_SUB : il suppose qu'Authentik garantit
+  // `email_verified` (inscription et changement d'e-mail contrôlés), voir deploiement/infra/authentik.md.
   REGIE_ADMIN_SUB: z.string().min(1).max(255).optional(),
   REGIE_ADMIN_EMAIL: z.email('doit être une adresse e-mail').optional(),
 }).superRefine((valeurs, contexte) => {

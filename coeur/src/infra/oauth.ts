@@ -17,6 +17,9 @@ export const CONNEXION_VIE_MAX_JOURS = 90;
 /** Plafond de clients enregistrés par marque : l'enregistrement est ouvert (RFC 7591), il doit rester borné. */
 export const CLIENTS_MAX = 200;
 
+/** Un client enregistré qui n'a servi à rien (aucun code émis) est purgé après 10 minutes. */
+export const CLIENT_INUTILISE_VIE_S = 600;
+
 export type TypeSecret = 'oac' | 'oat' | 'ort';
 
 const FORME_SECRET = /^regie_(oac|oat|ort)_([0-9a-f]{32})_[A-Za-z0-9_-]{43}$/;
@@ -113,11 +116,12 @@ export class OauthPg implements Oauth {
 
   async enregistrerClient(marqueId: string, client: Readonly<{ nom: string; redirectUris: readonly string[] }>): Promise<ClientOauth | undefined> {
     return dansTransactionMarque(this.#pool, marqueId, async (c) => {
-      // Ménage : un client enregistré depuis plus d'un jour et jamais utilisé n'a plus de raison d'être.
+      // Ménage avant le comptage du plafond : un client jamais utilisé (aucun code émis, aucune connexion) expire après 10 minutes.
       await c.query(
-        `DELETE FROM oauth_clients k WHERE k.cree_le < now() - interval '1 day'
+        `DELETE FROM oauth_clients k WHERE k.cree_le < now() - make_interval(secs => $1)
            AND NOT EXISTS (SELECT 1 FROM oauth_connexions x WHERE x.client_id = k.client_id)
            AND NOT EXISTS (SELECT 1 FROM oauth_codes x WHERE x.client_id = k.client_id)`,
+        [CLIENT_INUTILISE_VIE_S],
       );
       const { rows: compte } = await c.query<{ n: string }>('SELECT count(*)::text AS n FROM oauth_clients');
       if (Number(compte[0]!.n) >= CLIENTS_MAX) return undefined;

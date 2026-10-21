@@ -45,6 +45,8 @@ Ces étapes passent par l'interface et manipulent des secrets. Claude ne les fai
 4. **Accès.** Dans l'onglet *Policy / Group / User Bindings* de l'application, lie **seulement ton groupe**. Sans liaison, Authentik laisse entrer tous les utilisateurs.
 5. **Secrets.** Copie le *Client ID* et le *Client Secret* dans Vaultwarden, dans une entrée `regie — OIDC Authentik`. Ne les colle ni dans le dépôt ni dans le chat.
 
+**Qui est autorisé.** Règle `REGIE_ADMIN_SUB` (le `sub` Authentik de la personne) : c'est le réglage à préférer, et s'il est défini, seul le `sub` ouvre l'accès. `REGIE_ADMIN_EMAIL` n'est qu'un repli opt-in, utilisé seulement quand `REGIE_ADMIN_SUB` est absent : il n'est sûr que si Authentik garantit que `email_verified` est fiable (auto-inscription fermée, changement d'e-mail contrôlé par un administrateur). Sans cette garantie, ne l'utilise pas.
+
 L'émetteur à donner au cœur sera `https://auth.sitecraft-it.com/application/o/regie/` (histoire 1.14).
 
 ## Ouverture au public (faite le 2026-10-19)

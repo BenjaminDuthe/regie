@@ -27,7 +27,7 @@ describe('briques OAuth', () => {
   });
   it('n’accepte que https, ou http sur la boucle locale, sans fragment ni identifiants', () => {
     for (const bonne of ['https://claude.ai/api/mcp/auth_callback', 'http://127.0.0.1:33418/callback', 'http://localhost/cb', 'http://[::1]:5000/cb']) expect(redirectionValide(bonne)).toBe(true);
-    for (const mauvaise of ['http://exemple.fr/cb', 'javascript:alert(1)', 'https://u:p@exemple.fr/cb', 'https://exemple.fr/cb#x', 'claude://cb', 'pas une adresse', `https://exemple.fr/${'a'.repeat(520)}`]) expect(redirectionValide(mauvaise)).toBe(false);
+    for (const mauvaise of ['https://exemple.fr/cb', 'https://claude.ai.pirate.fr/cb', 'https://pirate.fr/claude.ai', 'http://claude.ai/cb', 'http://exemple.fr/cb', 'javascript:alert(1)', 'https://u:p@exemple.fr/cb', 'https://exemple.fr/cb#x', 'claude://cb', 'pas une adresse', `https://exemple.fr/${'a'.repeat(520)}`]) expect(redirectionValide(mauvaise)).toBe(false);
   });
   it('correspondance exacte, sauf le port sur la boucle locale', () => {
     const client = { redirectUris: ['https://claude.ai/cb', 'http://127.0.0.1:1111/cb'] };
@@ -56,8 +56,9 @@ describe('serveur d’autorisation et MCP', () => {
   let espaces: { id: string; genre: string }[];
   let cookie: string;
 
-  const post = (url: string, payload: unknown, headers: Record<string, string> = {}) =>
-    app.inject({ method: 'POST', url, headers: { 'content-type': 'application/json', ...headers }, payload: JSON.stringify(payload) });
+  let ipSuivante = 1;
+  const post = (url: string, payload: unknown, headers: Record<string, string> = {}, remoteAddress = `10.1.0.${ipSuivante++ % 250}`) =>
+    app.inject({ method: 'POST', url, headers: { 'content-type': 'application/json', ...headers }, payload: JSON.stringify(payload), remoteAddress });
   const token = (params: Record<string, string>) =>
     app.inject({ method: 'POST', url: '/oauth/token', headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: new URLSearchParams(params).toString() });
   const mcp = (jeton: string | undefined, corps: unknown, headers: Record<string, string> = {}) =>
@@ -125,7 +126,7 @@ describe('serveur d’autorisation et MCP', () => {
   });
 
   it('enregistrement borné : adresses contrôlées, nom limité, méthode d’authentification, plafond', async () => {
-    for (const corps of [{ redirect_uris: ['http://exemple.fr/cb'] }, { redirect_uris: [] }, { redirect_uris: ['https://a.fr/1', 'https://a.fr/2', 'https://a.fr/3', 'https://a.fr/4', 'https://a.fr/5', 'https://a.fr/6'] }, { client_name: 'x'.repeat(81), redirect_uris: ['https://a.fr/cb'] }, { redirect_uris: ['https://a.fr/cb'], token_endpoint_auth_method: 'client_secret_basic' }]) {
+    for (const corps of [{ redirect_uris: ['http://exemple.fr/cb'] }, { redirect_uris: [] }, { redirect_uris: ['https://claude.ai/1', 'https://claude.ai/2', 'https://claude.ai/3', 'https://claude.ai/4', 'https://claude.ai/5', 'https://claude.ai/6'] }, { client_name: 'x'.repeat(81), redirect_uris: ['https://claude.ai/cb'] }, { redirect_uris: ['https://claude.ai/cb'], token_endpoint_auth_method: 'client_secret_basic' }]) {
       const r = await post('/oauth/register', corps);
       expect(r.statusCode).toBe(400);
       expect(r.json()).toMatchObject({ error: 'invalid_client_metadata' });
@@ -133,9 +134,16 @@ describe('serveur d’autorisation et MCP', () => {
     const ok = await post('/oauth/register', { client_name: 'Claude', redirect_uris: ['http://127.0.0.1:3000/cb'] });
     expect(ok.json()).toMatchObject({ token_endpoint_auth_method: 'none', client_name: 'Claude' });
     const avant = banc.oauth.clients.length;
-    for (let i = banc.oauth.clients.length; i < 200; i++) await banc.oauth.enregistrerClient(marqueId, { nom: 'rempli', redirectUris: ['https://a.fr/cb'] });
-    expect((await post('/oauth/register', { redirect_uris: ['https://a.fr/cb'] })).statusCode).toBe(429);
+    for (let i = banc.oauth.clients.length; i < 200; i++) await banc.oauth.enregistrerClient(marqueId, { nom: 'rempli', redirectUris: ['https://claude.ai/cb'] });
+    expect((await post('/oauth/register', { redirect_uris: ['https://claude.ai/cb'] })).statusCode).toBe(429);
     banc.oauth.clients.splice(avant);
+  });
+
+  it('enregistrement : une même adresse IP est limitée à 10 inscriptions par heure', async () => {
+    const ip = '203.0.113.9';
+    for (let i = 0; i < 10; i++) expect((await post('/oauth/register', { redirect_uris: ['https://claude.ai/cb'] }, {}, ip)).statusCode).toBe(201);
+    expect((await post('/oauth/register', { redirect_uris: ['https://claude.ai/cb'] }, {}, ip)).statusCode).toBe(429);
+    expect((await post('/oauth/register', { redirect_uris: ['https://claude.ai/cb'] }, {}, '203.0.113.10')).statusCode).toBe(201);
   });
 
   it('autorisation : une adresse de retour inconnue ne redirige jamais ; une demande sans PKCE redirige avec une erreur et iss', async () => {
@@ -163,6 +171,8 @@ describe('serveur d’autorisation et MCP', () => {
     expect(r.body).toContain('Connecter Claude');
     expect(r.body).toContain('Personnel');
     expect(r.body).toContain('Lire et écrire');
+    expect(r.body).toContain('Application non vérifiée');
+    expect(r.body).toMatch(/<strong[^>]*>claude\.ai<\/strong>/);
   });
 
   it('un consentement refusé renvoie access_denied avec state et iss, sans code', async () => {

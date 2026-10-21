@@ -73,5 +73,8 @@ export function retourSur(valeur: string | null | undefined): string {
   const chemin = normaliser(url.pathname);
   // Revenir sur la connexion elle-même bouclerait.
   if (chemin === '/connexion' || chemin.startsWith('/connexion/')) return '/';
-  return `${url.pathname}${url.search}`;
+  // Le résultat normalisé est revalidé : `/.//evil.com` ou `/a/..//evil.com` deviennent `//evil.com`.
+  const final = `${url.pathname}${url.search}`;
+  if (!final.startsWith('/') || final.startsWith('//') || final.includes('\\')) return '/';
+  return final;
 }
