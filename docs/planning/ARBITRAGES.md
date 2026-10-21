@@ -282,3 +282,12 @@ Question : quelles décisions et quels accès réels manquent pour que les sauve
 4. **Seuils de fraîcheur** — 26 h pour la base, 8 jours pour le conteneur : valeurs de départ, à confirmer.
 5. **Répétition de restauration** — jamais jouée sur une vraie machine ; le tableau de `deploiement/restauration.md` attend la date et la signature de Benjamin. Recommandation : la jouer une fois avant la mise en service, puis chaque trimestre.
 6. **Alerte** — `/sante` expose l'âge des sauvegardes, mais rien ne surveille `/sante` de l'extérieur. Option : sonde externe ou notification. Recommandation : brancher la sonde existante de Benjamin.
+
+## 9.3 Recette sur le compte Instagram de test
+
+Question : quels accès réels manquent pour jouer la recette ?
+
+1. **Compte Instagram de test et application Meta** — à créer par Benjamin (compte professionnel, application en mode développement, testeur ajouté). Sans eux, la recette de `docs/planning/recette-instagram.md` ne peut pas être jouée ; la même logique est prouvée contre le faux Meta (`coeur/test/recette-instagram.test.ts`). Recommandation : créer l'application avant de lancer l'épopée de mise en production (voir 7.1 et 7.6).
+2. **Adresse publique joignable** — Meta doit pouvoir lire la vidéo à l'adresse signée ; à fournir lors de la recette (voir 7.3, point 5).
+3. **Revue d'application Meta** — hors mode développement, Meta exige une revue de l'application. Option : rester en mode développement pour le seul compte Établia. Recommandation : rester en mode développement en V1.
+4. **Vraie coupure d'un jeton** — le « jeton révoqué » est simulé par un refus du faux Meta ; la forme exacte de la réponse réelle est à confirmer pendant la recette (cas 2).
